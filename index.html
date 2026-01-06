@@ -5,11 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TRACE - The Shape of Time</title>
     <meta name="description" content="A meditative time landscape designed to silence digital noise." />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet" />
 
     <style>
+      /* [MODERN] CSS Houdini: Animasi warna tema level GPU */
+      @property --base-hex {
+        syntax: '<color>';
+        initial-value: #f0eee9;
+        inherits: true;
+      }
+
       :root {
         --base-hex: #f0eee9;
         --full-h: 100dvh;
@@ -19,10 +27,7 @@
         --color-future: oklch(from var(--base-hex) 0.93 0.02 h);
         --color-ghost-label: oklch(from var(--base-hex) 0.3 0.05 h);
         --color-year-subliminal: oklch(from var(--bg-system) 0.93 0.01 h);
-
-        /* DYNAMIC BAR COLOR: Diatur secara dinamis via JS */
         --color-bar-adaptive: oklch(from var(--base-hex) 0.3 0.1 h / 0.6);
-
         --radius-standard: 2px;
         --transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
       }
@@ -46,9 +51,11 @@
         align-items: center;
         background-color: var(--bg-system);
         font-family: 'Inter', sans-serif;
-        transition: background-color 1.2s ease;
+        /* Houdini membuat transisi --base-hex menjadi interpolasi warna halus */
+        transition: background-color 1.2s ease, --base-hex 1.2s ease;
       }
 
+      /* [MODERN] CSS Nesting & :has() */
       #trace-container {
         position: relative;
         display: flex;
@@ -56,31 +63,37 @@
         align-items: center;
         width: 100%;
         height: 100%;
-      }
 
-      #trace-viewport {
-        display: grid;
-        will-change: transform, filter;
-        z-index: 2;
-        justify-content: center;
-        align-content: center;
-        transition: opacity 0.4s ease;
-      }
+        & #trace-viewport {
+          display: grid;
+          will-change: transform, filter;
+          z-index: 2;
+          justify-content: center;
+          align-content: center;
+          transition: opacity 0.4s ease;
+        }
 
-      #year-watermark {
-        position: absolute;
-        z-index: 1;
-        font-weight: 900;
-        font-size: clamp(100px, 25vw, 450px);
-        color: var(--color-year-subliminal);
-        opacity: 0.4;
-        letter-spacing: -0.06em;
-        pointer-events: none;
-        user-select: none;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        line-height: 0;
+        & #year-watermark {
+          position: absolute;
+          z-index: 1;
+          font-weight: 900;
+          font-size: clamp(100px, 25vw, 450px);
+          color: var(--color-year-subliminal);
+          opacity: 0.4;
+          letter-spacing: -0.06em;
+          pointer-events: none;
+          user-select: none;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          line-height: 0;
+        }
+
+        /* [MODERN] Focus Mode via :has() */
+        &:has(.day:hover) #year-watermark {
+          opacity: 0.15;
+          transition: opacity 0.5s ease;
+        }
       }
 
       @keyframes theme-pulse-anim {
@@ -94,6 +107,7 @@
           transform: scale(1);
         }
       }
+
       .theme-pulse {
         animation: theme-pulse-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
@@ -102,45 +116,98 @@
         width: 100%;
         height: 100%;
         border-radius: var(--radius-standard);
-
-        /* LAMINAR FLOW: Staggered transition delay */
         transition: background-color var(--transition-smooth), opacity var(--transition-smooth), transform 0.3s ease,
           filter var(--transition-smooth);
         transition-delay: var(--delay, 0ms);
-
         position: relative;
         overflow: hidden;
-        /* GPU Acceleration for smooth hover */
         backface-visibility: hidden;
         transform-style: preserve-3d;
         will-change: transform, background-color, opacity;
+
+        &.day--past {
+          background-color: var(--color-past);
+        }
+        &.day--future {
+          background-color: var(--color-future);
+          box-shadow: inset 0 0 0 0.5px oklch(from var(--base-hex) 0.8 0.02 h / 0.15);
+        }
+
+        /* [RESTORED] Isolation for Filler Days */
+        &.day--filler {
+          opacity: 0.06;
+          background-color: var(--color-past);
+          filter: grayscale(100%);
+          pointer-events: none;
+        }
+
+        &.day--today {
+          background-color: var(--color-today) !important;
+          opacity: 1 !important;
+          box-shadow: 0 0 0 2px var(--bg-system), 0 12px 30px oklch(from var(--base-hex) 0.2 0.1 h / 0.35);
+          z-index: 10;
+          border-radius: 3px;
+          filter: none !important;
+          transition-delay: 0ms !important;
+        }
+
+        &:hover {
+          transform: scale(1.3);
+          z-index: 20;
+          opacity: 1 !important;
+          box-shadow: 0 8px 25px oklch(from var(--base-hex) 0.2 0.1 h / 0.2);
+          background-color: var(--color-today);
+          filter: brightness(1.1) grayscale(0%) !important;
+          transition-delay: 0ms !important;
+        }
+
+        /* [RESTORED] Monday Marker */
+        &.day--monday::after {
+          content: '';
+          position: absolute;
+          bottom: 12%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 2px;
+          height: 2px;
+          border-radius: 50%;
+          background-color: var(--color-ghost-label);
+          opacity: 0.15;
+          z-index: 4;
+          pointer-events: none;
+        }
+
+        /* Ghost Labels with Fluid Typography */
+        &[data-ghost-label]::before {
+          content: attr(data-ghost-label);
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-size: clamp(6px, 0.8vw, 11px);
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          color: var(--color-ghost-label);
+          opacity: 0.25;
+          pointer-events: none;
+          white-space: nowrap;
+          z-index: 3;
+          line-height: 0;
+          transition: color var(--transition-smooth);
+          transition-delay: inherit;
+        }
+
+        &.day--past[data-ghost-label]::before {
+          color: oklch(from var(--base-hex) 0.9 0.05 h);
+          opacity: 0.5;
+        }
+
+        &.day--past[data-ghost-label]:hover::before {
+          color: var(--color-ghost-label);
+          opacity: 0.3;
+        }
       }
 
-      .day--past {
-        background-color: var(--color-past);
-      }
-      .day--future {
-        background-color: var(--color-future);
-        box-shadow: inset 0 0 0 0.5px oklch(from var(--base-hex) 0.8 0.02 h / 0.15);
-      }
-      .day--filler {
-        opacity: 0.06;
-        background-color: var(--color-past);
-        filter: grayscale(100%);
-      }
-
-      .day--today {
-        background-color: var(--color-today) !important;
-        opacity: 1 !important;
-        box-shadow: 0 0 0 2px var(--bg-system), 0 12px 30px oklch(from var(--base-hex) 0.2 0.1 h / 0.35);
-        z-index: 10;
-        border-radius: 3px;
-        filter: none !important;
-        /* Instant response for Today cell */
-        transition-delay: 0ms !important;
-      }
-
-      /* Adaptive Progress Bar */
       .now-indicator {
         position: absolute;
         bottom: 0;
@@ -153,61 +220,7 @@
         box-shadow: 0 0 8px var(--color-bar-adaptive);
       }
 
-      .day--monday::after {
-        content: '';
-        position: absolute;
-        bottom: 12%;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 2px;
-        height: 2px;
-        border-radius: 50%;
-        background-color: var(--color-ghost-label);
-        opacity: 0.15;
-        z-index: 4;
-      }
-
-      .day[data-ghost-label]::before {
-        content: attr(data-ghost-label);
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: clamp(6px, 0.8vw, 11px);
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        color: var(--color-ghost-label);
-        opacity: 0.25;
-        pointer-events: none;
-        white-space: nowrap;
-        z-index: 3;
-        line-height: 0;
-        /* Inherit delay for smooth text transition */
-        transition: color var(--transition-smooth);
-        transition-delay: inherit;
-      }
-
-      .day--past[data-ghost-label]::before {
-        color: oklch(from var(--base-hex) 0.9 0.05 h);
-        opacity: 0.5;
-      }
-
-      .day:hover {
-        transform: scale(1.3);
-        z-index: 20;
-        opacity: 1 !important;
-        box-shadow: 0 8px 25px oklch(from var(--base-hex) 0.2 0.1 h / 0.2);
-        background-color: var(--color-today);
-        filter: brightness(1.1) grayscale(0%) !important;
-        /* Instant response on hover */
-        transition-delay: 0ms !important;
-      }
-
-      .day--past[data-ghost-label]:hover::before {
-        color: var(--color-ghost-label);
-        opacity: 0.3;
-      }
-
+      /* [MODERN] Fluid Typography for Tooltip */
       #tooltip {
         position: fixed;
         pointer-events: none;
@@ -215,7 +228,7 @@
         backdrop-filter: blur(12px);
         padding: 10px 16px;
         border-radius: 8px;
-        font-size: 12px;
+        font-size: clamp(12px, 1.5vw, 14px);
         font-weight: 600;
         color: #1a1a1a;
         opacity: 0;
@@ -224,14 +237,15 @@
         white-space: nowrap;
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
         border: 1px solid oklch(from var(--base-hex) 0.9 0.05 h / 0.5);
-      }
-      #tooltip b {
-        color: var(--color-past);
-        display: block;
-        font-size: 10px;
-        margin-top: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+
+        & b {
+          color: var(--color-past);
+          display: block;
+          font-size: 85%;
+          margin-top: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
       }
     </style>
   </head>
@@ -262,7 +276,6 @@
           this.watermark = document.getElementById('year-watermark');
           this.tooltip = document.getElementById('tooltip');
           this.year = 2026;
-          // Updated storage key for new brand
           const savedIndex = localStorage.getItem('trace_theme_index');
           this.colorIndex = savedIndex ? parseInt(savedIndex) : 0;
           this.init();
@@ -277,11 +290,7 @@
           let pressTimer;
           const handleStart = (e) => {
             if (e.target.id === 'trace-container' || e.target.tagName === 'BODY') {
-              pressTimer = setTimeout(() => {
-                this.cycleTheme();
-                // Laminar flow makes the manual opacity flicker obsolete/redundant
-                // Removing the manual opacity flicker for cleaner wave effect
-              }, 800);
+              pressTimer = setTimeout(() => this.cycleTheme(), 800);
             }
           };
           const handleCancel = () => clearTimeout(pressTimer);
@@ -296,8 +305,8 @@
           setInterval(() => this.updateTimeProgress(), 60000);
         }
 
-        // Logic: Calculate luminance to determine progress bar contrast
         updateDynamicColors(hex) {
+          // [MODERN] Houdini Variable Update
           document.documentElement.style.setProperty('--base-hex', hex);
 
           const temp = document.createElement('div');
@@ -307,7 +316,6 @@
           document.body.removeChild(temp);
 
           const lValue = parseFloat(oklchValue.match(/[\d.]+/)[0]);
-
           const barLightness = lValue < 0.6 ? 0.9 : 0.3;
           const barChroma = lValue < 0.6 ? 0.05 : 0.1;
 
@@ -325,6 +333,7 @@
           this.viewport.classList.remove('theme-pulse');
           void this.viewport.offsetWidth;
           this.viewport.classList.add('theme-pulse');
+
           this.render();
           this.updateTimeProgress();
         }
@@ -361,7 +370,6 @@
 
         render() {
           const now = new Date();
-          // Normalization to 12:00 PM to prevent timezone shifting
           const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
           const todayInfo = { str: now.toDateString(), time: todayMid.getTime() };
           const daysInYear = (this.year % 4 === 0 && this.year % 100 !== 0) || this.year % 400 === 0 ? 366 : 365;
@@ -387,11 +395,9 @@
               else type = 'future';
             }
             el.className = `day day--${type}`;
-
-            // LAMINAR FLOW: Calculate diagonal delay
             const col = i % layout.c;
             const row = Math.floor(i / layout.c);
-            const delay = (col + row) * 12; // 12ms stagger per step
+            const delay = (col + row) * 12;
             el.style.setProperty('--delay', `${delay}ms`);
 
             if (cursor.getDay() === 1) el.classList.add('day--monday');
@@ -431,7 +437,7 @@
           this.viewport.innerHTML = '';
           this.viewport.appendChild(fragment);
 
-          // Symmetry Lock: Ensure watermark is exactly behind the grid
+          // Symmetry Lock for Watermark
           requestAnimationFrame(() => {
             const gridRect = this.viewport.getBoundingClientRect();
             this.watermark.style.width = `${gridRect.width}px`;
