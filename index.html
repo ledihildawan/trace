@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TRACE - The Shape of Time</title>
+    <meta name="description" content="A meditative time landscape designed to silence digital noise." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet" />
+
+    <style>
+      :root {
+        --base-hex: #f0eee9;
+        --full-h: 100dvh;
+        --bg-system: oklch(from var(--base-hex) 0.97 0.01 h);
+        --color-today: var(--base-hex);
+        --color-past: oklch(from var(--base-hex) 0.45 0.05 h);
+        --color-future: oklch(from var(--base-hex) 0.93 0.02 h);
+        --color-ghost-label: oklch(from var(--base-hex) 0.3 0.05 h);
+        --color-year-subliminal: oklch(from var(--bg-system) 0.93 0.01 h);
+
+        /* DYNAMIC BAR COLOR: Diatur secara dinamis via JS */
+        --color-bar-adaptive: oklch(from var(--base-hex) 0.3 0.1 h / 0.6);
+
+        --radius-standard: 2px;
+        --transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        cursor: default;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      body {
+        height: var(--full-h);
+        width: 100dvw;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: var(--bg-system);
+        font-family: 'Inter', sans-serif;
+        transition: background-color 1.2s ease;
+      }
+
+      #trace-container {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+      }
+
+      #trace-viewport {
+        display: grid;
+        will-change: transform, filter;
+        z-index: 2;
+        justify-content: center;
+        align-content: center;
+        transition: opacity 0.4s ease;
+      }
+
+      #year-watermark {
+        position: absolute;
+        z-index: 1;
+        font-weight: 900;
+        font-size: clamp(100px, 25vw, 450px);
+        color: var(--color-year-subliminal);
+        opacity: 0.4;
+        letter-spacing: -0.06em;
+        pointer-events: none;
+        user-select: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        line-height: 0;
+      }
+
+      @keyframes theme-pulse-anim {
+        0% {
+          transform: scale(1);
+          filter: brightness(1);
+        }
+        50% {
+          transform: scale(1.01);
+          filter: brightness(1.05);
+        }
+        100% {
+          transform: scale(1);
+          filter: brightness(1);
+        }
+      }
+      .theme-pulse {
+        animation: theme-pulse-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      .day {
+        width: 100%;
+        height: 100%;
+        border-radius: var(--radius-standard);
+        transition: background-color var(--transition-smooth), opacity var(--transition-smooth), transform 0.3s ease,
+          filter var(--transition-smooth);
+        position: relative;
+        overflow: hidden;
+        /* GPU Acceleration for smooth hover */
+        backface-visibility: hidden;
+        transform-style: preserve-3d;
+        will-change: transform, background-color, opacity;
+      }
+
+      .day--past {
+        background-color: var(--color-past);
+      }
+      .day--future {
+        background-color: var(--color-future);
+        box-shadow: inset 0 0 0 0.5px oklch(from var(--base-hex) 0.8 0.02 h / 0.15);
+      }
+      .day--filler {
+        opacity: 0.06;
+        background-color: var(--color-past);
+        filter: grayscale(100%);
+      }
+
+      .day--today {
+        background-color: var(--color-today) !important;
+        opacity: 1 !important;
+        box-shadow: 0 0 0 2px var(--bg-system), 0 12px 30px oklch(from var(--base-hex) 0.2 0.1 h / 0.35);
+        z-index: 10;
+        border-radius: 3px;
+        filter: none !important;
+      }
+
+      /* Adaptive Progress Bar */
+      .now-indicator {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background-color: var(--color-bar-adaptive);
+        width: 0%;
+        transition: width 1s linear;
+        z-index: 5;
+        box-shadow: 0 0 8px var(--color-bar-adaptive);
+      }
+
+      .day--monday::after {
+        content: '';
+        position: absolute;
+        bottom: 12%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 2px;
+        border-radius: 50%;
+        background-color: var(--color-ghost-label);
+        opacity: 0.15;
+        z-index: 4;
+      }
+
+      .day[data-ghost-label]::before {
+        content: attr(data-ghost-label);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: clamp(6px, 0.8vw, 11px);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        color: var(--color-ghost-label);
+        opacity: 0.25;
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 3;
+        line-height: 0;
+      }
+
+      .day--past[data-ghost-label]::before {
+        color: oklch(from var(--base-hex) 0.9 0.05 h);
+        opacity: 0.5;
+      }
+
+      .day:hover {
+        transform: scale(1.3);
+        z-index: 20;
+        opacity: 1 !important;
+        box-shadow: 0 8px 25px oklch(from var(--base-hex) 0.2 0.1 h / 0.2);
+        background-color: var(--color-today);
+        filter: brightness(1.1) grayscale(0%) !important;
+      }
+
+      .day--past[data-ghost-label]:hover::before {
+        color: var(--color-ghost-label);
+        opacity: 0.3;
+      }
+
+      #tooltip {
+        position: fixed;
+        pointer-events: none;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #1a1a1a;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 100;
+        white-space: nowrap;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+        border: 1px solid oklch(from var(--base-hex) 0.9 0.05 h / 0.5);
+      }
+      #tooltip b {
+        color: var(--color-past);
+        display: block;
+        font-size: 10px;
+        margin-top: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="trace-container">
+      <div id="year-watermark">2026</div>
+      <div id="trace-viewport"></div>
+    </div>
+    <div id="tooltip"></div>
+
+    <script type="module">
+      const THEME_COLORS = [
+        '#F0EEE9',
+        '#2F6364',
+        '#FFBE98',
+        '#0F4C81',
+        '#88B04B',
+        '#F7CAC9',
+        '#92A8D1',
+        '#955251',
+        '#AD5E99',
+        '#009473',
+      ];
+
+      class TraceEngine {
+        constructor() {
+          this.viewport = document.getElementById('trace-viewport');
+          this.watermark = document.getElementById('year-watermark');
+          this.tooltip = document.getElementById('tooltip');
+          this.year = 2026;
+          // Updated storage key for new brand
+          const savedIndex = localStorage.getItem('trace_theme_index');
+          this.colorIndex = savedIndex ? parseInt(savedIndex) : 0;
+          this.init();
+        }
+
+        init() {
+          this.updateDynamicColors(THEME_COLORS[this.colorIndex]);
+          window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'c') this.cycleTheme();
+          });
+
+          let pressTimer;
+          const handleStart = (e) => {
+            if (e.target.id === 'trace-container' || e.target.tagName === 'BODY') {
+              pressTimer = setTimeout(() => {
+                this.cycleTheme();
+                this.viewport.style.opacity = '0.3';
+                setTimeout(() => (this.viewport.style.opacity = '1'), 300);
+              }, 800);
+            }
+          };
+          const handleCancel = () => clearTimeout(pressTimer);
+
+          document.addEventListener('mousedown', handleStart);
+          document.addEventListener('mouseup', handleCancel);
+          document.addEventListener('touchstart', handleStart, { passive: true });
+          document.addEventListener('touchend', handleCancel);
+
+          window.addEventListener('resize', () => this.debounceRender());
+          this.render();
+          setInterval(() => this.updateTimeProgress(), 60000);
+        }
+
+        // Logic: Calculate luminance to determine progress bar contrast
+        updateDynamicColors(hex) {
+          document.documentElement.style.setProperty('--base-hex', hex);
+
+          const temp = document.createElement('div');
+          temp.style.color = `oklch(from ${hex} l c h)`;
+          document.body.appendChild(temp);
+          const oklchValue = window.getComputedStyle(temp).color;
+          document.body.removeChild(temp);
+
+          const lValue = parseFloat(oklchValue.match(/[\d.]+/)[0]);
+
+          const barLightness = lValue < 0.6 ? 0.9 : 0.3;
+          const barChroma = lValue < 0.6 ? 0.05 : 0.1;
+
+          document.documentElement.style.setProperty(
+            '--color-bar-adaptive',
+            `oklch(from ${hex} ${barLightness} ${barChroma} h / 0.7)`
+          );
+        }
+
+        cycleTheme() {
+          this.colorIndex = (this.colorIndex + 1) % THEME_COLORS.length;
+          this.updateDynamicColors(THEME_COLORS[this.colorIndex]);
+          localStorage.setItem('trace_theme_index', this.colorIndex);
+
+          this.viewport.classList.remove('theme-pulse');
+          void this.viewport.offsetWidth;
+          this.viewport.classList.add('theme-pulse');
+          this.render();
+          this.updateTimeProgress();
+        }
+
+        debounceRender() {
+          clearTimeout(this.timer);
+          this.timer = setTimeout(() => this.render(), 100);
+        }
+
+        updateTimeProgress() {
+          const bar = document.getElementById('today-progress-bar');
+          if (bar) {
+            const now = new Date();
+            const percentage = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
+            requestAnimationFrame(() => {
+              bar.style.width = `${percentage}%`;
+            });
+          }
+        }
+
+        moveTooltip(e) {
+          const padding = 20;
+          let x = e.clientX,
+            y = e.clientY;
+          const rect = this.tooltip.getBoundingClientRect();
+          if (x + rect.width / 2 + padding > window.innerWidth) x = x - rect.width / 2 - padding;
+          else if (x - rect.width / 2 - padding < 0) x = x + rect.width / 2 + padding;
+          if (y - rect.height - padding < 0) y = y + padding + rect.height;
+          else y = y - padding;
+          this.tooltip.style.left = `${x}px`;
+          this.tooltip.style.top = `${y}px`;
+          this.tooltip.style.transform = `translate(-50%, -100%)`;
+        }
+
+        render() {
+          const now = new Date();
+          // Normalization to 12:00 PM to prevent timezone shifting
+          const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+          const todayInfo = { str: now.toDateString(), time: todayMid.getTime() };
+          const daysInYear = (this.year % 4 === 0 && this.year % 100 !== 0) || this.year % 400 === 0 ? 366 : 365;
+          const layout = this.calculateGrid(window.innerWidth, window.innerHeight, daysInYear);
+          const totalCells = layout.c * layout.r;
+
+          const startOffset = Math.floor((totalCells - daysInYear) / 2);
+          const startDate = new Date(this.year, 0, 1, 12, 0, 0);
+          startDate.setDate(startDate.getDate() - startOffset);
+
+          this.viewport.style.cssText = `gap: ${layout.gap}px; grid-template-columns: repeat(${layout.c}, ${layout.s}px); grid-template-rows: repeat(${layout.r}, ${layout.s}px);`;
+          const fragment = document.createDocumentFragment();
+          const cursor = new Date(startDate);
+          const months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+
+          for (let i = 0; i < totalCells; i++) {
+            const el = document.createElement('div');
+            const isTargetYear = cursor.getFullYear() === this.year;
+            let type = 'filler';
+            if (isTargetYear) {
+              if (cursor.toDateString() === todayInfo.str) type = 'today';
+              else if (cursor.getTime() < todayInfo.time) type = 'past';
+              else type = 'future';
+            }
+            el.className = `day day--${type}`;
+            if (cursor.getDay() === 1) el.classList.add('day--monday');
+
+            if (type === 'past') {
+              const diff = Math.round((todayInfo.time - cursor.getTime()) / 86400000);
+              const baseOpacity = Math.max(0.12, 1 - diff * 0.008);
+              el.style.opacity = isTargetYear && cursor.getDate() === 1 ? Math.max(0.3, baseOpacity) : baseOpacity;
+              el.style.filter = `grayscale(${Math.min(100, diff * 0.5)}%)`;
+            }
+
+            if (type === 'today') {
+              const bar = document.createElement('div');
+              bar.className = 'now-indicator';
+              bar.id = 'today-progress-bar';
+              el.appendChild(bar);
+            }
+            if (isTargetYear && cursor.getDate() === 1) el.setAttribute('data-ghost-label', months[cursor.getMonth()]);
+
+            if (type !== 'filler') {
+              const jan1 = new Date(this.year, 0, 1, 12, 0, 0);
+              const dayNum = Math.round((cursor.getTime() - jan1.getTime()) / 86400000) + 1;
+              const yearPercent = ((dayNum / daysInYear) * 100).toFixed(1);
+              el.dataset.date = cursor.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+              el.dataset.info = `Day ${dayNum} • ${yearPercent}% of Year`;
+              el.onmouseenter = (e) => {
+                this.tooltip.innerHTML = `${el.dataset.date}<b>${el.dataset.info}</b>`;
+                this.tooltip.style.opacity = 1;
+                this.moveTooltip(e);
+              };
+              el.onmousemove = (e) => this.moveTooltip(e);
+              el.onmouseleave = () => (this.tooltip.style.opacity = 0);
+            }
+            fragment.appendChild(el);
+            cursor.setDate(cursor.getDate() + 1);
+          }
+          this.viewport.innerHTML = '';
+          this.viewport.appendChild(fragment);
+
+          // Symmetry Lock: Ensure watermark is exactly behind the grid
+          requestAnimationFrame(() => {
+            const gridRect = this.viewport.getBoundingClientRect();
+            this.watermark.style.width = `${gridRect.width}px`;
+            this.watermark.style.height = `${gridRect.height}px`;
+          });
+          this.updateTimeProgress();
+        }
+
+        calculateGrid(w, h, days) {
+          const scale = Math.max(w, 240) / 1200;
+          const gap = Math.max(2, 10 * scale);
+          const frame = Math.max(25, 50 * scale);
+          const availW = w - frame * 2,
+            availH = h - frame * 2;
+          let bestS = 0;
+          for (let c = 1; c <= days; c++) {
+            const r = Math.ceil(days / c);
+            const s = Math.min((availW - (c - 1) * gap) / c, (availH - (r - 1) * gap) / r);
+            if (s > bestS) bestS = s;
+          }
+          const s = Math.floor(bestS);
+          return { s, gap, c: Math.floor((availW + gap) / (s + gap)), r: Math.floor((availH + gap) / (s + gap)) };
+        }
+      }
+
+      new TraceEngine();
+    </script>
+  </body>
+</html>
