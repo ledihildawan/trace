@@ -1,12 +1,13 @@
 # TRACE
 **The Shape of Time.**
 
-![TRACE App Preview](assets/preview.webp)
 > *Time doesn't just pass; it leaves a trace.*
+
+![TRACE Preview](assets/preview.webp)
 
 TRACE is not a calendar to manage your appointments. It is a digital instrument designed to visualize the sensation of time passing. By rendering the entire year as a single, high-density landscape, TRACE transforms your screen into a meditative surface that helps you intuitively understand where you stand in the flow of the year.
 
-Designed as **"Digital Furniture,"** it is perfect for filling empty screens in multi-monitor setups, acting as a calm, aesthetic anchor in your workspace. It enhances the aesthetics of your work-setup photos, provides a clear reminder of your journey, and offers a beautiful way to share your progress.
+Designed as **"Digital Furniture,"** it is perfect for filling empty screens in multi-monitor setups, acting as a calm, aesthetic anchor in your workspace. It enhances the aesthetics of work setups for photos, provides clear reminders of the year's progress, and helps you share your journey with others.
 
 ---
 
@@ -22,15 +23,15 @@ TRACE is built upon specific neuroaesthetic principles to reduce anxiety and pro
 * **Fluid Motion (Flow):** Interactions are smoothed with physics-based transitions, ensuring that checking your progress feels like touching water, not hitting a button.
 
 ### 🖼️ Use Cases
+* **Workspace Aesthetics:** A minimalist backdrop that elevates photos of desk setups for social sharing.
 * **The Second Monitor:** A "Screensaver with Purpose" for moments when you need to clear your mind.
-* **Setup Aesthetics:** Enhance the look of your desk for photos and videos of your workspace.
-* **Social Progress:** A beautiful, non-intrusive way to visualize and share how much of the year has been traversed.
-* **Clear Reminders:** A silent guide that keeps you aware of your place in the year's cycle.
+* **Shared Progress:** A beautiful, non-intrusive way to visualize how much of the year has been traversed.
+* **Focus Reminders:** A silent, visual anchor that keeps the bigger picture in mind during daily tasks.
 
 ### 🕯️ Interaction Guidelines
 TRACE follows a "Zero-UI" philosophy. There are no visible buttons to clutter the view.
 
-1.  **To Change the Mood (Theme):**
+1.  **To Change the Mood:**
     **Long Press (or Click & Hold)** anywhere on the empty background for about 1 second.
     *Why?* This ritual requires intention. It is a moment of pause to shift the atmosphere of your room.
     
@@ -40,10 +41,11 @@ TRACE follows a "Zero-UI" philosophy. There are no visible buttons to clutter th
 
 ---
 
-### 📦 Installation
+### 📦 Installation & Setup
 TRACE is a standalone web instrument. No installation is required.
 1.  Download the `index.html` file.
-2.  Open it in any modern web browser.
+2.  Open it in any modern browser.
 3.  Press `F11` for Fullscreen mode to complete the immersion.
 
----
+### 📝 Changelog
+Refer to the [CHANGELOG.md](./CHANGELOG.md) for technical history and version updates.
