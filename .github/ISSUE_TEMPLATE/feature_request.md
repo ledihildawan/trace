@@ -2,7 +2,7 @@
 name: Feature Request
 about: Suggest an idea for TRACE
 title: "[FEAT] "
-labels: enhancement
+labels: ["feature request"]
 assignees: ''
 ---
 

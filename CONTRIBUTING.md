@@ -280,11 +280,40 @@ git push origin main
 We use GitHub Issues to track our work. Before opening a PR, check if an issue exists.
 
 ### Labels
-* `bug`: Something isn't working.
-* `enhancement`: New feature or request.
-* `design`: Visual or UX related changes (Requires strict review).
-* `good first issue`: Good for newcomers.
-* `wontfix`: The suggestion violates the TRACE philosophy.
+
+We use the following labels to categorize issues and PRs:
+
+#### Issue Types
+| Label | Meaning |
+|-------|----------|
+| `bug` | Something isn't working as intended. |
+| `feature request` | Proposed ideas waiting for a philosophy check. |
+| `documentation` | Improvements or additions to documentation. |
+
+#### Priority & Help
+| Label | Meaning |
+|-------|----------|
+| `good first issue` | Simple tasks for newcomers to the project. |
+| `help wanted` | Extra attention is needed. |
+
+#### TRACE-Specific
+| Label | Meaning |
+|-------|----------|
+| `neuroaesthetics` | Focus on feel, motion curves, and psychological impact. |
+| `visual-polish` | Pixel-perfect design tweaks and OKLCH color harmony. |
+| `performance` | GPU acceleration, frame rates, and efficiency. |
+
+#### Rejection Reasons
+| Label | Meaning |
+|-------|----------|
+| `philosophy mismatch` | Contributions that conflict with the core project vision. |
+| `out of scope` | Suggestions that violate Zero-UI or minimalist principles. |
+
+### When to Use Labels
+
+- **Reporters:** When creating an issue, select the most appropriate label.
+- **Maintainers:** Will add additional labels as needed during triage.
+- **Contributors:** Use labels to find issues aligned with your interests.
 
 ---
 
@@ -303,13 +332,15 @@ When you submit a PR, the maintainers will review it based on:
 
 ### Common Rejection Reasons
 
-| Reason                     | Solution                                      |
-| -------------------------- | --------------------------------------------- |
-| Violates Zero-UI principle | Remove buttons/overlays, use gestures instead |
-| Linear animations          | Use `cubic-bezier(0.22, 1, 0.36, 1)`          |
-| RGB/HEX colors             | Convert to OKLCH                              |
-| Performance jitter         | Add GPU acceleration properties               |
-| Unclear commits            | Rewrite using Conventional Commits            |
+Issues and PRs may be labeled with `philosophy mismatch` or `out of scope` if they don't align with TRACE's vision. Here's how to fix them:
+
+| Rejection Reason | Label Applied | How to Fix |
+|------------------|---|----------|
+| Introduces unnecessary UI elements | `philosophy mismatch`, `out of scope` | Remove buttons/overlays, use gestures (long press, hover) instead |
+| Linear or choppy animations | `neuroaesthetics` | Use `cubic-bezier(0.22, 1, 0.36, 1)` or physics-based curves |
+| Uses RGB/HEX for dynamic colors | `visual-polish` | Convert to OKLCH with `oklch(from var(--base) ...)` |
+| Causes performance jitter | `performance` | Add GPU acceleration: `backface-visibility: hidden`, `will-change`, etc. |
+| Unclear or non-standard commits | — | Rewrite using Conventional Commits format |
 
 ---
 
