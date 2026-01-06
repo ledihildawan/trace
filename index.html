@@ -382,7 +382,6 @@
             const row = Math.floor(i / layout.c);
             const delay = (col + row) * 12;
             el.style.setProperty('--delay', `${delay}ms`);
-
             if (cursor.getDay() === 1) el.classList.add('day--monday');
 
             if (type === 'past') {
