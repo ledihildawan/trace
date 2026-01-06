@@ -57,13 +57,13 @@ Before you begin, ensure you have:
    
    This allows you to sync with the original repository:
    ```bash
-   git remote add upstream git@github.com:nicecmd/trace.git
+   git remote add upstream git@github.com:ledihildawan/trace.git
    git remote -v
    # Should show:
    # origin    git@github.com:YOUR-USERNAME/trace.git (fetch)
    # origin    git@github.com:YOUR-USERNAME/trace.git (push)
-   # upstream  git@github.com:nicecmd/trace.git (fetch)
-   # upstream  git@github.com:nicecmd/trace.git (push)
+   # upstream  git@github.com:ledihildawan/trace.git (fetch)
+   # upstream  git@github.com:ledihildawan/trace.git (push)
    ```
 
 ### Step 2: Keep Your Fork Updated
@@ -202,7 +202,7 @@ git push origin feat/temporal-soundscape --force-with-lease
 
 ### Step 8: Open a Pull Request
 
-1. Go to the [TRACE repository](https://github.com/nicecmd/trace)
+1. Go to the [TRACE repository](https://github.com/ledihildawan/trace)
 2. Click **"Compare & pull request"**
 3. Fill out the PR template completely
 4. Link any related issues (e.g., `Closes #42`)
@@ -284,30 +284,30 @@ We use GitHub Issues to track our work. Before opening a PR, check if an issue e
 We use the following labels to categorize issues and PRs:
 
 #### Issue Types
-| Label | Meaning |
-|-------|----------|
-| `bug` | Something isn't working as intended. |
+| Label             | Meaning                                        |
+| ----------------- | ---------------------------------------------- |
+| `bug`             | Something isn't working as intended.           |
 | `feature request` | Proposed ideas waiting for a philosophy check. |
-| `documentation` | Improvements or additions to documentation. |
+| `documentation`   | Improvements or additions to documentation.    |
 
 #### Priority & Help
-| Label | Meaning |
-|-------|----------|
+| Label              | Meaning                                    |
+| ------------------ | ------------------------------------------ |
 | `good first issue` | Simple tasks for newcomers to the project. |
-| `help wanted` | Extra attention is needed. |
+| `help wanted`      | Extra attention is needed.                 |
 
 #### TRACE-Specific
-| Label | Meaning |
-|-------|----------|
+| Label             | Meaning                                                 |
+| ----------------- | ------------------------------------------------------- |
 | `neuroaesthetics` | Focus on feel, motion curves, and psychological impact. |
-| `visual-polish` | Pixel-perfect design tweaks and OKLCH color harmony. |
-| `performance` | GPU acceleration, frame rates, and efficiency. |
+| `visual-polish`   | Pixel-perfect design tweaks and OKLCH color harmony.    |
+| `performance`     | GPU acceleration, frame rates, and efficiency.          |
 
 #### Rejection Reasons
-| Label | Meaning |
-|-------|----------|
-| `philosophy mismatch` | Contributions that conflict with the core project vision. |
-| `out of scope` | Suggestions that violate Zero-UI or minimalist principles. |
+| Label                 | Meaning                                                    |
+| --------------------- | ---------------------------------------------------------- |
+| `philosophy mismatch` | Contributions that conflict with the core project vision.  |
+| `out of scope`        | Suggestions that violate Zero-UI or minimalist principles. |
 
 ### When to Use Labels
 
@@ -334,13 +334,13 @@ When you submit a PR, the maintainers will review it based on:
 
 Issues and PRs may be labeled with `philosophy mismatch` or `out of scope` if they don't align with TRACE's vision. Here's how to fix them:
 
-| Rejection Reason | Label Applied | How to Fix |
-|------------------|---|----------|
-| Introduces unnecessary UI elements | `philosophy mismatch`, `out of scope` | Remove buttons/overlays, use gestures (long press, hover) instead |
-| Linear or choppy animations | `neuroaesthetics` | Use `cubic-bezier(0.22, 1, 0.36, 1)` or physics-based curves |
-| Uses RGB/HEX for dynamic colors | `visual-polish` | Convert to OKLCH with `oklch(from var(--base) ...)` |
-| Causes performance jitter | `performance` | Add GPU acceleration: `backface-visibility: hidden`, `will-change`, etc. |
-| Unclear or non-standard commits | — | Rewrite using Conventional Commits format |
+| Rejection Reason                   | Label Applied                         | How to Fix                                                               |
+| ---------------------------------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| Introduces unnecessary UI elements | `philosophy mismatch`, `out of scope` | Remove buttons/overlays, use gestures (long press, hover) instead        |
+| Linear or choppy animations        | `neuroaesthetics`                     | Use `cubic-bezier(0.22, 1, 0.36, 1)` or physics-based curves             |
+| Uses RGB/HEX for dynamic colors    | `visual-polish`                       | Convert to OKLCH with `oklch(from var(--base) ...)`                      |
+| Causes performance jitter          | `performance`                         | Add GPU acceleration: `backface-visibility: hidden`, `will-change`, etc. |
+| Unclear or non-standard commits    | —                                     | Rewrite using Conventional Commits format                                |
 
 ---
 
@@ -348,9 +348,9 @@ Issues and PRs may be labeled with `philosophy mismatch` or `out of scope` if th
 
 If you need help at any point:
 
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/nicecmd/trace/discussions) for questions and ideas
+- 💬 **Discussions:** [GitHub Discussions](https://github.com/ledihildawan/trace/discussions) for questions and ideas
 - 📖 **Documentation:** Check the [README](README.md) and this guide
-- 🐛 **Issues:** Search [existing issues](https://github.com/nicecmd/trace/issues) before creating new ones
+- 🐛 **Issues:** Search [existing issues](https://github.com/ledihildawan/trace/issues) before creating new ones
 
 ---
 
