@@ -102,9 +102,12 @@
         width: 100%;
         height: 100%;
         border-radius: var(--radius-standard);
+
+        /* LAMINAR FLOW: Staggered transition delay */
         transition: background-color var(--transition-smooth), opacity var(--transition-smooth), transform 0.3s ease,
           filter var(--transition-smooth);
         transition-delay: var(--delay, 0ms);
+
         position: relative;
         overflow: hidden;
         /* GPU Acceleration for smooth hover */
@@ -133,11 +136,11 @@
         z-index: 10;
         border-radius: 3px;
         filter: none !important;
+        /* Instant response for Today cell */
         transition-delay: 0ms !important;
       }
 
-      /* Adaptive Progress Bar: color is set via JS based on theme luminance
-         using the --color-bar-adaptive CSS variable. */
+      /* Adaptive Progress Bar */
       .now-indicator {
         position: absolute;
         bottom: 0;
@@ -179,6 +182,7 @@
         white-space: nowrap;
         z-index: 3;
         line-height: 0;
+        /* Inherit delay for smooth text transition */
         transition: color var(--transition-smooth);
         transition-delay: inherit;
       }
@@ -195,6 +199,7 @@
         box-shadow: 0 8px 25px oklch(from var(--base-hex) 0.2 0.1 h / 0.2);
         background-color: var(--color-today);
         filter: brightness(1.1) grayscale(0%) !important;
+        /* Instant response on hover */
         transition-delay: 0ms !important;
       }
 
@@ -274,8 +279,8 @@
             if (e.target.id === 'trace-container' || e.target.tagName === 'BODY') {
               pressTimer = setTimeout(() => {
                 this.cycleTheme();
-                this.viewport.style.opacity = '0.3';
-                setTimeout(() => (this.viewport.style.opacity = '1'), 300);
+                // Laminar flow makes the manual opacity flicker obsolete/redundant
+                // Removing the manual opacity flicker for cleaner wave effect
               }, 800);
             }
           };
@@ -382,12 +387,13 @@
               else type = 'future';
             }
             el.className = `day day--${type}`;
+
+            // LAMINAR FLOW: Calculate diagonal delay
             const col = i % layout.c;
             const row = Math.floor(i / layout.c);
-            if (type !== 'filler') {
-              const delay = (col + row) * 12;
-              el.style.setProperty('--delay', `${delay}ms`);
-            }
+            const delay = (col + row) * 12; // 12ms stagger per step
+            el.style.setProperty('--delay', `${delay}ms`);
+
             if (cursor.getDay() === 1) el.classList.add('day--monday');
 
             if (type === 'past') {
