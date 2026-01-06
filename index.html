@@ -274,6 +274,8 @@
             if (e.target.id === 'trace-container' || e.target.tagName === 'BODY') {
               pressTimer = setTimeout(() => {
                 this.cycleTheme();
+                this.viewport.style.opacity = '0.3';
+                setTimeout(() => (this.viewport.style.opacity = '1'), 300);
               }, 800);
             }
           };
