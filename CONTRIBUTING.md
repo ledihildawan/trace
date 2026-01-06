@@ -295,6 +295,42 @@ When you submit a PR, the maintainers will review it based on:
 2.  **Code Quality:** Is it clean? Does it follow the naming conventions?
 3.  **Performance:** Does it cause jitter on mobile devices?
 
-Thank you for helping us shape time.
+### Review Timeline
+
+- **Initial Response:** Within 48 hours
+- **Full Review:** Within 7 days for small PRs, 14 days for larger changes
+- **Merge:** After all checks pass and at least one maintainer approves
+
+### Common Rejection Reasons
+
+| Reason                     | Solution                                      |
+| -------------------------- | --------------------------------------------- |
+| Violates Zero-UI principle | Remove buttons/overlays, use gestures instead |
+| Linear animations          | Use `cubic-bezier(0.22, 1, 0.36, 1)`          |
+| RGB/HEX colors             | Convert to OKLCH                              |
+| Performance jitter         | Add GPU acceleration properties               |
+| Unclear commits            | Rewrite using Conventional Commits            |
 
 ---
+
+## 6. Getting Help
+
+If you need help at any point:
+
+- 💬 **Discussions:** [GitHub Discussions](https://github.com/nicecmd/trace/discussions) for questions and ideas
+- 📖 **Documentation:** Check the [README](README.md) and this guide
+- 🐛 **Issues:** Search [existing issues](https://github.com/nicecmd/trace/issues) before creating new ones
+
+---
+
+## 7. Recognition
+
+We value every contribution! Contributors will be:
+
+- Listed in our [README](README.md) contributors section
+- Mentioned in release notes when their changes ship
+- Given appropriate credit in commit history
+
+---
+
+Thank you for helping us shape time. 🕰️

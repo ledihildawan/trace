@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Discussions
+    url: https://github.com/nicecmd/trace/discussions
+    about: Ask questions, share ideas, or discuss TRACE philosophy here instead of opening an issue.
+
+  - name: 📖 Read the Docs
+    url: https://github.com/nicecmd/trace#readme
+    about: Check the README for usage instructions and documentation.
+
+  - name: 🤝 Contributing Guide
+    url: https://github.com/nicecmd/trace/blob/main/CONTRIBUTING.md
+    about: Read our contribution guidelines before submitting issues or PRs.
