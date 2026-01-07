@@ -250,12 +250,39 @@
         transform: translateZ(0);
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
         border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
+        
+        &.tr-tooltip-fade-out {
+          animation: tr-tooltip-fadeout 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        
+        &.tr-tooltip-fade-in {
+          animation: tr-tooltip-fadein 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        
         & b {
           color: var(--tr-color-past);
           display: block;
           font-size: 85%;
           margin-top: 4px;
           text-transform: uppercase;
+        }
+      }
+
+      @keyframes tr-tooltip-fadeout {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+
+      @keyframes tr-tooltip-fadein {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
         }
       }
 
@@ -377,10 +404,11 @@
           this.pressTimer = null;
           this.isLongPressMode = false;
           this.isDragging = false;
-          this.isLockedMode = false;
-          this.longPressElement = null;
-          this.hoverLongPressTimer = null;
-          this.resizeTimer = null;
+          this.isThemeTransitioning = false;
+          this.isModeLocked = false;
+          this.longPressTargetElement = null;
+          this.longHoverTargetElement = null;
+          this.longPressCheckInterval = null;
           this.timeUpdateInterval = null;
           this.startX = 0;
           this.startY = 0;
@@ -472,37 +500,19 @@
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
             if (this.pressTimer) clearTimeout(this.pressTimer);
+            const hoveredElement = this._lastHoveredElement;
             this.pressTimer = setTimeout(() => {
               if (!isDragging) {
                 this.isLongPressMode = true;
-                this.isLockedMode = true;
-                
-                // Store the long press element for later restoration
-                this.longPressElement = document.elementFromPoint(this.startX, this.startY);
-                
-                // Fade out tooltip
-                this.tooltip.style.opacity = 0;
-                
-                // Remove all active classes from hovered element
-                if (this._lastHoveredElement) {
-                  this._lastHoveredElement.classList.remove('tr-is-touch-active');
-                  this._lastHoveredElement.classList.remove('tr-day-active');
-                }
-                
-                // Change cursor to disallowed
-                document.documentElement.style.cursor = 'not-allowed';
-                
-                // Start theme transition
-                this.cycleTheme();
+                this.longPressTargetElement = hoveredElement;
+                // Trigger smooth transition flow
+                this.startThemeTransition(hoveredElement);
                 this.triggerHaptic('success');
               }
             }, TraceEngine.LONG_PRESS_DURATION);
           };
 
           const handleMove = (e) => {
-            // Prevent drag if in locked mode
-            if (this.isLockedMode) return;
-            
             const touch = e.touches[0];
             const dx = touch.clientX - this.startX;
             const dy = touch.clientY - this.startY;
@@ -518,44 +528,27 @@
             if (this.pressTimer) clearTimeout(this.pressTimer);
             const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
             this.tooltipHideTimer = setTimeout(() => {
-              // Only hide tooltip if not in locked mode
-              if (!this.isLockedMode) {
+              // Only hide tooltip if not in transition or still not holding
+              if (!this.isThemeTransitioning) {
                 this.tooltip.style.opacity = 0;
-              }
-              if (this._lastHoveredElement) {
-                if (!this.isLockedMode) {
+                if (this._lastHoveredElement) {
                   this._lastHoveredElement.classList.remove('tr-is-touch-active');
-                  this._lastHoveredElement.classList.remove('tr-day-active');
                   this._lastHoveredElement = null;
                 }
               }
               if (this.lastTouchElement) {
-                if (!this.isLockedMode) {
-                  this.lastTouchElement.classList.remove('tr-is-touch-active');
-                  this.lastTouchElement.classList.remove('tr-day-active');
-                  this.lastTouchElement = null;
-                }
+                this.lastTouchElement.classList.remove('tr-is-touch-active');
+                this.lastTouchElement = null;
               }
             }, duration);
             isDragging = false;
             this.isLongPressMode = false;
-            
-            // Reset locked mode after timeout if not restored
-            if (this.isLockedMode) {
-              setTimeout(() => {
-                this.isLockedMode = false;
-                document.documentElement.style.cursor = 'default';
-              }, 1200 + 500); // Wait for theme transition + restoration + buffer
-            }
+            this.longPressTargetElement = null;
           };
 
           document.addEventListener('mousedown', handleStart);
           document.addEventListener('mouseup', () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
-            // Reset cursor when mouse released
-            if (!this.isLockedMode) {
-              document.documentElement.style.cursor = 'default';
-            }
           });
           // Use CSS touch-action instead of preventDefault for better performance
           this.viewport.addEventListener('touchstart', handleStart, { passive: true });
@@ -566,15 +559,18 @@
           if (this.hasHover) {
             let isMouseDragging = false;
             let dragStartX = 0;
+            let longHoverTimer = null;
             const MOUSE_DRAG_THRESHOLD = 80;
+            const LONG_HOVER_DURATION = TraceEngine.LONG_PRESS_DURATION;
 
             // Trackpad wheel swipe gesture
             this.viewport.addEventListener(
               'wheel',
               (e) => {
                 if (e.ctrlKey || e.metaKey) return; // Allow browser zoom
+                if (this.isModeLocked) return; // Prevent wheel during theme transition
                 e.preventDefault();
-
+                
                 // Horizontal swipe: deltaY > 0 = swipe down/right
                 if (Math.abs(e.deltaY) > 50) {
                   this.cycleTheme();
@@ -586,16 +582,30 @@
 
             // Mouse drag swipe simulation
             this.viewport.addEventListener('pointerdown', (e) => {
-              if (e.pointerType !== 'mouse') return;
+              if (e.pointerType !== 'mouse' || this.isModeLocked) return;
               dragStartX = e.clientX;
               isMouseDragging = true;
+              
+              // Start long hover timer for desktop
+              const hoveredElement = this._lastHoveredElement;
+              if (hoveredElement) {
+                longHoverTimer = setTimeout(() => {
+                  if (isMouseDragging && hoveredElement === this._lastHoveredElement) {
+                    this.longHoverTargetElement = hoveredElement;
+                    this.startThemeTransition(hoveredElement);
+                    this.triggerHaptic('success');
+                  }
+                }, LONG_HOVER_DURATION);
+              }
             });
 
             this.viewport.addEventListener('pointermove', (e) => {
-              if (!isMouseDragging || e.pointerType !== 'mouse') return;
-
+              if (!isMouseDragging || e.pointerType !== 'mouse' || this.isModeLocked) return;
+              
               const dragDistance = e.clientX - dragStartX;
               if (Math.abs(dragDistance) > MOUSE_DRAG_THRESHOLD) {
+                // Clear long hover timer if user drags
+                if (longHoverTimer) clearTimeout(longHoverTimer);
                 this.cycleTheme();
                 this.triggerHaptic('success');
                 isMouseDragging = false;
@@ -603,60 +613,15 @@
             });
 
             this.viewport.addEventListener('pointerup', () => {
+              if (longHoverTimer) clearTimeout(longHoverTimer);
               isMouseDragging = false;
+              this.longHoverTargetElement = null;
             });
 
             this.viewport.addEventListener('pointerleave', () => {
+              if (longHoverTimer) clearTimeout(longHoverTimer);
               isMouseDragging = false;
-            });
-
-            // Desktop hover lama detection (equivalent to mobile long press)
-            let hoverElement = null;
-            let hoverTimer = null;
-            const HOVER_LAMA_DURATION = 800; // Same as LONG_PRESS_DURATION
-
-            this.viewport.addEventListener('mousemove', (e) => {
-              if (this.isLockedMode) return;
-              
-              const target = document.elementFromPoint(e.clientX, e.clientY);
-              if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
-                if (hoverElement !== target) {
-                  // New element hovered
-                  if (hoverTimer) clearTimeout(hoverTimer);
-                  hoverElement = target;
-                  
-                  // Start hover lama timer
-                  hoverTimer = setTimeout(() => {
-                    if (hoverElement === target) {
-                      // Trigger long press mode on desktop hover lama
-                      this.isLongPressMode = true;
-                      this.isLockedMode = true;
-                      this.longPressElement = target;
-                      this.tooltip.style.opacity = 0;
-                      if (this._lastHoveredElement) {
-                        this._lastHoveredElement.classList.remove('tr-is-touch-active');
-                        this._lastHoveredElement.classList.remove('tr-day-active');
-                      }
-                      document.documentElement.style.cursor = 'not-allowed';
-                      this.cycleTheme();
-                      this.triggerHaptic('success');
-                    }
-                  }, HOVER_LAMA_DURATION);
-                }
-              } else {
-                // Left hover area
-                if (hoverTimer) clearTimeout(hoverTimer);
-                hoverElement = null;
-              }
-            });
-
-            this.viewport.addEventListener('mouseleave', () => {
-              if (hoverTimer) clearTimeout(hoverTimer);
-              hoverElement = null;
-            });
-          }
-
-          window.addEventListener('resize', () => {
+              this.longHoverTargetElement = null;
             this.hasHover = window.matchMedia('(hover: hover)').matches;
             this.debounceRender();
           });
@@ -851,33 +816,71 @@
           this.viewport.classList.remove('tr-theme-pulse');
           void this.viewport.offsetWidth;
           this.viewport.classList.add('tr-theme-pulse');
+        }
+
+        /**
+         * Start theme transition with smooth animation flow
+         * Fade out tooltip, remove active style, change theme, then restore if still holding
+         * @param {HTMLElement} targetElement - Grid item that was long-pressed/hovered
+         */
+        startThemeTransition(targetElement) {
+          if (this.isThemeTransitioning) return;
           
-          // Restore state after theme transition completes
-          if (this.isLockedMode) {
-            // Wait for theme transition to complete (~1.2s)
-            setTimeout(() => {
-              // Check if still in locked mode and element still exists
-              if (this.isLockedMode && this.longPressElement) {
-                const stillTarget = this.longPressElement.classList.contains('tr-day');
-                if (stillTarget && !this.longPressElement.classList.contains('tr-day--filler')) {
-                  // Restore active classes
-                  this.longPressElement.classList.add('tr-is-touch-active');
-                  this.longPressElement.classList.add('tr-day-active');
-                  this._lastHoveredElement = this.longPressElement;
-                  
-                  // Restore tooltip
-                  const dateText = this.longPressElement.dataset.trDate;
-                  const infoText = this.longPressElement.dataset.trInfo;
-                  if (dateText && infoText) {
-                    this.updateTooltipContent(dateText, infoText);
-                    const rect = this.longPressElement.getBoundingClientRect();
-                    this.positionTooltip(rect.left + rect.width / 2, rect.top + rect.height / 2, true);
-                    this.tooltip.style.opacity = 1;
-                  }
-                }
-              }
-            }, 1200); // Match theme transition duration
+          this.isThemeTransitioning = true;
+          this.isModeLocked = true;
+          this.viewport.style.cursor = 'not-allowed';
+          
+          // Step 1: Fade out tooltip smoothly (0.4s)
+          this.tooltip.classList.add('tr-tooltip-fade-out');
+          
+          // Step 2: Remove active style from grid item (fade out in 0.3s)
+          if (targetElement) {
+            targetElement.style.transition = 'background-color 0.3s ease-out, transform 0.3s ease-out, opacity 0.3s ease-out';
+            targetElement.classList.remove('tr-is-touch-active');
+            targetElement.classList.remove(':hover'); // Remove hover state
           }
+          
+          // Step 3: Trigger theme change and pulse animation immediately
+          setTimeout(() => {
+            this.cycleTheme();
+          }, 150);
+          
+          // Step 4: After theme transition duration (0.8s), check if still holding
+          const themeTransitionDuration = 800;
+          setTimeout(() => {
+            this.completeThemeTransition(targetElement);
+          }, themeTransitionDuration);
+        }
+
+        /**
+         * Complete theme transition and restore styles if still holding
+         * @param {HTMLElement} targetElement - Grid item that was long-pressed/hovered
+         */
+        completeThemeTransition(targetElement) {
+          const stillHolding = this.isLongPressMode || (this.longHoverTargetElement === targetElement);
+          
+          if (stillHolding && targetElement) {
+            // Step 5: Restore active style with fade in (0.3s)
+            targetElement.style.transition = 'background-color 0.3s ease-out, transform 0.3s ease-out, opacity 0.3s ease-out';
+            targetElement.classList.add('tr-is-touch-active');
+            
+            // Step 6: Fade in tooltip (0.4s)
+            this.tooltip.classList.remove('tr-tooltip-fade-out');
+            this.tooltip.classList.add('tr-tooltip-fade-in');
+          } else {
+            // User released, cleanup
+            this.tooltip.classList.remove('tr-tooltip-fade-out');
+            this.tooltip.classList.remove('tr-tooltip-fade-in');
+            this.tooltip.style.opacity = '0';
+            if (targetElement) {
+              targetElement.classList.remove('tr-is-touch-active');
+            }
+          }
+          
+          // Release mode lock and restore cursor
+          this.isThemeTransitioning = false;
+          this.isModeLocked = false;
+          this.viewport.style.cursor = 'default';
         }
 
         /**
