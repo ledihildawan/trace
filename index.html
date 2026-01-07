@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet" />
 
     <style>
-      /* [PERFORMANCE] CSS Houdini: GPU-Accelerated Color Interpolation */
+      /* [PERFORMANCE] CSS Houdini: GPU-Accelerated Theme Transitions */
       @property --base-hex {
         syntax: '<color>';
         initial-value: #f0eee9;
@@ -27,7 +27,6 @@
         --color-future: oklch(from var(--base-hex) 0.93 0.02 h);
         --color-ghost-label: oklch(from var(--base-hex) 0.3 0.05 h);
         --color-year-subliminal: oklch(from var(--bg-system) 0.93 0.01 h);
-
         --color-bar-adaptive: oklch(from var(--base-hex) 0.3 0.1 h / 0.6);
         --color-hover-adaptive: var(--base-hex);
         --radius-standard: 2px;
@@ -67,7 +66,7 @@
 
         & #trace-viewport {
           display: grid;
-          /* [PERF] Isolasi layout agar browser tidak repaint halaman penuh */
+          /* [PERF] Isolasi layout agar tidak memicu global reflow */
           contain: strict;
           will-change: transform;
           z-index: 2;
@@ -100,8 +99,7 @@
         }
       }
 
-      /* [UNIVERSAL LOCK - VISUAL RESET ONLY] */
-      /* Mematikan transformasi saat ditekan, namun pointer-events tetap aktif untuk JS */
+      /* UNIVERSAL LOCK: Reset visual state tanpa memblokir sensor data */
       :root:active .day {
         transform: translateY(0) scale(1) !important;
         transition-delay: 0ms !important;
@@ -120,7 +118,6 @@
           transform: scale(1);
         }
       }
-
       .theme-pulse {
         animation: theme-pulse-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
@@ -150,19 +147,16 @@
           filter: grayscale(100%);
           pointer-events: none;
         }
-
         &.day--today {
           background-color: var(--color-today) !important;
           opacity: 1 !important;
           box-shadow: 0 0 0 2px var(--bg-system), 0 12px 30px oklch(from var(--base-hex) 0.2 0.1 h / 0.35);
           z-index: 10;
           border-radius: 3px;
-          filter: none !important;
           transition-delay: 0ms !important;
         }
-
-        /* Desktop Hover */
-        &:hover {
+        &:hover,
+        &.is-touch-active {
           transform: translateY(-2px) scale(1.02);
           z-index: 20;
           opacity: 1 !important;
@@ -171,19 +165,6 @@
           filter: brightness(1.1) saturate(1.2) !important;
           transition-delay: 0ms !important;
         }
-
-        /* Mobile Touch Active State */
-        &.is-touch-active {
-          transform: translateY(-2px) scale(1.02) !important;
-          z-index: 20;
-          opacity: 1 !important;
-          box-shadow: 0 12px 24px -10px oklch(from var(--base-hex) 0.1 0.1 h / 0.4), 0 0 0 1.5px var(--bg-system) !important;
-          background-color: var(--color-hover-adaptive) !important;
-          filter: brightness(1.1) saturate(1.2) !important;
-          transition-delay: 0ms !important;
-        }
-
-        /* [v1.0.1 Heritage] Monday Marker */
         &.day--monday::after {
           content: '';
           position: absolute;
@@ -198,8 +179,6 @@
           z-index: 4;
           pointer-events: none;
         }
-
-        /* [v1.0.1 Heritage] Ghost Labels */
         &[data-ghost-label]::before {
           content: attr(data-ghost-label);
           position: absolute;
@@ -214,11 +193,9 @@
           pointer-events: none;
           white-space: nowrap;
           z-index: 3;
-          line-height: 0;
           transition: color var(--transition-smooth);
           transition-delay: inherit;
         }
-
         &.day--past[data-ghost-label]::before {
           color: oklch(from var(--base-hex) 0.9 0.05 h);
           opacity: 0.5;
@@ -251,25 +228,22 @@
         transition: opacity 0.15s ease-out;
         z-index: 100;
         white-space: nowrap;
+        transform: translateZ(0);
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
         border: 1px solid oklch(from var(--base-hex) 0.9 0.05 h / 0.5);
-        will-change: transform, opacity;
-        transform: translateZ(0);
-
         & b {
           color: var(--color-past);
           display: block;
           font-size: 85%;
           margin-top: 4px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
         }
       }
     </style>
   </head>
   <body>
     <div id="trace-container">
-      <div id="year-watermark">2026</div>
+      <div id="year-watermark"></div>
       <div id="trace-viewport"></div>
     </div>
     <div id="tooltip"></div>
@@ -293,14 +267,19 @@
           this.viewport = document.getElementById('trace-viewport');
           this.watermark = document.getElementById('year-watermark');
           this.tooltip = document.getElementById('tooltip');
-          this.year = 2026;
+
+          // [CENTRALIZED REFERENCE]
+          const now = new Date();
+          this.year = now.getFullYear();
+          this.todayStr = now.toDateString();
+          this.todayTime = now.getTime();
+          this.watermark.innerText = this.year;
 
           this.lastTouchElement = null;
           this.isTicking = false;
           this.tooltipHideTimer = null;
           this.startX = 0;
           this.startY = 0;
-
           this.hasHover = window.matchMedia('(hover: hover)').matches;
           this.tooltipWidth = 0;
 
@@ -312,21 +291,13 @@
 
         init() {
           this.updateDynamicColors(THEME_COLORS[this.colorIndex]);
-          window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'c') this.cycleTheme();
-          });
+          window.addEventListener('keydown', (e) => e.key.toLowerCase() === 'c' && this.cycleTheme());
 
-          // --- HIGH PERFORMANCE UNIFIED INTERACTION ---
           let pressTimer;
           let isDragging = false;
 
-          const handleMouseDown = () => {
-            pressTimer = setTimeout(() => this.cycleTheme(), 800);
-          };
-          const handleMouseUp = () => clearTimeout(pressTimer);
-
-          const handleTouchStart = (e) => {
-            const touch = e.touches[0];
+          const handleStart = (e) => {
+            const touch = e.touches ? e.touches[0] : e;
             this.startX = touch.clientX;
             this.startY = touch.clientY;
             isDragging = false;
@@ -336,28 +307,19 @@
               this.tooltipHideTimer = null;
             }
 
-            this.handleTouchInteraction(e);
-
+            if (e.touches) this.handleTouchInteraction(e);
             pressTimer = setTimeout(() => {
-              if (!isDragging) {
-                this.cycleTheme();
-                this.tooltip.style.opacity = 0;
-                if (this.lastTouchElement) {
-                  this.lastTouchElement.classList.remove('is-touch-active');
-                  this.lastTouchElement = null;
-                }
-              }
+              if (!isDragging) this.cycleTheme();
             }, 800);
           };
 
-          const handleTouchMove = (e) => {
+          const handleMove = (e) => {
             const touch = e.touches[0];
-            const moveDistance = Math.hypot(touch.clientX - this.startX, touch.clientY - this.startY);
+            const moveDist = Math.hypot(touch.clientX - this.startX, touch.clientY - this.startY);
 
-            if (moveDistance > 10) {
+            if (moveDist > 10) {
               isDragging = true;
               clearTimeout(pressTimer);
-
               if (!this.isTicking) {
                 window.requestAnimationFrame(() => {
                   this.handleTouchInteraction(e);
@@ -368,9 +330,8 @@
             }
           };
 
-          const handleTouchEnd = () => {
+          const handleEnd = () => {
             clearTimeout(pressTimer);
-            // Linger effect: Tooltip tetap terlihat selama 2.5 detik
             this.tooltipHideTimer = setTimeout(() => {
               this.tooltip.style.opacity = 0;
               if (this.lastTouchElement) {
@@ -380,12 +341,11 @@
             }, 2500);
           };
 
-          document.addEventListener('mousedown', handleMouseDown);
-          document.addEventListener('mouseup', handleMouseUp);
-
-          this.viewport.addEventListener('touchstart', handleTouchStart, { passive: false });
-          this.viewport.addEventListener('touchmove', handleTouchMove, { passive: false });
-          document.addEventListener('touchend', handleTouchEnd);
+          document.addEventListener('mousedown', handleStart);
+          document.addEventListener('mouseup', () => clearTimeout(pressTimer));
+          this.viewport.addEventListener('touchstart', handleStart, { passive: false });
+          this.viewport.addEventListener('touchmove', handleMove, { passive: false });
+          document.addEventListener('touchend', handleEnd);
 
           window.addEventListener('resize', () => {
             this.hasHover = window.matchMedia('(hover: hover)').matches;
@@ -398,39 +358,33 @@
 
         triggerHaptic(type) {
           if (!navigator.vibrate) return;
-          if (type === 'scrub') navigator.vibrate(5);
-          else if (type === 'success') navigator.vibrate(50);
+          // Differentiated feedback: Scrub (short) vs Ritual (long)
+          navigator.vibrate(type === 'scrub' ? 5 : 50);
         }
 
         updateTooltipContent(html) {
           if (this.tooltip.innerHTML !== html) {
             this.tooltip.innerHTML = html;
-            const rect = this.tooltip.getBoundingClientRect();
-            this.tooltipWidth = rect.width;
+            this.tooltipWidth = this.tooltip.getBoundingClientRect().width;
           }
           this.tooltip.style.opacity = 1;
         }
 
         handleTouchInteraction(e) {
           if (e.cancelable) e.preventDefault();
-
           const touch = e.touches[0];
           const target = document.elementFromPoint(touch.clientX, touch.clientY);
 
           if (target && target.classList.contains('day') && !target.classList.contains('day--filler')) {
             if (this.lastTouchElement !== target) {
-              if (this.lastTouchElement) {
-                this.lastTouchElement.classList.remove('is-touch-active');
-              }
+              if (this.lastTouchElement) this.lastTouchElement.classList.remove('is-touch-active');
               this.triggerHaptic('scrub');
             }
-
             target.classList.add('is-touch-active');
             this.lastTouchElement = target;
 
             if (target.dataset.date) {
-              const content = `${target.dataset.date}<b>${target.dataset.info}</b>`;
-              this.updateTooltipContent(content);
+              this.updateTooltipContent(`${target.dataset.date}<b>${target.dataset.info}</b>`);
               this.positionTooltip(touch.clientX, touch.clientY, true);
             }
           }
@@ -438,26 +392,19 @@
 
         updateDynamicColors(hex) {
           document.documentElement.style.setProperty('--base-hex', hex);
-
           const temp = document.createElement('div');
           temp.style.color = `oklch(from ${hex} l c h)`;
           document.body.appendChild(temp);
-          const oklchValue = window.getComputedStyle(temp).color;
+          const lValue = parseFloat(window.getComputedStyle(temp).color.match(/[\d.]+/)[0]);
           document.body.removeChild(temp);
-          const lValue = parseFloat(oklchValue.match(/[\d.]+/)[0]);
 
-          const barLightness = lValue < 0.6 ? 0.9 : 0.3;
-          const barChroma = lValue < 0.6 ? 0.05 : 0.1;
           document.documentElement.style.setProperty(
             '--color-bar-adaptive',
-            `oklch(from ${hex} ${barLightness} ${barChroma} h / 0.7)`
+            `oklch(from ${hex} ${lValue < 0.6 ? 0.9 : 0.3} ${lValue < 0.6 ? 0.05 : 0.1} h / 0.7)`
           );
-
-          const hoverLightness = lValue > 0.7 ? 0.6 : lValue;
-          const hoverChroma = lValue > 0.7 ? 0.15 : 0.1;
           document.documentElement.style.setProperty(
             '--color-hover-adaptive',
-            `oklch(from ${hex} ${hoverLightness} ${hoverChroma} h)`
+            `oklch(from ${hex} ${lValue > 0.7 ? 0.6 : lValue} ${lValue > 0.7 ? 0.15 : 0.1} h)`
           );
         }
 
@@ -483,24 +430,22 @@
         updateTimeProgress() {
           const bar = document.getElementById('today-progress-bar');
           if (bar) {
-            const now = new Date();
-            const percentage = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
-            requestAnimationFrame(() => {
-              bar.style.width = `${percentage}%`;
-            });
+            const n = new Date();
+            bar.style.width = `${((n.getHours() * 60 + n.getMinutes()) / 1440) * 100}%`;
           }
         }
 
-        // [SMART HUD ENGINE]
         positionTooltip(clientX, clientY, isTouch = false) {
           const gap = isTouch ? 40 : 20;
           let x = clientX,
             y = clientY;
 
+          // X Boundary
           if (x + this.tooltipWidth / 2 + 10 > window.innerWidth) x = window.innerWidth - this.tooltipWidth / 2 - 10;
           else if (x - this.tooltipWidth / 2 - 10 < 0) x = this.tooltipWidth / 2 + 10;
 
           if (isTouch) {
+            // [SMART HUD] Flip tooltip to avoid occlusion by thumb
             const isTopHalf = clientY < window.innerHeight / 2;
             if (isTopHalf) {
               y = y + 60;
@@ -518,49 +463,38 @@
           this.tooltip.style.top = `${y}px`;
         }
 
-        moveTooltip(e) {
-          this.positionTooltip(e.clientX, e.clientY, false);
-        }
-
         render() {
-          const now = new Date();
-          const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
-          const todayInfo = { str: now.toDateString(), time: todayMid.getTime() };
-          const daysInYear = (this.year % 4 === 0 && this.year % 100 !== 0) || this.year % 400 === 0 ? 366 : 365;
+          const isLeap = (this.year % 4 === 0 && this.year % 100 !== 0) || this.year % 400 === 0;
+          const daysInYear = isLeap ? 366 : 365;
           const layout = this.calculateGrid(window.innerWidth, window.innerHeight, daysInYear);
           const totalCells = layout.c * layout.r;
 
-          const startOffset = Math.floor((totalCells - daysInYear) / 2);
           const startDate = new Date(this.year, 0, 1, 12, 0, 0);
-          startDate.setDate(startDate.getDate() - startOffset);
+          startDate.setDate(startDate.getDate() - Math.floor((totalCells - daysInYear) / 2));
 
           this.viewport.style.cssText = `gap: ${layout.gap}px; grid-template-columns: repeat(${layout.c}, ${layout.s}px); grid-template-rows: repeat(${layout.r}, ${layout.s}px);`;
           const fragment = document.createDocumentFragment();
-          const cursor = new Date(startDate);
           const months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
 
           for (let i = 0; i < totalCells; i++) {
             const el = document.createElement('div');
-            const isTargetYear = cursor.getFullYear() === this.year;
+            const isTargetYear = startDate.getFullYear() === this.year;
             let type = 'filler';
 
             if (isTargetYear) {
-              if (cursor.toDateString() === todayInfo.str) type = 'today';
-              else if (cursor.getTime() < todayInfo.time) type = 'past';
+              if (startDate.toDateString() === this.todayStr) type = 'today';
+              else if (startDate.getTime() < this.todayTime) type = 'past';
               else type = 'future';
             }
 
             el.className = `day day--${type}`;
-            const col = i % layout.c;
-            const row = Math.floor(i / layout.c);
-            el.style.setProperty('--delay', `${(col + row) * 12}ms`);
+            el.style.setProperty('--delay', `${((i % layout.c) + Math.floor(i / layout.c)) * 12}ms`);
 
-            if (cursor.getDay() === 1) el.classList.add('day--monday');
+            if (startDate.getDay() === 1) el.classList.add('day--monday');
 
             if (type === 'past') {
-              const diff = Math.round((todayInfo.time - cursor.getTime()) / 86400000);
-              const baseOpacity = Math.max(0.12, 1 - diff * 0.008);
-              el.style.opacity = isTargetYear && cursor.getDate() === 1 ? Math.max(0.3, baseOpacity) : baseOpacity;
+              const diff = Math.round((this.todayTime - startDate.getTime()) / 86400000);
+              el.style.opacity = Math.max(0.12, 1 - diff * 0.008);
               el.style.filter = `grayscale(${Math.min(100, diff * 0.5)}%)`;
             }
 
@@ -571,14 +505,18 @@
               el.appendChild(bar);
             }
 
-            if (isTargetYear && cursor.getDate() === 1) el.setAttribute('data-ghost-label', months[cursor.getMonth()]);
+            if (isTargetYear && startDate.getDate() === 1)
+              el.setAttribute('data-ghost-label', months[startDate.getMonth()]);
 
             if (type !== 'filler') {
-              const jan1 = new Date(this.year, 0, 1, 12, 0, 0);
-              const dayNum = Math.round((cursor.getTime() - jan1.getTime()) / 86400000) + 1;
-              const yearPercent = ((dayNum / daysInYear) * 100).toFixed(1);
-              el.dataset.date = cursor.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
-              el.dataset.info = `Day ${dayNum} • ${yearPercent}% of Year`;
+              const yearStart = new Date(this.year, 0, 1, 12, 0, 0).getTime();
+              const dayNum = Math.round((startDate.getTime() - yearStart) / 86400000) + 1;
+              el.dataset.date = startDate.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              });
+              el.dataset.info = `Day ${dayNum} • ${((dayNum / daysInYear) * 100).toFixed(1)}% of Year`;
 
               el.onmouseenter = (e) => {
                 if (this.hasHover) {
@@ -592,7 +530,7 @@
               el.onmouseleave = () => (this.tooltip.style.opacity = 0);
             }
             fragment.appendChild(el);
-            cursor.setDate(cursor.getDate() + 1);
+            startDate.setDate(startDate.getDate() + 1);
           }
           this.viewport.innerHTML = '';
           this.viewport.appendChild(fragment);
@@ -605,20 +543,20 @@
           this.updateTimeProgress();
         }
 
-        calculateGrid(w, h, days) {
-          const scale = Math.max(w, 240) / 1200;
-          const gap = Math.max(2, 10 * scale);
-          const frame = Math.max(25, 50 * scale);
-          const availW = w - frame * 2,
-            availH = h - frame * 2;
+        calculateGrid(w, h, d) {
+          const sc = Math.max(w, 240) / 1200;
+          const gap = Math.max(2, 10 * sc);
+          const f = Math.max(25, 50 * sc);
+          const aW = w - f * 2;
+          const aH = h - f * 2;
           let bestS = 0;
-          for (let c = 1; c <= days; c++) {
-            const r = Math.ceil(days / c);
-            const s = Math.min((availW - (c - 1) * gap) / c, (availH - (r - 1) * gap) / r);
+          for (let c = 1; c <= d; c++) {
+            const r = Math.ceil(d / c);
+            const s = Math.min((aW - (c - 1) * gap) / c, (aH - (r - 1) * gap) / r);
             if (s > bestS) bestS = s;
           }
           const s = Math.floor(bestS);
-          return { s, gap, c: Math.floor((availW + gap) / (s + gap)), r: Math.floor((availH + gap) / (s + gap)) };
+          return { s, gap, c: Math.floor((aW + gap) / (s + gap)), r: Math.floor((aH + gap) / (s + gap)) };
         }
       }
 
