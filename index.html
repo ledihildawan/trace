@@ -375,10 +375,10 @@
           this.isTicking = false;
           this.tooltipHideTimer = null;
           this.pressTimer = null;
-          this.sustainedPressTimer = null;
           this.isLongPressMode = false;
-          this.isLockedOnGrid = false;
           this.isDragging = false;
+          this.isLockedForThemeChange = false;
+          this.lockedElement = null;
           this.resizeTimer = null;
           this.timeUpdateInterval = null;
           this.startX = 0;
@@ -466,84 +466,91 @@
             this.startY = touch.clientY;
             isDragging = false;
             this.isLongPressMode = false;
-            this.isLockedOnGrid = false;
             if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
-            if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
             if (e.touches) {
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
             if (this.pressTimer) clearTimeout(this.pressTimer);
             this.pressTimer = setTimeout(() => {
-              if (!isDragging) {
+              if (!isDragging && !this.isLockedForThemeChange) {
                 this.isLongPressMode = true;
-                this.isLockedOnGrid = true;
+                this.isLockedForThemeChange = true;
+                this.lockedElement = this._lastHoveredElement;
+                // Hide tooltip and active style during lock
                 this.tooltip.style.opacity = 0;
-                // Remove hover styling when locked
                 if (this._lastHoveredElement) {
                   this._lastHoveredElement.classList.remove('tr-is-touch-active');
                 }
                 this.cycleTheme();
                 this.triggerHaptic('success');
-
-                // Sustained press: show tooltip again after 600ms and restore hover styling
-                this.sustainedPressTimer = setTimeout(() => {
-                  if (this.isLockedOnGrid) {
-                    this.tooltip.style.opacity = 1;
-                    // Restore hover styling
-                    if (this._lastHoveredElement) {
-                      this._lastHoveredElement.classList.add('tr-is-touch-active');
-                    }
-                    this.triggerHaptic('scrub');
-                  }
-                }, 600);
               }
             }, TraceEngine.LONG_PRESS_DURATION);
           };
 
           const handleMove = (e) => {
+            if (this.isLockedForThemeChange) return; // Prevent drag during lock
             const touch = e.touches[0];
             const dx = touch.clientX - this.startX;
             const dy = touch.clientY - this.startY;
-            // Don't allow drag if locked on grid (long press mode active)
-            if (this.isLockedOnGrid) return;
             if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
               isDragging = true;
               this.isLongPressMode = false;
               if (this.pressTimer) clearTimeout(this.pressTimer);
-              if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
           };
 
           const handleEnd = () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
-            if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
-            const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
-            this.tooltipHideTimer = setTimeout(() => {
-              this.tooltip.style.opacity = 0;
-              if (this._lastHoveredElement) {
-                this._lastHoveredElement.classList.remove('tr-is-touch-active');
-                this._lastHoveredElement = null;
-              }
-              if (this.lastTouchElement) {
-                this.lastTouchElement.classList.remove('tr-is-touch-active');
-                this.lastTouchElement = null;
-              }
-            }, duration);
+            // If not locked, hide tooltip normally
+            if (!this.isLockedForThemeChange) {
+              const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
+              this.tooltipHideTimer = setTimeout(() => {
+                this.tooltip.style.opacity = 0;
+                if (this._lastHoveredElement) {
+                  this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                  this._lastHoveredElement = null;
+                }
+                if (this.lastTouchElement) {
+                  this.lastTouchElement.classList.remove('tr-is-touch-active');
+                  this.lastTouchElement = null;
+                }
+              }, duration);
+            }
             isDragging = false;
             this.isLongPressMode = false;
-            this.isLockedOnGrid = false;
           };
 
           document.addEventListener('mousedown', handleStart);
           document.addEventListener('mouseup', () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
-            if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
           });
           // Use CSS touch-action instead of preventDefault for better performance
           this.viewport.addEventListener('touchstart', handleStart, { passive: true });
           this.viewport.addEventListener('touchmove', handleMove, { passive: true });
           document.addEventListener('touchend', handleEnd);
+
+          // [INTERACTION] Restore UI after theme transition if still hovering locked element
+          this.viewport.addEventListener('transitionend', (e) => {
+            if (e.target === this.viewport && e.propertyName === 'background-color' && this.isLockedForThemeChange) {
+              // Check if pointer is still over the locked element
+              const target = document.elementFromPoint(this._pendingX, this._pendingY);
+              if (target === this.lockedElement && this.lockedElement) {
+                // Restore active style and show tooltip
+                this.lockedElement.classList.add('tr-is-touch-active');
+                this.tooltip.style.opacity = 1;
+                this._lastHoveredElement = this.lockedElement;
+                const dateText = this.lockedElement.dataset.trDate;
+                const infoText = this.lockedElement.dataset.trInfo;
+                if (dateText && infoText) {
+                  this.updateTooltipContent(dateText, infoText);
+                  this.positionTooltip(this._pendingX, this._pendingY, true);
+                }
+              }
+              this.isLockedForThemeChange = false;
+              this.lockedElement = null;
+            }
+          });
 
           // [INTERACTION] Desktop trackpad gesture & mouse drag support
           if (this.hasHover) {
