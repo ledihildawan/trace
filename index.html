@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet" />
 
     <style>
-      /* [MODERN] Houdini: GPU-Accelerated Color Interpolation */
+      /* [PERFORMANCE] CSS Houdini: GPU-Accelerated Color Interpolation */
       @property --base-hex {
         syntax: '<color>';
         initial-value: #f0eee9;
@@ -28,10 +28,8 @@
         --color-ghost-label: oklch(from var(--base-hex) 0.3 0.05 h);
         --color-year-subliminal: oklch(from var(--bg-system) 0.93 0.01 h);
 
-        /* Adaptive Vars set via JS */
         --color-bar-adaptive: oklch(from var(--base-hex) 0.3 0.1 h / 0.6);
         --color-hover-adaptive: var(--base-hex);
-
         --radius-standard: 2px;
         --transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
       }
@@ -56,9 +54,9 @@
         background-color: var(--bg-system);
         font-family: 'Inter', sans-serif;
         transition: background-color 1.2s ease, --base-hex 1.2s ease;
+        overscroll-behavior: none;
       }
 
-      /* [MODERN] CSS Nesting & Interaction Logic */
       #trace-container {
         position: relative;
         display: flex;
@@ -69,11 +67,14 @@
 
         & #trace-viewport {
           display: grid;
-          will-change: transform, filter;
+          /* [PERF] Isolasi layout agar browser tidak repaint halaman penuh */
+          contain: strict;
+          will-change: transform;
           z-index: 2;
           justify-content: center;
           align-content: center;
           transition: opacity 0.4s ease;
+          touch-action: none;
         }
 
         & #year-watermark {
@@ -90,25 +91,22 @@
           justify-content: center;
           align-items: center;
           line-height: 0;
+          transform: translateZ(0);
         }
 
-        /* Focus Mode via :has() */
         &:has(.day:hover) #year-watermark {
           opacity: 0.15;
           transition: opacity 0.5s ease;
         }
       }
 
-      /* [UNIVERSAL LOCK] Freeze grid during ritual press anywhere */
-      :root:active {
-        & .day {
-          pointer-events: none !important;
-          transform: translateY(0) scale(1) !important;
-          transition-delay: 0ms !important;
-        }
-        & #tooltip {
-          opacity: 0 !important;
-        }
+      /* [UNIVERSAL LOCK - VISUAL RESET ONLY] */
+      /* Mematikan transformasi saat ditekan, namun pointer-events tetap aktif untuk JS */
+      :root:active .day {
+        transform: translateY(0) scale(1) !important;
+        transition-delay: 0ms !important;
+        box-shadow: none !important;
+        filter: none !important;
       }
 
       @keyframes theme-pulse-anim {
@@ -138,7 +136,6 @@
         overflow: hidden;
         backface-visibility: hidden;
         transform-style: preserve-3d;
-        will-change: transform, background-color, opacity;
 
         &.day--past {
           background-color: var(--color-past);
@@ -164,7 +161,7 @@
           transition-delay: 0ms !important;
         }
 
-        /* [MUSEUM EDITION] Refined Hover Levitation */
+        /* Desktop Hover */
         &:hover {
           transform: translateY(-2px) scale(1.02);
           z-index: 20;
@@ -175,6 +172,18 @@
           transition-delay: 0ms !important;
         }
 
+        /* Mobile Touch Active State */
+        &.is-touch-active {
+          transform: translateY(-2px) scale(1.02) !important;
+          z-index: 20;
+          opacity: 1 !important;
+          box-shadow: 0 12px 24px -10px oklch(from var(--base-hex) 0.1 0.1 h / 0.4), 0 0 0 1.5px var(--bg-system) !important;
+          background-color: var(--color-hover-adaptive) !important;
+          filter: brightness(1.1) saturate(1.2) !important;
+          transition-delay: 0ms !important;
+        }
+
+        /* [v1.0.1 Heritage] Monday Marker */
         &.day--monday::after {
           content: '';
           position: absolute;
@@ -190,6 +199,7 @@
           pointer-events: none;
         }
 
+        /* [v1.0.1 Heritage] Ghost Labels */
         &[data-ghost-label]::before {
           content: attr(data-ghost-label);
           position: absolute;
@@ -213,11 +223,6 @@
           color: oklch(from var(--base-hex) 0.9 0.05 h);
           opacity: 0.5;
         }
-
-        &.day--past[data-ghost-label]:hover::before {
-          color: var(--color-ghost-label);
-          opacity: 0.3;
-        }
       }
 
       .now-indicator {
@@ -235,19 +240,21 @@
       #tooltip {
         position: fixed;
         pointer-events: none;
-        background: rgba(255, 255, 255, 0.96);
-        backdrop-filter: blur(12px);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(16px);
         padding: 10px 16px;
         border-radius: 8px;
         font-size: clamp(12px, 1.5vw, 14px);
         font-weight: 600;
         color: #1a1a1a;
         opacity: 0;
-        transition: opacity 0.2s;
+        transition: opacity 0.15s ease-out;
         z-index: 100;
         white-space: nowrap;
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
         border: 1px solid oklch(from var(--base-hex) 0.9 0.05 h / 0.5);
+        will-change: transform, opacity;
+        transform: translateZ(0);
 
         & b {
           color: var(--color-past);
@@ -287,8 +294,19 @@
           this.watermark = document.getElementById('year-watermark');
           this.tooltip = document.getElementById('tooltip');
           this.year = 2026;
+
+          this.lastTouchElement = null;
+          this.isTicking = false;
+          this.tooltipHideTimer = null;
+          this.startX = 0;
+          this.startY = 0;
+
+          this.hasHover = window.matchMedia('(hover: hover)').matches;
+          this.tooltipWidth = 0;
+
           const savedIndex = localStorage.getItem('trace_theme_index');
           this.colorIndex = savedIndex ? parseInt(savedIndex) : 0;
+
           this.init();
         }
 
@@ -298,23 +316,124 @@
             if (e.key.toLowerCase() === 'c') this.cycleTheme();
           });
 
-          // [UNIVERSAL] Ritual Press Anywhere Logic
+          // --- HIGH PERFORMANCE UNIFIED INTERACTION ---
           let pressTimer;
-          const handleStart = () => {
+          let isDragging = false;
+
+          const handleMouseDown = () => {
+            pressTimer = setTimeout(() => this.cycleTheme(), 800);
+          };
+          const handleMouseUp = () => clearTimeout(pressTimer);
+
+          const handleTouchStart = (e) => {
+            const touch = e.touches[0];
+            this.startX = touch.clientX;
+            this.startY = touch.clientY;
+            isDragging = false;
+
+            if (this.tooltipHideTimer) {
+              clearTimeout(this.tooltipHideTimer);
+              this.tooltipHideTimer = null;
+            }
+
+            this.handleTouchInteraction(e);
+
             pressTimer = setTimeout(() => {
-              this.cycleTheme();
+              if (!isDragging) {
+                this.cycleTheme();
+                this.tooltip.style.opacity = 0;
+                if (this.lastTouchElement) {
+                  this.lastTouchElement.classList.remove('is-touch-active');
+                  this.lastTouchElement = null;
+                }
+              }
             }, 800);
           };
-          const handleCancel = () => clearTimeout(pressTimer);
 
-          document.addEventListener('mousedown', handleStart);
-          document.addEventListener('mouseup', handleCancel);
-          document.addEventListener('touchstart', handleStart, { passive: true });
-          document.addEventListener('touchend', handleCancel);
+          const handleTouchMove = (e) => {
+            const touch = e.touches[0];
+            const moveDistance = Math.hypot(touch.clientX - this.startX, touch.clientY - this.startY);
 
-          window.addEventListener('resize', () => this.debounceRender());
+            if (moveDistance > 10) {
+              isDragging = true;
+              clearTimeout(pressTimer);
+
+              if (!this.isTicking) {
+                window.requestAnimationFrame(() => {
+                  this.handleTouchInteraction(e);
+                  this.isTicking = false;
+                });
+                this.isTicking = true;
+              }
+            }
+          };
+
+          const handleTouchEnd = () => {
+            clearTimeout(pressTimer);
+            // Linger effect: Tooltip tetap terlihat selama 2.5 detik
+            this.tooltipHideTimer = setTimeout(() => {
+              this.tooltip.style.opacity = 0;
+              if (this.lastTouchElement) {
+                this.lastTouchElement.classList.remove('is-touch-active');
+                this.lastTouchElement = null;
+              }
+            }, 2500);
+          };
+
+          document.addEventListener('mousedown', handleMouseDown);
+          document.addEventListener('mouseup', handleMouseUp);
+
+          this.viewport.addEventListener('touchstart', handleTouchStart, { passive: false });
+          this.viewport.addEventListener('touchmove', handleTouchMove, { passive: false });
+          document.addEventListener('touchend', handleTouchEnd);
+
+          window.addEventListener('resize', () => {
+            this.hasHover = window.matchMedia('(hover: hover)').matches;
+            this.debounceRender();
+          });
+
           this.render();
           setInterval(() => this.updateTimeProgress(), 60000);
+        }
+
+        triggerHaptic(type) {
+          if (!navigator.vibrate) return;
+          if (type === 'scrub') navigator.vibrate(5);
+          else if (type === 'success') navigator.vibrate(50);
+        }
+
+        updateTooltipContent(html) {
+          if (this.tooltip.innerHTML !== html) {
+            this.tooltip.innerHTML = html;
+            const rect = this.tooltip.getBoundingClientRect();
+            this.tooltipWidth = rect.width;
+          }
+          this.tooltip.style.opacity = 1;
+        }
+
+        handleTouchInteraction(e) {
+          if (e.cancelable) e.preventDefault();
+
+          const touch = e.touches[0];
+          const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
+          if (target && target.classList.contains('day') && !target.classList.contains('day--filler')) {
+            if (this.lastTouchElement !== target) {
+              if (this.lastTouchElement) {
+                this.lastTouchElement.classList.remove('is-touch-active');
+              }
+              this.triggerHaptic('scrub');
+            }
+
+            target.classList.add('is-touch-active');
+            this.lastTouchElement = target;
+
+            if (target.dataset.date) {
+              const content = `${target.dataset.date}<b>${target.dataset.info}</b>`;
+              this.updateTooltipContent(content);
+              this.positionTooltip(touch.clientX, touch.clientY, true);
+            }
+          }
         }
 
         updateDynamicColors(hex) {
@@ -334,10 +453,8 @@
             `oklch(from ${hex} ${barLightness} ${barChroma} h / 0.7)`
           );
 
-          // Adaptive Hover Color Logic
           const hoverLightness = lValue > 0.7 ? 0.6 : lValue;
           const hoverChroma = lValue > 0.7 ? 0.15 : 0.1;
-
           document.documentElement.style.setProperty(
             '--color-hover-adaptive',
             `oklch(from ${hex} ${hoverLightness} ${hoverChroma} h)`
@@ -345,6 +462,7 @@
         }
 
         cycleTheme() {
+          this.triggerHaptic('success');
           this.colorIndex = (this.colorIndex + 1) % THEME_COLORS.length;
           this.updateDynamicColors(THEME_COLORS[this.colorIndex]);
           localStorage.setItem('trace_theme_index', this.colorIndex);
@@ -373,18 +491,35 @@
           }
         }
 
-        moveTooltip(e) {
-          const padding = 20;
-          let x = e.clientX,
-            y = e.clientY;
-          const rect = this.tooltip.getBoundingClientRect();
-          if (x + rect.width / 2 + padding > window.innerWidth) x = x - rect.width / 2 - padding;
-          else if (x - rect.width / 2 - padding < 0) x = x + rect.width / 2 + padding;
-          if (y - rect.height - padding < 0) y = y + padding + rect.height;
-          else y = y - padding;
+        // [SMART HUD ENGINE]
+        positionTooltip(clientX, clientY, isTouch = false) {
+          const gap = isTouch ? 40 : 20;
+          let x = clientX,
+            y = clientY;
+
+          if (x + this.tooltipWidth / 2 + 10 > window.innerWidth) x = window.innerWidth - this.tooltipWidth / 2 - 10;
+          else if (x - this.tooltipWidth / 2 - 10 < 0) x = this.tooltipWidth / 2 + 10;
+
+          if (isTouch) {
+            const isTopHalf = clientY < window.innerHeight / 2;
+            if (isTopHalf) {
+              y = y + 60;
+              this.tooltip.style.transform = `translate(-50%, 0)`;
+            } else {
+              y = y - 60;
+              this.tooltip.style.transform = `translate(-50%, -100%)`;
+            }
+          } else {
+            y = y - 20;
+            this.tooltip.style.transform = `translate(-50%, -100%)`;
+          }
+
           this.tooltip.style.left = `${x}px`;
           this.tooltip.style.top = `${y}px`;
-          this.tooltip.style.transform = `translate(-50%, -100%)`;
+        }
+
+        moveTooltip(e) {
+          this.positionTooltip(e.clientX, e.clientY, false);
         }
 
         render() {
@@ -408,16 +543,17 @@
             const el = document.createElement('div');
             const isTargetYear = cursor.getFullYear() === this.year;
             let type = 'filler';
+
             if (isTargetYear) {
               if (cursor.toDateString() === todayInfo.str) type = 'today';
               else if (cursor.getTime() < todayInfo.time) type = 'past';
               else type = 'future';
             }
+
             el.className = `day day--${type}`;
             const col = i % layout.c;
             const row = Math.floor(i / layout.c);
-            const delay = (col + row) * 12;
-            el.style.setProperty('--delay', `${delay}ms`);
+            el.style.setProperty('--delay', `${(col + row) * 12}ms`);
 
             if (cursor.getDay() === 1) el.classList.add('day--monday');
 
@@ -434,6 +570,7 @@
               bar.id = 'today-progress-bar';
               el.appendChild(bar);
             }
+
             if (isTargetYear && cursor.getDate() === 1) el.setAttribute('data-ghost-label', months[cursor.getMonth()]);
 
             if (type !== 'filler') {
@@ -442,12 +579,16 @@
               const yearPercent = ((dayNum / daysInYear) * 100).toFixed(1);
               el.dataset.date = cursor.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
               el.dataset.info = `Day ${dayNum} • ${yearPercent}% of Year`;
+
               el.onmouseenter = (e) => {
-                this.tooltip.innerHTML = `${el.dataset.date}<b>${el.dataset.info}</b>`;
-                this.tooltip.style.opacity = 1;
-                this.moveTooltip(e);
+                if (this.hasHover) {
+                  this.updateTooltipContent(`${el.dataset.date}<b>${el.dataset.info}</b>`);
+                  this.positionTooltip(e.clientX, e.clientY, false);
+                }
               };
-              el.onmousemove = (e) => this.moveTooltip(e);
+              el.onmousemove = (e) => {
+                if (this.hasHover) this.positionTooltip(e.clientX, e.clientY, false);
+              };
               el.onmouseleave = () => (this.tooltip.style.opacity = 0);
             }
             fragment.appendChild(el);
