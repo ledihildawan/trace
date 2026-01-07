@@ -131,13 +131,13 @@
         width: 100%;
         height: 100%;
         border-radius: var(--tr-radius-standard);
-        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
-          transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--tr-transition-smooth), box-shadow 0.4s ease;
+        /* [PERFORMANCE] Reduce transition properties - only animate essential properties */
+        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth);
         transition-delay: var(--tr-delay, 0ms);
         position: relative;
         overflow: visible;
-        backface-visibility: hidden;
-        transform-style: preserve-3d;
+        /* [PERFORMANCE] Use contain for isolation */
+        contain: layout style paint;
         outline: none;
 
         &.tr-day--past {
@@ -170,14 +170,15 @@
             0 15px 30px rgba(0, 0, 0, 0.2);
         }
 
+        /* [PERFORMANCE] Simplified hover/touch - no filter/box-shadow animation */
         &:hover,
         &.tr-is-touch-active {
           transform: translateY(-2px) scale(1.02);
           z-index: 20;
           opacity: 1 !important;
-          box-shadow: 0 12px 24px -10px oklch(from var(--tr-base-hex) 0.1 0.1 h / 0.4), 0 0 0 1.5px var(--tr-bg-system);
           background-color: var(--tr-color-hover-adaptive);
-          filter: brightness(1.1) saturate(1.2) !important;
+          box-shadow: 0 8px 16px -8px oklch(from var(--tr-base-hex) 0.1 0.1 h / 0.3);
+          transition: transform 0.15s ease-out, background-color 0.15s ease-out, opacity 0.15s ease-out;
           transition-delay: 0ms !important;
         }
 
@@ -244,6 +245,8 @@
         transition: opacity 0.15s ease-out;
         z-index: 100;
         white-space: nowrap;
+        /* [PERFORMANCE] GPU layer for smooth positioning */
+        will-change: transform, opacity;
         transform: translateZ(0);
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
         border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
@@ -265,6 +268,40 @@
         overflow: hidden;
         clip: rect(0, 0, 0, 0);
         border: 0;
+      }
+
+      /* [PERFORMANCE] Reduced motion preference - disable expensive animations */
+      @media (prefers-reduced-motion: reduce) {
+        .tr-day {
+          transition: none !important;
+        }
+        .tr-day:hover,
+        .tr-day.tr-is-touch-active {
+          transition: none !important;
+          transform: none !important;
+        }
+        #tr-tooltip {
+          transition: none !important;
+        }
+        .tr-theme-pulse {
+          animation: none !important;
+        }
+      }
+
+      /* [PERFORMANCE] Touch device optimizations - coarse pointer = touch */
+      @media (pointer: coarse) {
+        .tr-day {
+          /* Disable hover transitions on touch - use class toggle instead */
+          transition: background-color 0.2s ease-out, opacity 0.2s ease-out;
+        }
+        .tr-day:hover {
+          transform: none;
+          box-shadow: none;
+        }
+        .tr-day.tr-is-touch-active {
+          transform: translateY(-1px) scale(1.01);
+          transition: transform 0.1s ease-out, background-color 0.1s ease-out;
+        }
       }
     </style>
   </head>
@@ -309,6 +346,12 @@
         static HAPTIC_SCRUB_MS = 5;
         static HAPTIC_SUCCESS_MS = 50;
         static DRAG_THRESHOLD_PX = 10;
+
+        // [PERFORMANCE] RAF throttle state
+        _rafPending = false;
+        _pendingX = 0;
+        _pendingY = 0;
+        _lastHoveredElement = null;
 
         constructor() {
           this.viewport = document.getElementById('tr-viewport');
@@ -374,13 +417,46 @@
 
           let isDragging = false;
 
+          // [PERFORMANCE] Unified RAF-throttled pointer handler
+          const processPointerMove = () => {
+            this._rafPending = false;
+            const target = document.elementFromPoint(this._pendingX, this._pendingY);
+            if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+              if (this._lastHoveredElement !== target) {
+                if (this._lastHoveredElement) {
+                  this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                }
+                target.classList.add('tr-is-touch-active');
+                this._lastHoveredElement = target;
+                this.triggerHaptic('scrub');
+              }
+              const dateText = target.dataset.trDate;
+              const infoText = target.dataset.trInfo;
+              if (dateText && infoText) {
+                this.updateTooltipContent(dateText, infoText);
+                this.positionTooltip(this._pendingX, this._pendingY, true);
+              }
+            }
+          };
+
+          const schedulePointerUpdate = (x, y) => {
+            this._pendingX = x;
+            this._pendingY = y;
+            if (!this._rafPending) {
+              this._rafPending = true;
+              requestAnimationFrame(processPointerMove);
+            }
+          };
+
           const handleStart = (e) => {
             const touch = e.touches ? e.touches[0] : e;
             this.startX = touch.clientX;
             this.startY = touch.clientY;
             isDragging = false;
             if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
-            if (e.touches) this.handleTouchInteraction(e);
+            if (e.touches) {
+              schedulePointerUpdate(touch.clientX, touch.clientY);
+            }
             if (this.pressTimer) clearTimeout(this.pressTimer);
             this.pressTimer = setTimeout(() => {
               if (!isDragging) this.cycleTheme();
@@ -389,16 +465,12 @@
 
           const handleMove = (e) => {
             const touch = e.touches[0];
-            if (Math.hypot(touch.clientX - this.startX, touch.clientY - this.startY) > TraceEngine.DRAG_THRESHOLD_PX) {
+            const dx = touch.clientX - this.startX;
+            const dy = touch.clientY - this.startY;
+            if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
               isDragging = true;
               if (this.pressTimer) clearTimeout(this.pressTimer);
-              if (!this.isTicking) {
-                window.requestAnimationFrame(() => {
-                  this.handleTouchInteraction(e);
-                  this.isTicking = false;
-                });
-                this.isTicking = true;
-              }
+              schedulePointerUpdate(touch.clientX, touch.clientY);
             }
           };
 
@@ -406,6 +478,10 @@
             if (this.pressTimer) clearTimeout(this.pressTimer);
             this.tooltipHideTimer = setTimeout(() => {
               this.tooltip.style.opacity = 0;
+              if (this._lastHoveredElement) {
+                this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                this._lastHoveredElement = null;
+              }
               if (this.lastTouchElement) {
                 this.lastTouchElement.classList.remove('tr-is-touch-active');
                 this.lastTouchElement = null;
@@ -438,30 +514,110 @@
          * Setup event delegation for hover interactions to prevent memory leaks
          */
         setupEventDelegation() {
-          if (!this.hasHover) return;
+          // [PERFORMANCE] Unified event delegation for both mouse and touch
+          // Using RAF throttle for mousemove to prevent layout thrashing
+          let mouseRafPending = false;
+          let pendingMouseX = 0;
+          let pendingMouseY = 0;
 
-          this.viewport.addEventListener('mouseover', (e) => {
+          const processMouseMove = () => {
+            mouseRafPending = false;
+            this.tooltip.style.left = `${Math.min(
+              Math.max(pendingMouseX, this.tooltipWidth / 2 + 10),
+              window.innerWidth - this.tooltipWidth / 2 - 10
+            )}px`;
+            this.tooltip.style.top = `${pendingMouseY - 20}px`;
+          };
+
+          if (this.hasHover) {
+            this.viewport.addEventListener('mouseover', (e) => {
+              const target = e.target;
+              if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+                const dateText = target.dataset.trDate;
+                const infoText = target.dataset.trInfo;
+                if (dateText && infoText) {
+                  this.updateTooltipContent(dateText, infoText);
+                  this.positionTooltip(e.clientX, e.clientY, false);
+                }
+              }
+            });
+
+            this.viewport.addEventListener('mousemove', (e) => {
+              if (this.tooltip.style.opacity === '1') {
+                pendingMouseX = e.clientX;
+                pendingMouseY = e.clientY;
+                if (!mouseRafPending) {
+                  mouseRafPending = true;
+                  requestAnimationFrame(processMouseMove);
+                }
+              }
+            });
+
+            this.viewport.addEventListener('mouseout', (e) => {
+              if (!this.viewport.contains(e.relatedTarget)) {
+                this.tooltip.style.opacity = '0';
+              }
+            });
+          }
+
+          // [PERFORMANCE] Keyboard navigation via event delegation
+          this.viewport.addEventListener('keydown', (e) => {
             const target = e.target;
-            if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
-              const dateText = target.dataset.trDate;
-              const infoText = target.dataset.trInfo;
-              if (dateText && infoText) {
-                this.updateTooltipContent(dateText, infoText);
-                this.positionTooltip(e.clientX, e.clientY, false);
+            if (!target.classList.contains('tr-day')) return;
+
+            const index = parseInt(target.dataset.trIndex, 10);
+            if (isNaN(index)) return;
+
+            let targetIndex = -1;
+            switch (e.key) {
+              case 'ArrowRight':
+                targetIndex = index + 1;
+                break;
+              case 'ArrowLeft':
+                targetIndex = index - 1;
+                break;
+              case 'ArrowDown':
+                targetIndex = index + this._currentColumns;
+                break;
+              case 'ArrowUp':
+                targetIndex = index - this._currentColumns;
+                break;
+              case 'Home':
+                targetIndex = 0;
+                break;
+              case 'End':
+                targetIndex = this.gridCells.length - 1;
+                break;
+              default:
+                return;
+            }
+
+            if (targetIndex >= 0 && targetIndex < this.gridCells.length) {
+              const targetCell = this.gridCells[targetIndex];
+              if (targetCell && !targetCell.classList.contains('tr-day--filler')) {
+                e.preventDefault();
+                targetCell.focus();
+                this.srStatus.textContent = targetCell.getAttribute('aria-label');
               }
             }
           });
 
-          this.viewport.addEventListener('mousemove', (e) => {
-            if (this.tooltip.style.opacity === '1') {
-              this.positionTooltip(e.clientX, e.clientY, false);
+          // [PERFORMANCE] Focus/blur via delegation
+          this.viewport.addEventListener('focusin', (e) => {
+            const target = e.target;
+            if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+              const rect = target.getBoundingClientRect();
+              const dateText = target.dataset.trDate;
+              const infoText = target.dataset.trInfo;
+              if (dateText && infoText) {
+                this.updateTooltipContent(dateText, infoText);
+                this.positionTooltip(rect.left + rect.width / 2, rect.top, false);
+              }
             }
           });
 
-          this.viewport.addEventListener('mouseout', (e) => {
-            if (!this.viewport.contains(e.relatedTarget)) {
-              this.tooltip.style.opacity = '0';
-            }
+          this.viewport.addEventListener('focusout', () => {
+            this.tooltip.style.opacity = '0';
           });
         }
 
@@ -494,29 +650,6 @@
             this.tooltipWidth = this.tooltip.getBoundingClientRect().width;
           }
           this.tooltip.style.opacity = '1';
-        }
-
-        /**
-         * Handle touch interaction for mobile scrubbing
-         * @param {TouchEvent} e - Touch event
-         */
-        handleTouchInteraction(e) {
-          const touch = e.touches[0];
-          const target = document.elementFromPoint(touch.clientX, touch.clientY);
-          if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
-            if (this.lastTouchElement !== target) {
-              if (this.lastTouchElement) this.lastTouchElement.classList.remove('tr-is-touch-active');
-              this.triggerHaptic('scrub');
-            }
-            target.classList.add('tr-is-touch-active');
-            this.lastTouchElement = target;
-            const dateText = target.dataset.trDate;
-            const infoText = target.dataset.trInfo;
-            if (dateText && infoText) {
-              this.updateTooltipContent(dateText, infoText);
-              this.positionTooltip(touch.clientX, touch.clientY, true);
-            }
-          }
         }
 
         /**
@@ -688,51 +821,7 @@
               el.setAttribute('aria-label', `${dateLong}. ${infoStr}`);
               if (type === 'today') el.setAttribute('aria-current', 'date');
 
-              // Keyboard navigation
-              el.addEventListener('keydown', (e) => {
-                let targetIndex = -1;
-                switch (e.key) {
-                  case 'ArrowRight':
-                    targetIndex = i + 1;
-                    break;
-                  case 'ArrowLeft':
-                    targetIndex = i - 1;
-                    break;
-                  case 'ArrowDown':
-                    targetIndex = i + layout.columns;
-                    break;
-                  case 'ArrowUp':
-                    targetIndex = i - layout.columns;
-                    break;
-                  case 'Home':
-                    targetIndex = 0;
-                    break;
-                  case 'End':
-                    targetIndex = totalCells - 1;
-                    break;
-                  default:
-                    return;
-                }
-
-                const targetCell = gridCells[targetIndex];
-                if (targetCell && !targetCell.classList.contains('tr-day--filler')) {
-                  e.preventDefault();
-                  targetCell.focus();
-                  // Update screen reader
-                  this.srStatus.textContent = targetCell.getAttribute('aria-label');
-                }
-              });
-
-              // Focus handling (no longer using inline handlers for memory efficiency)
-              el.addEventListener('focus', () => {
-                const rect = el.getBoundingClientRect();
-                this.updateTooltipContent(dateLong, infoStr);
-                this.positionTooltip(rect.left + rect.width / 2, rect.top, false);
-              });
-
-              el.addEventListener('blur', () => {
-                this.tooltip.style.opacity = '0';
-              });
+              // [PERFORMANCE] Event listeners removed - using delegation in setupEventDelegation()
             }
             gridCells.push(el);
             fragment.appendChild(el);
@@ -741,6 +830,8 @@
 
           // Store reference for keyboard navigation
           this.gridCells = gridCells;
+          // [PERFORMANCE] Store columns count for keyboard navigation delegation
+          this._currentColumns = layout.columns;
 
           // Clear viewport safely
           while (this.viewport.firstChild) {
