@@ -270,8 +270,27 @@ git push origin main
 
 ### JavaScript
 * **ES6 Modules:** Use modern ES6 syntax.
-* **12:00 PM Normalization:** All `Date` objects must be set to Noon to avoid timezone shifting bugs.
+* **UTC Time Handling:** All `Date` objects must use UTC methods (`Date.UTC()`, `getUTCFullYear()`, etc.) to avoid timezone shifting bugs.
+* **Constants Over Magic Numbers:** Define all timing, visual effect, and threshold values as static class constants (e.g., `static LONG_PRESS_DURATION = 800`).
+* **JSDoc Documentation:** All class methods must include JSDoc comments with parameter types and descriptions.
+* **Event Delegation:** Use event delegation on parent containers instead of attaching individual listeners to avoid memory leaks.
+* **Error Handling:** Wrap `localStorage` operations and external API calls in try-catch blocks.
 * **Performance:** Use `requestAnimationFrame` for visual updates. Avoid `setInterval` for high-frequency rendering.
+* **XSS Prevention:** Never use `innerHTML` with dynamic content. Use `textContent` and `createElement()` instead.
+* **Cleanup Methods:** Implement `destroy()` methods that clear all timers, intervals, and event listeners.
+
+### Security
+* **Content Security Policy:** The application includes CSP headers - ensure any new external resources are whitelisted.
+* **Input Sanitization:** All user-facing text must be rendered using safe DOM methods, never `innerHTML`.
+* **localStorage Safety:** Always wrap storage operations in try-catch blocks to handle private browsing mode and quota limits.
+* **Dependency Audits:** Keep external dependencies (fonts, libraries) to a minimum and verify integrity.
+
+### Accessibility
+* **Keyboard Navigation:** Implement roving tabindex patterns for grid/list navigation using arrow keys (ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, End).
+* **ARIA Labels:** All interactive elements must have descriptive `aria-label` attributes in English.
+* **Screen Reader Support:** Use `aria-live` regions for dynamic content announcements.
+* **Focus Management:** Visible focus indicators required for all interactive elements.
+* **Language Consistency:** All `aria-label`, `title`, and screen reader text must be in English (`lang="en"`).
 
 ---
 
@@ -335,13 +354,20 @@ When you submit a PR, the maintainers will review it based on:
 
 Issues and PRs may be labeled with `philosophy mismatch` or `out of scope` if they don't align with TRACE's vision. Here's how to fix them:
 
-| Rejection Reason                   | Label Applied                         | How to Fix                                                               |
-| ---------------------------------- | ------------------------------------- | ------------------------------------------------------------------------ |
-| Introduces unnecessary UI elements | `philosophy mismatch`, `out of scope` | Remove buttons/overlays, use gestures (long press, hover) instead        |
-| Linear or choppy animations        | `neuroaesthetics`                     | Use `cubic-bezier(0.22, 1, 0.36, 1)` or physics-based curves             |
-| Uses RGB/HEX for dynamic colors    | `visual-polish`                       | Convert to OKLCH with `oklch(from var(--base) ...)`                      |
-| Causes performance jitter          | `performance`                         | Add GPU acceleration: `backface-visibility: hidden`, `will-change`, etc. |
-| Unclear or non-standard commits    | —                                     | Rewrite using Conventional Commits format                                |
+| Rejection Reason                   | Label Applied                         | How to Fix                                                                    |
+| ---------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- |
+| Introduces unnecessary UI elements | `philosophy mismatch`, `out of scope` | Remove buttons/overlays, use gestures (long press, hover) instead             |
+| Linear or choppy animations        | `neuroaesthetics`                     | Use `cubic-bezier(0.22, 1, 0.36, 1)` or physics-based curves                  |
+| Uses RGB/HEX for dynamic colors    | `visual-polish`                       | Convert to OKLCH with `oklch(from var(--base) ...)`                           |
+| Causes performance jitter          | `performance`                         | Add GPU acceleration: `backface-visibility: hidden`, `will-change`, etc.      |
+| Memory leaks from event listeners  | `performance`                         | Use event delegation instead of individual element listeners                  |
+| Uses magic numbers                 | —                                     | Extract to static class constants with descriptive names                      |
+| Missing JSDoc comments             | —                                     | Add JSDoc with `@param` and `@returns` tags to all methods                   |
+| Uses local time instead of UTC     | `bug`                                 | Replace `new Date()` methods with UTC equivalents                             |
+| Missing error handling             | —                                     | Wrap `localStorage` and external calls in try-catch blocks                    |
+| XSS vulnerability with innerHTML   | `security`                            | Replace with `textContent` and `createElement()`                              |
+| Missing cleanup in component       | `performance`                         | Implement `destroy()` method to clear timers and listeners                    |
+| Unclear or non-standard commits    | —                                     | Rewrite using Conventional Commits format                                     |
 
 ---
 

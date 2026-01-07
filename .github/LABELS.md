@@ -12,6 +12,7 @@ This file documents all GitHub labels used in the TRACE project for issues and p
 | `feature request` | 💡 Yellow | Proposed ideas waiting for a philosophy check. | You have a suggestion for a new feature |
 | `documentation`   | 📚 Blue   | Improvements or additions to documentation.    | Docs are missing, unclear, or outdated  |
 | `accessibility`   | ♿ Teal   | Improvements for screen readers, keyboard navigation, and ARIA standards. | Missing or broken a11y features |
+| `security`        | 🔒 Dark Red | Security vulnerabilities or concerns.        | Found XSS, data leaks, or security issues |
 
 ### Priority & Help (Optional)
 

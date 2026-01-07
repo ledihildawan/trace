@@ -41,6 +41,24 @@
 - [ ] I have rebased onto the latest `main` branch
 - [ ] My commits follow Conventional Commits format
 
+## Security & Best Practices
+
+- [ ] **No XSS vulnerabilities:** Used `textContent`/`createElement()` instead of `innerHTML`
+- [ ] **Error handling:** Wrapped `localStorage` operations in try-catch blocks
+- [ ] **UTC time handling:** Used UTC methods for all date operations
+- [ ] **Constants used:** No magic numbers - extracted to static class constants
+- [ ] **JSDoc added:** All new methods have JSDoc comments with parameter types
+- [ ] **Event delegation:** Used event delegation to prevent memory leaks
+- [ ] **Cleanup method:** Implemented `destroy()` to clear timers and listeners (if applicable)
+
+## Accessibility
+
+- [ ] **Keyboard navigation:** Arrow keys work for grid/list navigation (if applicable)
+- [ ] **ARIA labels:** All interactive elements have descriptive `aria-label` in English
+- [ ] **Screen reader tested:** Announcements work with NVDA/VoiceOver (if applicable)
+- [ ] **Focus visible:** Focus indicators clearly visible on all interactive elements
+- [ ] **Language consistency:** All text attributes use English (`lang="en"`)
+
 ## Testing
 
 ### How has this been tested?

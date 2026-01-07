@@ -58,9 +58,30 @@ We will:
 
 When contributing to TRACE, please follow these security guidelines:
 
+### Code Security
 - **Never commit secrets** (API keys, tokens, passwords)
-- **Validate all user inputs** if implementing new features
-- **Use HTTPS** for all external resources
+- **XSS Prevention:** Always use `textContent` and `createElement()` instead of `innerHTML`
+- **Input Sanitization:** Validate and sanitize all user inputs before rendering
+- **localStorage Safety:** Wrap all storage operations in try-catch blocks
+- **Content Security Policy:** Respect the existing CSP headers - don't add unsafe resources
+
+### Resource Security
+- **Use HTTPS** for all external resources (fonts, CDNs)
+- **Verify Integrity:** Add SRI (Subresource Integrity) hashes for external scripts
+- **Minimal Dependencies:** Avoid adding new external dependencies
 - **Keep dependencies updated** and audit for vulnerabilities
+
+### Data Security
+- **UTC Time Handling:** Always use UTC methods to avoid timezone-related bugs
+- **No Sensitive Data:** Don't store or transmit sensitive user information
+- **Privacy First:** Respect user privacy - no tracking or analytics without consent
+
+### Known Security Measures
+
+TRACE currently implements:
+- Content Security Policy (CSP) headers
+- XSS protection via safe DOM manipulation
+- Error handling for localStorage (private browsing support)
+- No external JavaScript dependencies (zero supply chain attack surface)
 
 Thank you for helping keep TRACE safe! 🙏

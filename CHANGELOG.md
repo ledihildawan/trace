@@ -2,6 +2,36 @@
 
 All notable changes to the **TRACE** project will be documented in this file.
 
+## [1.0.5] - 2026-01-07
+
+### Security Enhancements
+* **XSS Protection:** Eliminated `innerHTML` usage - all dynamic content now rendered via safe DOM methods (`textContent`, `createElement()`).
+* **Content Security Policy:** Added CSP meta headers to restrict resource loading and prevent injection attacks.
+* **Error Resilience:** Wrapped all `localStorage` operations in try-catch blocks for graceful handling of private browsing and quota limits.
+
+### Performance & Memory Optimizations
+* **Event Delegation:** Migrated from 1,468 individual event listeners to viewport-level delegation, preventing memory leaks on theme changes.
+* **Eliminated Re-renders:** Theme cycling no longer triggers full DOM regeneration - CSS variables handle color transitions.
+* **Grid Calculation Optimization:** Reduced layout computation from O(n) to ~O(0.6n) using aspect-ratio-based search range narrowing.
+* **Touch Event Performance:** Removed `preventDefault()` overhead by relying on CSS `touch-action: none` for scroll prevention.
+* **Cleanup Architecture:** Implemented `destroy()` method to properly clear all timers, intervals, and listeners.
+
+### Accessibility Improvements
+* **Keyboard Navigation:** Full arrow key support (←↑→↓) with Home/End shortcuts using roving tabindex pattern.
+* **Screen Reader Enhancement:** Added dedicated `aria-live` region for focused cell announcements.
+* **Language Consistency:** Migrated all UI text and ARIA labels from Indonesian to English (`lang="en"`).
+* **Focus Management:** Only today's cell is tabbable by default, reducing 367 tab stops to 1 with arrow navigation.
+
+### Code Quality & Maintainability
+* **Constants Over Magic Numbers:** Extracted 9 hardcoded values to static class constants (e.g., `LONG_PRESS_DURATION`, `OPACITY_DECAY_RATE`).
+* **JSDoc Documentation:** Added comprehensive method documentation with `@param` and `@returns` type annotations (15+ methods).
+* **Clear Naming:** Renamed cryptic variables (`{s, gap, c, r}` → `{cellSize, gapSize, columns, rows}`).
+* **UTC Time Handling:** Migrated from local time to UTC methods (`getUTCFullYear()`, `Date.UTC()`) to eliminate timezone bugs.
+* **Dark Mode Detection:** Auto-selects dark theme on initialization if system preference is `prefers-color-scheme: dark`.
+
+### Font & Fallback
+* **System Font Fallback:** Added fallback chain: `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`.
+
 ## [1.0.4] - 2026-01-07
 
 ### Features
