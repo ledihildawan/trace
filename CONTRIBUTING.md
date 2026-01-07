@@ -284,11 +284,12 @@ We use GitHub Issues to track our work. Before opening a PR, check if an issue e
 We use the following labels to categorize issues and PRs:
 
 #### Issue Types
-| Label             | Meaning                                        |
-| ----------------- | ---------------------------------------------- |
-| `bug`             | Something isn't working as intended.           |
-| `feature request` | Proposed ideas waiting for a philosophy check. |
-| `documentation`   | Improvements or additions to documentation.    |
+| Label             | Meaning                                                                   |
+| ----------------- | ------------------------------------------------------------------------- |
+| `bug`             | Something isn't working as intended.                                      |
+| `feature request` | Proposed ideas waiting for a philosophy check.                            |
+| `documentation`   | Improvements or additions to documentation.                               |
+| `accessibility`   | Improvements for screen readers, keyboard navigation, and ARIA standards. |
 
 #### Priority & Help
 | Label              | Meaning                                    |

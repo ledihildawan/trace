@@ -11,6 +11,7 @@ This file documents all GitHub labels used in the TRACE project for issues and p
 | `bug`             | 🔴 Red    | Something isn't working as intended.           | You found a problem in the code or UI   |
 | `feature request` | 💡 Yellow | Proposed ideas waiting for a philosophy check. | You have a suggestion for a new feature |
 | `documentation`   | 📚 Blue   | Improvements or additions to documentation.    | Docs are missing, unclear, or outdated  |
+| `accessibility`   | ♿ Teal   | Improvements for screen readers, keyboard navigation, and ARIA standards. | Missing or broken a11y features |
 
 ### Priority & Help (Optional)
 
@@ -43,6 +44,7 @@ When creating an **issue**, select the primary label that best describes it:
 - Creating a bug report? Use `bug`
 - Suggesting a feature? Use `feature request`
 - Reporting docs issues? Use `documentation`
+- Found accessibility issues? Use `accessibility`
 
 After creation, maintainers may add additional context labels like `neuroaesthetics` or `performance`.
 
@@ -79,7 +81,13 @@ Use labels to find issues aligned with your interests:
 - Maintainer applies: `philosophy mismatch` or `out of scope`
 - Reason: Violates Zero-UI principle
 
-### Scenario 4: Documentation PR
+### Scenario 4: Accessibility Issue
+- Reporter finds that keyboard navigation is broken
+- Reporter creates issue with label: `accessibility`
+- Maintainer adds: `bug`, `help wanted`
+- Issue: "Tab key doesn't work with temporal slider"
+
+### Scenario 5: Documentation PR
 - Contributor opens PR with label: `documentation`
 - Maintainer reviews and merges
 
@@ -95,6 +103,9 @@ is:open label:bug label:"help wanted"
 
 # Find good starter tasks
 is:open label:"good first issue"
+
+# Find accessibility-related work
+is:open label:accessibility
 
 # Find performance-related work
 is:open label:performance
