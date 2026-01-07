@@ -375,6 +375,8 @@
           this.isTicking = false;
           this.tooltipHideTimer = null;
           this.pressTimer = null;
+          this.isLongPressMode = false;
+          this.isDragging = false;
           this.resizeTimer = null;
           this.timeUpdateInterval = null;
           this.startX = 0;
@@ -440,6 +442,10 @@
                 this.updateTooltipContent(dateText, infoText);
                 this.positionTooltip(this._pendingX, this._pendingY, true);
               }
+            } else if (this._lastHoveredElement) {
+              // Cleanup touch active class when pointer leaves viewport
+              this._lastHoveredElement.classList.remove('tr-is-touch-active');
+              this._lastHoveredElement = null;
             }
           };
 
@@ -457,13 +463,19 @@
             this.startX = touch.clientX;
             this.startY = touch.clientY;
             isDragging = false;
+            this.isLongPressMode = false;
             if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
             if (e.touches) {
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
             if (this.pressTimer) clearTimeout(this.pressTimer);
             this.pressTimer = setTimeout(() => {
-              if (!isDragging) this.cycleTheme();
+              if (!isDragging) {
+                this.isLongPressMode = true;
+                this.tooltip.style.opacity = 0;
+                this.cycleTheme();
+                this.triggerHaptic('success');
+              }
             }, TraceEngine.LONG_PRESS_DURATION);
           };
 
@@ -473,6 +485,7 @@
             const dy = touch.clientY - this.startY;
             if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
               isDragging = true;
+              this.isLongPressMode = false;
               if (this.pressTimer) clearTimeout(this.pressTimer);
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
@@ -480,6 +493,7 @@
 
           const handleEnd = () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
+            const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
             this.tooltipHideTimer = setTimeout(() => {
               this.tooltip.style.opacity = 0;
               if (this._lastHoveredElement) {
@@ -490,7 +504,9 @@
                 this.lastTouchElement.classList.remove('tr-is-touch-active');
                 this.lastTouchElement = null;
               }
-            }, TraceEngine.TOOLTIP_LINGER_MS);
+            }, duration);
+            isDragging = false;
+            this.isLongPressMode = false;
           };
 
           document.addEventListener('mousedown', handleStart);
@@ -501,6 +517,55 @@
           this.viewport.addEventListener('touchstart', handleStart, { passive: true });
           this.viewport.addEventListener('touchmove', handleMove, { passive: true });
           document.addEventListener('touchend', handleEnd);
+
+          // [INTERACTION] Desktop trackpad gesture & mouse drag support
+          if (this.hasHover) {
+            let isMouseDragging = false;
+            let dragStartX = 0;
+            const MOUSE_DRAG_THRESHOLD = 80;
+
+            // Trackpad wheel swipe gesture
+            this.viewport.addEventListener(
+              'wheel',
+              (e) => {
+                if (e.ctrlKey || e.metaKey) return; // Allow browser zoom
+                e.preventDefault();
+                
+                // Horizontal swipe: deltaY > 0 = swipe down/right
+                if (Math.abs(e.deltaY) > 50) {
+                  this.cycleTheme();
+                  this.triggerHaptic('success');
+                }
+              },
+              { passive: false }
+            );
+
+            // Mouse drag swipe simulation
+            this.viewport.addEventListener('pointerdown', (e) => {
+              if (e.pointerType !== 'mouse') return;
+              dragStartX = e.clientX;
+              isMouseDragging = true;
+            });
+
+            this.viewport.addEventListener('pointermove', (e) => {
+              if (!isMouseDragging || e.pointerType !== 'mouse') return;
+              
+              const dragDistance = e.clientX - dragStartX;
+              if (Math.abs(dragDistance) > MOUSE_DRAG_THRESHOLD) {
+                this.cycleTheme();
+                this.triggerHaptic('success');
+                isMouseDragging = false;
+              }
+            });
+
+            this.viewport.addEventListener('pointerup', () => {
+              isMouseDragging = false;
+            });
+
+            this.viewport.addEventListener('pointerleave', () => {
+              isMouseDragging = false;
+            });
+          }
 
           window.addEventListener('resize', () => {
             this.hasHover = window.matchMedia('(hover: hover)').matches;
