@@ -11,26 +11,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet" />
 
     <style>
-      /* [PERFORMANCE] CSS Houdini: GPU-Accelerated Theme Transitions */
-      @property --base-hex {
+      /* [PERFORMANCE] CSS Houdini: GPU-Accelerated Color Transitions */
+      @property --tr-base-hex {
         syntax: '<color>';
         initial-value: #f0eee9;
         inherits: true;
       }
 
       :root {
-        --base-hex: #f0eee9;
-        --full-h: 100dvh;
-        --bg-system: oklch(from var(--base-hex) 0.97 0.01 h);
-        --color-today: var(--base-hex);
-        --color-past: oklch(from var(--base-hex) 0.45 0.05 h);
-        --color-future: oklch(from var(--base-hex) 0.93 0.02 h);
-        --color-ghost-label: oklch(from var(--base-hex) 0.3 0.05 h);
-        --color-year-subliminal: oklch(from var(--bg-system) 0.93 0.01 h);
-        --color-bar-adaptive: oklch(from var(--base-hex) 0.3 0.1 h / 0.6);
-        --color-hover-adaptive: var(--base-hex);
-        --radius-standard: 2px;
-        --transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        --tr-base-hex: #f0eee9;
+        --tr-full-h: 100dvh;
+        --tr-bg-system: oklch(from var(--tr-base-hex) 0.97 0.01 h);
+        --tr-color-today: var(--tr-base-hex);
+        --tr-color-past: oklch(from var(--tr-base-hex) 0.45 0.05 h);
+        --tr-color-future: oklch(from var(--tr-base-hex) 0.93 0.02 h);
+        --tr-color-ghost-label: oklch(from var(--tr-base-hex) 0.3 0.05 h);
+        --tr-color-year-subliminal: oklch(from var(--tr-bg-system) 0.93 0.01 h);
+        --tr-color-bar-adaptive: oklch(from var(--tr-base-hex) 0.3 0.1 h / 0.6);
+        --tr-color-hover-adaptive: var(--tr-base-hex);
+        --tr-radius-standard: 2px;
+        --tr-transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
       }
 
       *,
@@ -44,19 +44,19 @@
       }
 
       body {
-        height: var(--full-h);
+        height: var(--tr-full-h);
         width: 100dvw;
         overflow: hidden;
         display: flex;
         justify-content: center;
         align-items: center;
-        background-color: var(--bg-system);
+        background-color: var(--tr-bg-system);
         font-family: 'Inter', sans-serif;
-        transition: background-color 1.2s ease, --base-hex 1.2s ease;
+        transition: background-color 1.2s ease, --tr-base-hex 1.2s ease;
         overscroll-behavior: none;
       }
 
-      #trace-container {
+      #tr-container {
         position: relative;
         display: flex;
         justify-content: center;
@@ -64,10 +64,10 @@
         width: 100%;
         height: 100%;
 
-        & #trace-viewport {
+        & #tr-viewport {
           display: grid;
-          /* [PERF] Isolasi layout agar tidak memicu global reflow */
-          contain: strict;
+          /* [v1.0.6] Layout Style containment prevents clipping of focus/shadows */
+          contain: layout style;
           will-change: transform;
           z-index: 2;
           justify-content: center;
@@ -76,12 +76,12 @@
           touch-action: none;
         }
 
-        & #year-watermark {
+        & #tr-year-watermark {
           position: absolute;
           z-index: 1;
           font-weight: 900;
           font-size: clamp(100px, 25vw, 450px);
-          color: var(--color-year-subliminal);
+          color: var(--tr-color-year-subliminal);
           opacity: 0.4;
           letter-spacing: -0.06em;
           pointer-events: none;
@@ -93,21 +93,22 @@
           transform: translateZ(0);
         }
 
-        &:has(.day:hover) #year-watermark {
+        &:has(.tr-day:hover) #tr-year-watermark,
+        &:has(.tr-day:focus-visible) #tr-year-watermark {
           opacity: 0.15;
           transition: opacity 0.5s ease;
         }
       }
 
-      /* UNIVERSAL LOCK: Reset visual state tanpa memblokir sensor data */
-      :root:active .day {
+      /* UNIVERSAL LOCK: Visual freezing during interaction ritual */
+      :root:active .tr-day {
         transform: translateY(0) scale(1) !important;
         transition-delay: 0ms !important;
         box-shadow: none !important;
         filter: none !important;
       }
 
-      @keyframes theme-pulse-anim {
+      @keyframes tr-theme-pulse-anim {
         0% {
           transform: scale(1);
         }
@@ -118,54 +119,65 @@
           transform: scale(1);
         }
       }
-      .theme-pulse {
-        animation: theme-pulse-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      .tr-theme-pulse {
+        animation: tr-theme-pulse-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
 
-      .day {
+      .tr-day {
         width: 100%;
         height: 100%;
-        border-radius: var(--radius-standard);
-        transition: background-color var(--transition-smooth), opacity var(--transition-smooth),
-          transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--transition-smooth), box-shadow 0.4s ease;
-        transition-delay: var(--delay, 0ms);
+        border-radius: var(--tr-radius-standard);
+        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
+          transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--tr-transition-smooth), box-shadow 0.4s ease;
+        transition-delay: var(--tr-delay, 0ms);
         position: relative;
-        overflow: hidden;
+        overflow: visible; /* Prevents shadow/focus-ring clipping */
         backface-visibility: hidden;
         transform-style: preserve-3d;
+        outline: none;
 
-        &.day--past {
-          background-color: var(--color-past);
+        &.tr-day--past {
+          background-color: var(--tr-color-past);
         }
-        &.day--future {
-          background-color: var(--color-future);
-          box-shadow: inset 0 0 0 0.5px oklch(from var(--base-hex) 0.8 0.02 h / 0.15);
+        &.tr-day--future {
+          background-color: var(--tr-color-future);
+          box-shadow: inset 0 0 0 0.5px oklch(from var(--tr-base-hex) 0.8 0.02 h / 0.15);
         }
-        &.day--filler {
+        &.tr-day--filler {
           opacity: 0.06;
-          background-color: var(--color-past);
+          background-color: var(--tr-color-past);
           filter: grayscale(100%);
           pointer-events: none;
         }
-        &.day--today {
-          background-color: var(--color-today) !important;
+        &.tr-day--today {
+          background-color: var(--tr-color-today) !important;
           opacity: 1 !important;
-          box-shadow: 0 0 0 2px var(--bg-system), 0 12px 30px oklch(from var(--base-hex) 0.2 0.1 h / 0.35);
+          box-shadow: 0 0 0 2px var(--tr-bg-system), 0 12px 30px oklch(from var(--tr-base-hex) 0.2 0.1 h / 0.35);
           z-index: 10;
           border-radius: 3px;
           transition-delay: 0ms !important;
         }
+
+        /* Keyboard Accessibility Focus */
+        &:focus-visible {
+          transform: translateY(-4px) scale(1.15);
+          z-index: 50;
+          box-shadow: 0 0 0 4px var(--tr-bg-system), 0 0 0 7px var(--tr-color-hover-adaptive),
+            0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+
         &:hover,
-        &.is-touch-active {
+        &.tr-is-touch-active {
           transform: translateY(-2px) scale(1.02);
           z-index: 20;
           opacity: 1 !important;
-          box-shadow: 0 12px 24px -10px oklch(from var(--base-hex) 0.1 0.1 h / 0.4), 0 0 0 1.5px var(--bg-system);
-          background-color: var(--color-hover-adaptive);
+          box-shadow: 0 12px 24px -10px oklch(from var(--tr-base-hex) 0.1 0.1 h / 0.4), 0 0 0 1.5px var(--tr-bg-system);
+          background-color: var(--tr-color-hover-adaptive);
           filter: brightness(1.1) saturate(1.2) !important;
           transition-delay: 0ms !important;
         }
-        &.day--monday::after {
+
+        &.tr-day--monday::after {
           content: '';
           position: absolute;
           bottom: 12%;
@@ -174,13 +186,13 @@
           width: 2px;
           height: 2px;
           border-radius: 50%;
-          background-color: var(--color-ghost-label);
+          background-color: var(--tr-color-ghost-label);
           opacity: 0.15;
           z-index: 4;
           pointer-events: none;
         }
-        &[data-ghost-label]::before {
-          content: attr(data-ghost-label);
+        &[data-tr-ghost-label]::before {
+          content: attr(data-tr-ghost-label);
           position: absolute;
           top: 50%;
           left: 50%;
@@ -188,33 +200,33 @@
           font-size: clamp(6px, 0.8vw, 11px);
           font-weight: 800;
           letter-spacing: 0.12em;
-          color: var(--color-ghost-label);
+          color: var(--tr-color-ghost-label);
           opacity: 0.25;
           pointer-events: none;
           white-space: nowrap;
           z-index: 3;
-          transition: color var(--transition-smooth);
+          transition: color var(--tr-transition-smooth);
           transition-delay: inherit;
         }
-        &.day--past[data-ghost-label]::before {
-          color: oklch(from var(--base-hex) 0.9 0.05 h);
+        &.tr-day--past[data-tr-ghost-label]::before {
+          color: oklch(from var(--tr-base-hex) 0.9 0.05 h);
           opacity: 0.5;
         }
       }
 
-      .now-indicator {
+      .tr-now-indicator {
         position: absolute;
         bottom: 0;
         left: 0;
         height: clamp(1.5px, 0.4vh, 3px);
-        background-color: var(--color-bar-adaptive);
+        background-color: var(--tr-color-bar-adaptive);
         width: 0%;
         transition: width 1s linear;
         z-index: 5;
-        box-shadow: 0 0 clamp(4px, 1vw, 8px) var(--color-bar-adaptive);
+        box-shadow: 0 0 clamp(4px, 1vw, 8px) var(--tr-color-bar-adaptive);
       }
 
-      #tooltip {
+      #tr-tooltip {
         position: fixed;
         pointer-events: none;
         background: rgba(255, 255, 255, 0.98);
@@ -230,23 +242,37 @@
         white-space: nowrap;
         transform: translateZ(0);
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
-        border: 1px solid oklch(from var(--base-hex) 0.9 0.05 h / 0.5);
+        border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
         & b {
-          color: var(--color-past);
+          color: var(--tr-color-past);
           display: block;
           font-size: 85%;
           margin-top: 4px;
           text-transform: uppercase;
         }
       }
+
+      .tr-sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
     </style>
   </head>
   <body>
-    <div id="trace-container">
-      <div id="year-watermark"></div>
-      <div id="trace-viewport"></div>
+    <div id="tr-a11y-announcer" class="tr-sr-only" aria-live="polite"></div>
+
+    <div id="tr-container" role="application" aria-label="Visualisasi Lanskap Waktu Tahunan">
+      <div id="tr-year-watermark" aria-hidden="true"></div>
+      <div id="tr-viewport" role="grid" aria-readonly="true"></div>
     </div>
-    <div id="tooltip"></div>
+
+    <div id="tr-tooltip" aria-hidden="true"></div>
 
     <script type="module">
       const THEME_COLORS = [
@@ -264,11 +290,12 @@
 
       class TraceEngine {
         constructor() {
-          this.viewport = document.getElementById('trace-viewport');
-          this.watermark = document.getElementById('year-watermark');
-          this.tooltip = document.getElementById('tooltip');
+          this.viewport = document.getElementById('tr-viewport');
+          this.watermark = document.getElementById('tr-year-watermark');
+          this.tooltip = document.getElementById('tr-tooltip');
+          this.announcer = document.getElementById('tr-a11y-announcer');
 
-          // [CENTRALIZED REFERENCE]
+          // [SINGLE SOURCE OF TRUTH] Centralized Temporal Reference
           const now = new Date();
           this.year = now.getFullYear();
           this.todayStr = now.toDateString();
@@ -283,15 +310,16 @@
           this.hasHover = window.matchMedia('(hover: hover)').matches;
           this.tooltipWidth = 0;
 
-          const savedIndex = localStorage.getItem('trace_theme_index');
+          const savedIndex = localStorage.getItem('tr_theme_index');
           this.colorIndex = savedIndex ? parseInt(savedIndex) : 0;
-
           this.init();
         }
 
         init() {
           this.updateDynamicColors(THEME_COLORS[this.colorIndex]);
-          window.addEventListener('keydown', (e) => e.key.toLowerCase() === 'c' && this.cycleTheme());
+          window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'c') this.cycleTheme();
+          });
 
           let pressTimer;
           let isDragging = false;
@@ -301,12 +329,7 @@
             this.startX = touch.clientX;
             this.startY = touch.clientY;
             isDragging = false;
-
-            if (this.tooltipHideTimer) {
-              clearTimeout(this.tooltipHideTimer);
-              this.tooltipHideTimer = null;
-            }
-
+            if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
             if (e.touches) this.handleTouchInteraction(e);
             pressTimer = setTimeout(() => {
               if (!isDragging) this.cycleTheme();
@@ -315,9 +338,7 @@
 
           const handleMove = (e) => {
             const touch = e.touches[0];
-            const moveDist = Math.hypot(touch.clientX - this.startX, touch.clientY - this.startY);
-
-            if (moveDist > 10) {
+            if (Math.hypot(touch.clientX - this.startX, touch.clientY - this.startY) > 10) {
               isDragging = true;
               clearTimeout(pressTimer);
               if (!this.isTicking) {
@@ -335,7 +356,7 @@
             this.tooltipHideTimer = setTimeout(() => {
               this.tooltip.style.opacity = 0;
               if (this.lastTouchElement) {
-                this.lastTouchElement.classList.remove('is-touch-active');
+                this.lastTouchElement.classList.remove('tr-is-touch-active');
                 this.lastTouchElement = null;
               }
             }, 2500);
@@ -358,7 +379,6 @@
 
         triggerHaptic(type) {
           if (!navigator.vibrate) return;
-          // Differentiated feedback: Scrub (short) vs Ritual (long)
           navigator.vibrate(type === 'scrub' ? 5 : 50);
         }
 
@@ -374,24 +394,22 @@
           if (e.cancelable) e.preventDefault();
           const touch = e.touches[0];
           const target = document.elementFromPoint(touch.clientX, touch.clientY);
-
-          if (target && target.classList.contains('day') && !target.classList.contains('day--filler')) {
+          if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
             if (this.lastTouchElement !== target) {
-              if (this.lastTouchElement) this.lastTouchElement.classList.remove('is-touch-active');
+              if (this.lastTouchElement) this.lastTouchElement.classList.remove('tr-is-touch-active');
               this.triggerHaptic('scrub');
             }
-            target.classList.add('is-touch-active');
+            target.classList.add('tr-is-touch-active');
             this.lastTouchElement = target;
-
-            if (target.dataset.date) {
-              this.updateTooltipContent(`${target.dataset.date}<b>${target.dataset.info}</b>`);
+            if (target.dataset.trDate) {
+              this.updateTooltipContent(`${target.dataset.trDate}<b>${target.dataset.trInfo}</b>`);
               this.positionTooltip(touch.clientX, touch.clientY, true);
             }
           }
         }
 
         updateDynamicColors(hex) {
-          document.documentElement.style.setProperty('--base-hex', hex);
+          document.documentElement.style.setProperty('--tr-base-hex', hex);
           const temp = document.createElement('div');
           temp.style.color = `oklch(from ${hex} l c h)`;
           document.body.appendChild(temp);
@@ -399,11 +417,11 @@
           document.body.removeChild(temp);
 
           document.documentElement.style.setProperty(
-            '--color-bar-adaptive',
+            '--tr-color-bar-adaptive',
             `oklch(from ${hex} ${lValue < 0.6 ? 0.9 : 0.3} ${lValue < 0.6 ? 0.05 : 0.1} h / 0.7)`
           );
           document.documentElement.style.setProperty(
-            '--color-hover-adaptive',
+            '--tr-color-hover-adaptive',
             `oklch(from ${hex} ${lValue > 0.7 ? 0.6 : lValue} ${lValue > 0.7 ? 0.15 : 0.1} h)`
           );
         }
@@ -412,14 +430,12 @@
           this.triggerHaptic('success');
           this.colorIndex = (this.colorIndex + 1) % THEME_COLORS.length;
           this.updateDynamicColors(THEME_COLORS[this.colorIndex]);
-          localStorage.setItem('trace_theme_index', this.colorIndex);
-
-          this.viewport.classList.remove('theme-pulse');
+          localStorage.setItem('tr_theme_index', this.colorIndex);
+          this.announcer.innerText = `Tema diganti ke skema warna ${this.colorIndex + 1}`;
+          this.viewport.classList.remove('tr-theme-pulse');
           void this.viewport.offsetWidth;
-          this.viewport.classList.add('theme-pulse');
-
+          this.viewport.classList.add('tr-theme-pulse');
           this.render();
-          this.updateTimeProgress();
         }
 
         debounceRender() {
@@ -428,37 +444,24 @@
         }
 
         updateTimeProgress() {
-          const bar = document.getElementById('today-progress-bar');
-          if (bar) {
-            const n = new Date();
-            bar.style.width = `${((n.getHours() * 60 + n.getMinutes()) / 1440) * 100}%`;
-          }
+          const bar = document.getElementById('tr-today-bar');
+          if (bar) bar.style.width = `${((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 100}%`;
         }
 
         positionTooltip(clientX, clientY, isTouch = false) {
           const gap = isTouch ? 40 : 20;
-          let x = clientX,
-            y = clientY;
-
-          // X Boundary
+          let x = clientX;
+          let y = clientY;
           if (x + this.tooltipWidth / 2 + 10 > window.innerWidth) x = window.innerWidth - this.tooltipWidth / 2 - 10;
           else if (x - this.tooltipWidth / 2 - 10 < 0) x = this.tooltipWidth / 2 + 10;
-
           if (isTouch) {
-            // [SMART HUD] Flip tooltip to avoid occlusion by thumb
             const isTopHalf = clientY < window.innerHeight / 2;
-            if (isTopHalf) {
-              y = y + 60;
-              this.tooltip.style.transform = `translate(-50%, 0)`;
-            } else {
-              y = y - 60;
-              this.tooltip.style.transform = `translate(-50%, -100%)`;
-            }
+            y = isTopHalf ? y + 60 : y - 60;
+            this.tooltip.style.transform = `translate(-50%, ${isTopHalf ? '0' : '-100%'})`;
           } else {
-            y = y - 20;
+            y -= 20;
             this.tooltip.style.transform = `translate(-50%, -100%)`;
           }
-
           this.tooltip.style.left = `${x}px`;
           this.tooltip.style.top = `${y}px`;
         }
@@ -468,11 +471,10 @@
           const daysInYear = isLeap ? 366 : 365;
           const layout = this.calculateGrid(window.innerWidth, window.innerHeight, daysInYear);
           const totalCells = layout.c * layout.r;
-
           const startDate = new Date(this.year, 0, 1, 12, 0, 0);
           startDate.setDate(startDate.getDate() - Math.floor((totalCells - daysInYear) / 2));
 
-          this.viewport.style.cssText = `gap: ${layout.gap}px; grid-template-columns: repeat(${layout.c}, ${layout.s}px); grid-template-rows: repeat(${layout.r}, ${layout.s}px);`;
+          this.viewport.style.cssText = `gap:${layout.gap}px; grid-template-columns:repeat(${layout.c},${layout.s}px); grid-template-rows:repeat(${layout.r},${layout.s}px);`;
           const fragment = document.createDocumentFragment();
           const months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
 
@@ -480,75 +482,75 @@
             const el = document.createElement('div');
             const isTargetYear = startDate.getFullYear() === this.year;
             let type = 'filler';
-
             if (isTargetYear) {
               if (startDate.toDateString() === this.todayStr) type = 'today';
               else if (startDate.getTime() < this.todayTime) type = 'past';
               else type = 'future';
             }
-
-            el.className = `day day--${type}`;
-            el.style.setProperty('--delay', `${((i % layout.c) + Math.floor(i / layout.c)) * 12}ms`);
-
-            if (startDate.getDay() === 1) el.classList.add('day--monday');
-
+            el.className = `tr-day tr-day--${type}`;
+            el.style.setProperty('--tr-delay', `${((i % layout.c) + Math.floor(i / layout.c)) * 12}ms`);
+            if (startDate.getDay() === 1) el.classList.add('tr-day--monday');
             if (type === 'past') {
               const diff = Math.round((this.todayTime - startDate.getTime()) / 86400000);
               el.style.opacity = Math.max(0.12, 1 - diff * 0.008);
               el.style.filter = `grayscale(${Math.min(100, diff * 0.5)}%)`;
             }
-
             if (type === 'today') {
               const bar = document.createElement('div');
-              bar.className = 'now-indicator';
-              bar.id = 'today-progress-bar';
+              bar.className = 'tr-now-indicator';
+              bar.id = 'tr-today-bar';
               el.appendChild(bar);
             }
-
             if (isTargetYear && startDate.getDate() === 1)
-              el.setAttribute('data-ghost-label', months[startDate.getMonth()]);
-
+              el.setAttribute('data-tr-ghost-label', months[startDate.getMonth()]);
             if (type !== 'filler') {
-              const yearStart = new Date(this.year, 0, 1, 12, 0, 0).getTime();
-              const dayNum = Math.round((startDate.getTime() - yearStart) / 86400000) + 1;
-              el.dataset.date = startDate.toLocaleDateString('id-ID', {
+              const dayNum =
+                Math.round((startDate.getTime() - new Date(this.year, 0, 1, 12, 0, 0).getTime()) / 86400000) + 1;
+              const dateLong = startDate.toLocaleDateString('id-ID', {
                 weekday: 'long',
                 day: 'numeric',
                 month: 'long',
               });
-              el.dataset.info = `Day ${dayNum} • ${((dayNum / daysInYear) * 100).toFixed(1)}% of Year`;
-
-              el.onmouseenter = (e) => {
-                if (this.hasHover) {
-                  this.updateTooltipContent(`${el.dataset.date}<b>${el.dataset.info}</b>`);
-                  this.positionTooltip(e.clientX, e.clientY, false);
-                }
+              const infoStr = `Hari ke-${dayNum} • ${((dayNum / daysInYear) * 100).toFixed(1)}% dari tahun ini`;
+              el.dataset.trDate = dateLong;
+              el.dataset.trInfo = infoStr;
+              el.setAttribute('role', 'gridcell');
+              el.setAttribute('tabindex', '0');
+              el.setAttribute('aria-label', `${dateLong}. ${infoStr}`);
+              if (type === 'today') el.setAttribute('aria-current', 'date');
+              const handleShow = (cX, cY, isT) => {
+                this.updateTooltipContent(`${dateLong}<b>${infoStr}</b>`);
+                this.positionTooltip(cX, cY, isT);
               };
-              el.onmousemove = (e) => {
-                if (this.hasHover) this.positionTooltip(e.clientX, e.clientY, false);
-              };
+              el.onmouseenter = (e) => this.hasHover && handleShow(e.clientX, e.clientY, false);
+              el.onmousemove = (e) => this.hasHover && this.positionTooltip(e.clientX, e.clientY, false);
               el.onmouseleave = () => (this.tooltip.style.opacity = 0);
+              el.onfocus = () => {
+                const r = el.getBoundingClientRect();
+                handleShow(r.left + r.width / 2, r.top, false);
+              };
+              el.onblur = () => (this.tooltip.style.opacity = 0);
             }
             fragment.appendChild(el);
             startDate.setDate(startDate.getDate() + 1);
           }
           this.viewport.innerHTML = '';
           this.viewport.appendChild(fragment);
-
           requestAnimationFrame(() => {
-            const gridRect = this.viewport.getBoundingClientRect();
-            this.watermark.style.width = `${gridRect.width}px`;
-            this.watermark.style.height = `${gridRect.height}px`;
+            const r = this.viewport.getBoundingClientRect();
+            this.watermark.style.width = `${r.width}px`;
+            this.watermark.style.height = `${r.height}px`;
           });
           this.updateTimeProgress();
         }
 
         calculateGrid(w, h, d) {
-          const sc = Math.max(w, 240) / 1200;
-          const gap = Math.max(2, 10 * sc);
-          const f = Math.max(25, 50 * sc);
-          const aW = w - f * 2;
-          const aH = h - f * 2;
+          /* [PHILOSOPHY] Fluid Geometry Logic: Auto-calculates optimal breathing space */
+          const scale = Math.max(w, 240) / 1200;
+          const gap = Math.max(2, 10 * scale);
+          const frame = Math.max(25, 50 * scale);
+          const aW = w - frame * 2;
+          const aH = h - frame * 2;
           let bestS = 0;
           for (let c = 1; c <= d; c++) {
             const r = Math.ceil(d / c);
@@ -559,7 +561,6 @@
           return { s, gap, c: Math.floor((aW + gap) / (s + gap)), r: Math.floor((aH + gap) / (s + gap)) };
         }
       }
-
       new TraceEngine();
     </script>
   </body>
