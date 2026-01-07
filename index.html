@@ -377,8 +377,9 @@
           this.pressTimer = null;
           this.isLongPressMode = false;
           this.isDragging = false;
-          this.isLockedForThemeChange = false;
-          this.lockedElement = null;
+          this.isLockedMode = false;
+          this.longPressElement = null;
+          this.hoverLongPressTimer = null;
           this.resizeTimer = null;
           this.timeUpdateInterval = null;
           this.startX = 0;
@@ -472,15 +473,26 @@
             }
             if (this.pressTimer) clearTimeout(this.pressTimer);
             this.pressTimer = setTimeout(() => {
-              if (!isDragging && !this.isLockedForThemeChange) {
+              if (!isDragging) {
                 this.isLongPressMode = true;
-                this.isLockedForThemeChange = true;
-                this.lockedElement = this._lastHoveredElement;
-                // Hide tooltip and active style during lock
+                this.isLockedMode = true;
+                
+                // Store the long press element for later restoration
+                this.longPressElement = document.elementFromPoint(this.startX, this.startY);
+                
+                // Fade out tooltip
                 this.tooltip.style.opacity = 0;
+                
+                // Remove all active classes from hovered element
                 if (this._lastHoveredElement) {
                   this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                  this._lastHoveredElement.classList.remove('tr-day-active');
                 }
+                
+                // Change cursor to disallowed
+                document.documentElement.style.cursor = 'not-allowed';
+                
+                // Start theme transition
                 this.cycleTheme();
                 this.triggerHaptic('success');
               }
@@ -488,7 +500,9 @@
           };
 
           const handleMove = (e) => {
-            if (this.isLockedForThemeChange) return; // Prevent drag during lock
+            // Prevent drag if in locked mode
+            if (this.isLockedMode) return;
+            
             const touch = e.touches[0];
             const dx = touch.clientX - this.startX;
             const dy = touch.clientY - this.startY;
@@ -502,55 +516,51 @@
 
           const handleEnd = () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
-            // If not locked, hide tooltip normally
-            if (!this.isLockedForThemeChange) {
-              const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
-              this.tooltipHideTimer = setTimeout(() => {
+            const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
+            this.tooltipHideTimer = setTimeout(() => {
+              // Only hide tooltip if not in locked mode
+              if (!this.isLockedMode) {
                 this.tooltip.style.opacity = 0;
-                if (this._lastHoveredElement) {
+              }
+              if (this._lastHoveredElement) {
+                if (!this.isLockedMode) {
                   this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                  this._lastHoveredElement.classList.remove('tr-day-active');
                   this._lastHoveredElement = null;
                 }
-                if (this.lastTouchElement) {
+              }
+              if (this.lastTouchElement) {
+                if (!this.isLockedMode) {
                   this.lastTouchElement.classList.remove('tr-is-touch-active');
+                  this.lastTouchElement.classList.remove('tr-day-active');
                   this.lastTouchElement = null;
                 }
-              }, duration);
-            }
+              }
+            }, duration);
             isDragging = false;
             this.isLongPressMode = false;
+            
+            // Reset locked mode after timeout if not restored
+            if (this.isLockedMode) {
+              setTimeout(() => {
+                this.isLockedMode = false;
+                document.documentElement.style.cursor = 'default';
+              }, 1200 + 500); // Wait for theme transition + restoration + buffer
+            }
           };
 
           document.addEventListener('mousedown', handleStart);
           document.addEventListener('mouseup', () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
+            // Reset cursor when mouse released
+            if (!this.isLockedMode) {
+              document.documentElement.style.cursor = 'default';
+            }
           });
           // Use CSS touch-action instead of preventDefault for better performance
           this.viewport.addEventListener('touchstart', handleStart, { passive: true });
           this.viewport.addEventListener('touchmove', handleMove, { passive: true });
           document.addEventListener('touchend', handleEnd);
-
-          // [INTERACTION] Restore UI after theme transition if still hovering locked element
-          this.viewport.addEventListener('transitionend', (e) => {
-            if (e.target === this.viewport && e.propertyName === 'background-color' && this.isLockedForThemeChange) {
-              // Check if pointer is still over the locked element
-              const target = document.elementFromPoint(this._pendingX, this._pendingY);
-              if (target === this.lockedElement && this.lockedElement) {
-                // Restore active style and show tooltip
-                this.lockedElement.classList.add('tr-is-touch-active');
-                this.tooltip.style.opacity = 1;
-                this._lastHoveredElement = this.lockedElement;
-                const dateText = this.lockedElement.dataset.trDate;
-                const infoText = this.lockedElement.dataset.trInfo;
-                if (dateText && infoText) {
-                  this.updateTooltipContent(dateText, infoText);
-                  this.positionTooltip(this._pendingX, this._pendingY, true);
-                }
-              }
-              this.isLockedForThemeChange = false;
-              this.lockedElement = null;
-            }
-          });
 
           // [INTERACTION] Desktop trackpad gesture & mouse drag support
           if (this.hasHover) {
@@ -598,6 +608,51 @@
 
             this.viewport.addEventListener('pointerleave', () => {
               isMouseDragging = false;
+            });
+
+            // Desktop hover lama detection (equivalent to mobile long press)
+            let hoverElement = null;
+            let hoverTimer = null;
+            const HOVER_LAMA_DURATION = 800; // Same as LONG_PRESS_DURATION
+
+            this.viewport.addEventListener('mousemove', (e) => {
+              if (this.isLockedMode) return;
+              
+              const target = document.elementFromPoint(e.clientX, e.clientY);
+              if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+                if (hoverElement !== target) {
+                  // New element hovered
+                  if (hoverTimer) clearTimeout(hoverTimer);
+                  hoverElement = target;
+                  
+                  // Start hover lama timer
+                  hoverTimer = setTimeout(() => {
+                    if (hoverElement === target) {
+                      // Trigger long press mode on desktop hover lama
+                      this.isLongPressMode = true;
+                      this.isLockedMode = true;
+                      this.longPressElement = target;
+                      this.tooltip.style.opacity = 0;
+                      if (this._lastHoveredElement) {
+                        this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                        this._lastHoveredElement.classList.remove('tr-day-active');
+                      }
+                      document.documentElement.style.cursor = 'not-allowed';
+                      this.cycleTheme();
+                      this.triggerHaptic('success');
+                    }
+                  }, HOVER_LAMA_DURATION);
+                }
+              } else {
+                // Left hover area
+                if (hoverTimer) clearTimeout(hoverTimer);
+                hoverElement = null;
+              }
+            });
+
+            this.viewport.addEventListener('mouseleave', () => {
+              if (hoverTimer) clearTimeout(hoverTimer);
+              hoverElement = null;
             });
           }
 
@@ -796,7 +851,33 @@
           this.viewport.classList.remove('tr-theme-pulse');
           void this.viewport.offsetWidth;
           this.viewport.classList.add('tr-theme-pulse');
-          // CSS variables handle color changes - no need to re-render
+          
+          // Restore state after theme transition completes
+          if (this.isLockedMode) {
+            // Wait for theme transition to complete (~1.2s)
+            setTimeout(() => {
+              // Check if still in locked mode and element still exists
+              if (this.isLockedMode && this.longPressElement) {
+                const stillTarget = this.longPressElement.classList.contains('tr-day');
+                if (stillTarget && !this.longPressElement.classList.contains('tr-day--filler')) {
+                  // Restore active classes
+                  this.longPressElement.classList.add('tr-is-touch-active');
+                  this.longPressElement.classList.add('tr-day-active');
+                  this._lastHoveredElement = this.longPressElement;
+                  
+                  // Restore tooltip
+                  const dateText = this.longPressElement.dataset.trDate;
+                  const infoText = this.longPressElement.dataset.trInfo;
+                  if (dateText && infoText) {
+                    this.updateTooltipContent(dateText, infoText);
+                    const rect = this.longPressElement.getBoundingClientRect();
+                    this.positionTooltip(rect.left + rect.width / 2, rect.top + rect.height / 2, true);
+                    this.tooltip.style.opacity = 1;
+                  }
+                }
+              }
+            }, 1200); // Match theme transition duration
+          }
         }
 
         /**
