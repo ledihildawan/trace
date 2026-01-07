@@ -196,14 +196,6 @@
           z-index: 4;
           pointer-events: none;
         }
-        /* Active (long press) state */
-        &.tr-day--active {
-          transform: translateY(-3px) scale(1.05);
-          z-index: 30;
-          box-shadow: 0 12px 30px rgba(59, 130, 246, 0.18);
-          transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid rgba(59, 130, 246, 0.14);
-        }
         &[data-tr-ghost-label]::before {
           content: attr(data-tr-ghost-label);
           position: absolute;
@@ -225,11 +217,6 @@
           color: oklch(from var(--tr-base-hex) 0.9 0.05 h);
           opacity: 0.5;
         }
-      }
-
-      /* Lock interactions on viewport during theme transition */
-      #tr-viewport.tr-lock-interactions .tr-day {
-        pointer-events: none;
       }
 
       .tr-now-indicator {
@@ -255,7 +242,7 @@
         font-weight: 600;
         color: #1a1a1a;
         opacity: 0;
-        transition: opacity 0.15s ease-out;
+        transition: opacity 0.2s ease-out;
         z-index: 100;
         white-space: nowrap;
         /* [PERFORMANCE] GPU layer for smooth positioning */
@@ -352,7 +339,7 @@
        */
       class TraceEngine {
         // Timing constants
-        static LONG_PRESS_DURATION = 800;
+        static LONG_PRESS_DURATION = 500;
         static TOOLTIP_LINGER_MS = 2500;
         static TIME_UPDATE_INTERVAL = 60000;
         static RESIZE_DEBOUNCE_MS = 100;
@@ -362,7 +349,7 @@
         static GRAYSCALE_RATE = 0.5;
         static HAPTIC_SCRUB_MS = 5;
         static HAPTIC_SUCCESS_MS = 50;
-        static DRAG_THRESHOLD_PX = 10;
+        static DRAG_THRESHOLD_PX = 15;
 
         // [PERFORMANCE] RAF throttle state
         _rafPending = false;
@@ -390,6 +377,7 @@
           this.pressTimer = null;
           this.isLongPressMode = false;
           this.isDragging = false;
+          this.ignoreHover = false;
           this.resizeTimer = null;
           this.timeUpdateInterval = null;
           this.startX = 0;
@@ -439,6 +427,7 @@
           // [PERFORMANCE] Unified RAF-throttled pointer handler
           const processPointerMove = () => {
             this._rafPending = false;
+            if (this.ignoreHover) return;
             const target = document.elementFromPoint(this._pendingX, this._pendingY);
             if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
               if (this._lastHoveredElement !== target) {
@@ -465,6 +454,8 @@
           const schedulePointerUpdate = (x, y) => {
             this._pendingX = x;
             this._pendingY = y;
+            this.lastPointerX = x;
+            this.lastPointerY = y;
             if (!this._rafPending) {
               this._rafPending = true;
               requestAnimationFrame(processPointerMove);
@@ -485,6 +476,14 @@
             this.pressTimer = setTimeout(() => {
               if (!isDragging) {
                 this.isLongPressMode = true;
+                this.ignoreHover = true;
+                // Remove any active touch class so day visually returns to normal
+                if (this._lastHoveredElement) {
+                  this._lastHoveredElement.classList.remove('tr-is-touch-active');
+                  this._lastHoveredElement = null;
+                }
+                // Use slightly longer fade-out for tooltip
+                this.tooltip.style.transition = 'opacity 0.3s ease-out';
                 this.tooltip.style.opacity = 0;
                 this.cycleTheme();
                 this.triggerHaptic('success');
@@ -499,6 +498,7 @@
             if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
               isDragging = true;
               this.isLongPressMode = false;
+              this.ignoreHover = false; // cancel any pending long-press hover-ignore
               if (this.pressTimer) clearTimeout(this.pressTimer);
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
@@ -508,7 +508,27 @@
             if (this.pressTimer) clearTimeout(this.pressTimer);
             const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
             this.tooltipHideTimer = setTimeout(() => {
-              this.tooltip.style.opacity = 0;
+              // If we were in a long-press, determine if pointer still over a day and re-show tooltip
+              if (this.isLongPressMode) {
+                const el = document.elementFromPoint(this._pendingX || this.lastPointerX || this.startX, this._pendingY || this.lastPointerY || this.startY);
+                if (el?.classList.contains('tr-day') && !el.classList.contains('tr-day--filler')) {
+                  const dateText = el.dataset.trDate;
+                  const infoText = el.dataset.trInfo;
+                  if (dateText && infoText) {
+                    // Restore faster fade-in
+                    this.tooltip.style.transition = 'opacity 0.2s ease-out';
+                    this.updateTooltipContent(dateText, infoText);
+                    this.positionTooltip(this._pendingX || this.lastPointerX || this.startX, this._pendingY || this.lastPointerY || this.startY, true);
+                  }
+                } else {
+                  this.tooltip.style.transition = 'opacity 0.3s ease-out';
+                  this.tooltip.style.opacity = 0;
+                }
+              } else {
+                this.tooltip.style.transition = 'opacity 0.3s ease-out';
+                this.tooltip.style.opacity = 0;
+              }
+
               if (this._lastHoveredElement) {
                 this._lastHoveredElement.classList.remove('tr-is-touch-active');
                 this._lastHoveredElement = null;
@@ -517,9 +537,11 @@
                 this.lastTouchElement.classList.remove('tr-is-touch-active');
                 this.lastTouchElement = null;
               }
+              // Re-enable hover updates after long press ends
+              this.ignoreHover = false;
+              this.isLongPressMode = false;
             }, duration);
             isDragging = false;
-            this.isLongPressMode = false;
           };
 
           document.addEventListener('mousedown', handleStart);
@@ -613,7 +635,8 @@
 
           if (this.hasHover) {
             this.viewport.addEventListener('mouseover', (e) => {
-              const target = e.target;
+                if (this.ignoreHover) return;
+                const target = e.target;
               if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
                 const dateText = target.dataset.trDate;
                 const infoText = target.dataset.trInfo;
@@ -643,13 +666,18 @@
           }
 
           // [PERFORMANCE] Keyboard navigation via event delegation
-          this.viewport.addEventListener('keydown', (e) => {
+            this.viewport.addEventListener('keydown', (e) => {
             const target = e.target;
             if (!target.classList.contains('tr-day')) return;
 
             const index = parseInt(target.dataset.trIndex, 10);
             if (isNaN(index)) return;
-
+              // Accessibility: Enter/Space simulate long-press/theme cycle when focused
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.cycleTheme();
+                return;
+              }
             let targetIndex = -1;
             switch (e.key) {
               case 'ArrowRight':
@@ -701,116 +729,6 @@
           this.viewport.addEventListener('focusout', () => {
             this.tooltip.style.opacity = '0';
           });
-          
-            // Pointer-based state machine for grid items (long press -> lock -> transition)
-            let activeDay = null;
-            let longPressTimer = null;
-            let pointerDown = false;
-            const LONG_PRESS_MS = 500;
-            const TRANSITION_MS = 300;
-            const TOOLTIP_FADE_MS = 150;
-
-            const clearLongPress = () => {
-              if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-              }
-            };
-
-            const onPointerDown = (e) => {
-              const day = e.target.closest('.tr-day');
-              if (!day || day.classList.contains('tr-day--filler')) return;
-              // Ignore if viewport is locked
-              if (this.viewport.classList.contains('tr-lock-interactions')) return;
-
-              activeDay = day;
-              pointerDown = true;
-              // store start coordinates for drag detection
-              this.startX = (e.touches && e.touches[0] && e.touches[0].clientX) || e.clientX;
-              this.startY = (e.touches && e.touches[0] && e.touches[0].clientY) || e.clientY;
-              // show hover/touch state
-              day.classList.add('tr-is-touch-active');
-              const rect = day.getBoundingClientRect();
-              this.updateTooltipContent(day.dataset.trDate, day.dataset.trInfo);
-              this.positionTooltip(rect.left + rect.width / 2, rect.top + rect.height / 2, true);
-              this.triggerHaptic('scrub');
-
-              clearLongPress();
-              longPressTimer = setTimeout(() => {
-                if (!pointerDown || !activeDay) return;
-                // Enter active state
-                this.isLongPressMode = true;
-                this.viewport.classList.add('tr-lock-interactions');
-                activeDay.classList.add('tr-day--active');
-
-                // Tooltip fades out before transition
-                this.tooltip.style.transition = `opacity ${TOOLTIP_FADE_MS}ms ease-out`;
-                this.tooltip.style.opacity = '0';
-
-                // Start theme transition and lock
-                this.cycleTheme();
-
-                // Wait for transition duration, then resolve
-                setTimeout(() => {
-                  // End of theme transition
-                  this.viewport.classList.remove('tr-lock-interactions');
-                  activeDay.classList.remove('tr-day--active');
-                  this.isLongPressMode = false;
-
-                  // If pointer still down on same day, restore hover/tooltip instantly
-                  if (pointerDown && activeDay) {
-                    activeDay.classList.add('tr-is-touch-active');
-                    this.updateTooltipContent(activeDay.dataset.trDate, activeDay.dataset.trInfo);
-                    const r = activeDay.getBoundingClientRect();
-                    this.positionTooltip(r.left + r.width / 2, r.top + r.height / 2, true);
-                    this.tooltip.style.transition = `opacity 0ms`;
-                    this.tooltip.style.opacity = '1';
-                    // restore small delay for future fades
-                    setTimeout(() => (this.tooltip.style.transition = `opacity ${TOOLTIP_FADE_MS}ms ease-out`), 20);
-                  }
-                  activeDay = null;
-                }, TRANSITION_MS);
-              }, LONG_PRESS_MS);
-            };
-
-            const onPointerUp = (e) => {
-              pointerDown = false;
-              clearLongPress();
-              if (activeDay) {
-                // If we were in long-press mode, UI already handled in timer; otherwise hide tooltip after linger
-                if (!this.isLongPressMode) {
-                  this.tooltipHideTimer = setTimeout(() => {
-                    this.tooltip.style.opacity = '0';
-                    activeDay.classList.remove('tr-is-touch-active');
-                    activeDay = null;
-                  }, TraceEngine.TOOLTIP_LINGER_MS);
-                }
-              }
-            };
-
-            const onPointerMove = (e) => {
-              if (!pointerDown || !activeDay) return;
-              const pt = (e.touches && e.touches[0]) || e;
-              const dx = pt.clientX - this.startX;
-              const dy = pt.clientY - this.startY;
-              if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
-                // Considered a drag — cancel long press and remove active hover
-                clearLongPress();
-                activeDay.classList.remove('tr-is-touch-active');
-                activeDay = null;
-                pointerDown = false;
-                this.isDragging = true;
-              }
-            };
-
-            this.viewport.addEventListener('pointerdown', onPointerDown, { passive: true });
-            window.addEventListener('pointerup', onPointerUp, { passive: true });
-            this.viewport.addEventListener('pointermove', onPointerMove, { passive: true });
-            this.viewport.addEventListener('pointercancel', () => {
-              pointerDown = false;
-              clearLongPress();
-              activeDay = null;
-            });
         }
 
         /**
@@ -841,6 +759,8 @@
             this.tooltip.dataset.cache = cacheKey;
             this.tooltipWidth = this.tooltip.getBoundingClientRect().width;
           }
+          // Ensure smooth fade-in (200ms)
+          this.tooltip.style.transition = 'opacity 0.2s ease-out';
           this.tooltip.style.opacity = '1';
         }
 
