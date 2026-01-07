@@ -478,21 +478,21 @@
                 this.isLongPressMode = true;
                 this.isLockedOnGrid = true;
                 this.tooltip.style.opacity = 0;
-                // Remove active style when locked
+                // Remove hover styling when locked
                 if (this._lastHoveredElement) {
                   this._lastHoveredElement.classList.remove('tr-is-touch-active');
                 }
                 this.cycleTheme();
                 this.triggerHaptic('success');
 
-                // Sustained press: show tooltip again after 600ms
+                // Sustained press: show tooltip again after 600ms and restore hover styling
                 this.sustainedPressTimer = setTimeout(() => {
                   if (this.isLockedOnGrid) {
-                    // Restore active style and tooltip on sustained press
+                    this.tooltip.style.opacity = 1;
+                    // Restore hover styling
                     if (this._lastHoveredElement) {
                       this._lastHoveredElement.classList.add('tr-is-touch-active');
                     }
-                    this.tooltip.style.opacity = 1;
                     this.triggerHaptic('scrub');
                   }
                 }, 600);
