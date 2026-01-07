@@ -375,7 +375,9 @@
           this.isTicking = false;
           this.tooltipHideTimer = null;
           this.pressTimer = null;
+          this.sustainedPressTimer = null;
           this.isLongPressMode = false;
+          this.isLockedOnGrid = false;
           this.isDragging = false;
           this.resizeTimer = null;
           this.timeUpdateInterval = null;
@@ -464,7 +466,9 @@
             this.startY = touch.clientY;
             isDragging = false;
             this.isLongPressMode = false;
+            this.isLockedOnGrid = false;
             if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
+            if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
             if (e.touches) {
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
@@ -472,9 +476,18 @@
             this.pressTimer = setTimeout(() => {
               if (!isDragging) {
                 this.isLongPressMode = true;
+                this.isLockedOnGrid = true;
                 this.tooltip.style.opacity = 0;
                 this.cycleTheme();
                 this.triggerHaptic('success');
+                
+                // Sustained press: show tooltip again after 600ms
+                this.sustainedPressTimer = setTimeout(() => {
+                  if (this.isLockedOnGrid) {
+                    this.tooltip.style.opacity = 1;
+                    this.triggerHaptic('scrub');
+                  }
+                }, 600);
               }
             }, TraceEngine.LONG_PRESS_DURATION);
           };
@@ -483,16 +496,20 @@
             const touch = e.touches[0];
             const dx = touch.clientX - this.startX;
             const dy = touch.clientY - this.startY;
+            // Don't allow drag if locked on grid (long press mode active)
+            if (this.isLockedOnGrid) return;
             if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
               isDragging = true;
               this.isLongPressMode = false;
               if (this.pressTimer) clearTimeout(this.pressTimer);
+              if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
               schedulePointerUpdate(touch.clientX, touch.clientY);
             }
           };
 
           const handleEnd = () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
+            if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
             const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
             this.tooltipHideTimer = setTimeout(() => {
               this.tooltip.style.opacity = 0;
@@ -507,11 +524,13 @@
             }, duration);
             isDragging = false;
             this.isLongPressMode = false;
+            this.isLockedOnGrid = false;
           };
 
           document.addEventListener('mousedown', handleStart);
           document.addEventListener('mouseup', () => {
             if (this.pressTimer) clearTimeout(this.pressTimer);
+            if (this.sustainedPressTimer) clearTimeout(this.sustainedPressTimer);
           });
           // Use CSS touch-action instead of preventDefault for better performance
           this.viewport.addEventListener('touchstart', handleStart, { passive: true });
@@ -530,7 +549,7 @@
               (e) => {
                 if (e.ctrlKey || e.metaKey) return; // Allow browser zoom
                 e.preventDefault();
-                
+
                 // Horizontal swipe: deltaY > 0 = swipe down/right
                 if (Math.abs(e.deltaY) > 50) {
                   this.cycleTheme();
@@ -549,7 +568,7 @@
 
             this.viewport.addEventListener('pointermove', (e) => {
               if (!isMouseDragging || e.pointerType !== 'mouse') return;
-              
+
               const dragDistance = e.clientX - dragStartX;
               if (Math.abs(dragDistance) > MOUSE_DRAG_THRESHOLD) {
                 this.cycleTheme();
