@@ -4,11 +4,16 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline';"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TRACE - The Shape of Time</title>
     <meta name="description" content="A meditative time landscape designed to silence digital noise." />
+
+    <!-- Google Fonts: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet" />
 
     <style>
       /* Animatable CSS color property (Houdini) */
@@ -49,6 +54,7 @@
           oklch(from var(--tr-base-hex) 0.22 0.05 h) 72%,
           var(--tr-bg-system) 28%
         );
+        --tr-color-year-stroke: color-mix(in oklch, var(--tr-color-year-subliminal) 82%, var(--tr-bg-system) 18%);
         --tr-color-bar-adaptive: oklch(from var(--tr-base-hex) 0.3 0.1 h / 0.6);
         --tr-color-hover-adaptive: var(--tr-base-hex);
         --tr-tooltip-bg: oklch(from var(--tr-bg-system) 0.99 0.01 h / 0.98);
@@ -67,6 +73,17 @@
         --tr-watermark-boost-opacity: 0.22;
         --tr-today-ring-mix: 55%;
         --tr-today-shadow-alpha: 0.28;
+
+        --tr-year-stroke-width: 12px; /* Base fallback, dynamically updated by JS */
+        /* Responsive tracking: looser on small screens, tighter on large */
+        --tr-year-letter-spacing: clamp(-0.06em, calc(-0.052em + 0.15vw), -0.028em);
+
+        /* Global shadow tokens */
+        --tr-shadow-lift: 0 6px 12px -10px oklch(from var(--tr-base-hex) 0.08 0.08 h / 0.22);
+        --tr-shadow-lift-touch: var(--tr-shadow-lift);
+        --tr-shadow-tooltip: 0 15px 40px rgba(0, 0, 0, 0.1);
+        --tr-shadow-progress: 0 0 clamp(4px, 1vw, 8px) var(--tr-color-bar-adaptive);
+        --tr-shadow-progress-touch: 0 0 clamp(3px, 0.9vw, 6px) var(--tr-color-bar-adaptive);
 
         --tr-radius-standard: 2px;
         --tr-transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
@@ -90,7 +107,7 @@
         justify-content: center;
         align-items: center;
         background-color: var(--tr-bg-system);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         transition: background-color 1.2s ease, --tr-base-hex 1.2s ease, --tr-color-year-subliminal 1.2s ease;
         overscroll-behavior: none;
       }
@@ -118,17 +135,14 @@
 
         & #tr-year-watermark {
           position: absolute;
-          z-index: 3;
+          z-index: 1;
           font-weight: 900;
           font-size: clamp(100px, 25vw, 450px);
-          /* Blend watermark into the grid with a center-weighted mask */
           color: transparent;
-          background: linear-gradient(var(--tr-color-year-subliminal), var(--tr-color-year-subliminal));
-          -webkit-background-clip: text;
-          background-clip: text;
           -webkit-text-fill-color: transparent;
-
-          /* Blend into each grid cell color (adaptive per theme tone) */
+          -webkit-text-stroke: var(--tr-year-stroke-width) var(--tr-color-year-stroke);
+          text-shadow: 0 10px 36px oklch(from var(--tr-base-hex) 0.2 0.06 h / 0.22);
+          /* Keep watermark behind the grid so dates visually fill the outline */
           mix-blend-mode: multiply;
 
           /* Localized boost near "today" */
@@ -143,10 +157,8 @@
             letter-spacing: inherit;
             line-height: inherit;
             color: transparent;
-            background: linear-gradient(var(--tr-color-year-subliminal), var(--tr-color-year-subliminal));
-            -webkit-background-clip: text;
-            background-clip: text;
             -webkit-text-fill-color: transparent;
+            -webkit-text-stroke: calc(var(--tr-year-stroke-width) * 0.55) var(--tr-color-year-subliminal);
             mix-blend-mode: multiply;
             opacity: var(--tr-watermark-boost-opacity, 0.22);
             pointer-events: none;
@@ -184,7 +196,7 @@
             rgba(0, 0, 0, var(--tr-watermark-outer-alpha, 0.25)) 100%
           );
           opacity: var(--tr-watermark-base-opacity, 0.28);
-          letter-spacing: -0.06em;
+          letter-spacing: var(--tr-year-letter-spacing);
           pointer-events: none;
           user-select: none;
           display: flex;
@@ -281,10 +293,11 @@
         &:hover,
         &.tr-is-touch-active {
           transform: translateY(-1px) scale(1.01);
+          will-change: transform;
           z-index: 20;
           opacity: 1 !important;
           background-color: var(--tr-color-hover-adaptive);
-          box-shadow: 0 8px 16px -8px oklch(from var(--tr-base-hex) 0.1 0.1 h / 0.3);
+          box-shadow: var(--tr-shadow-lift);
           transition: transform 0.15s ease-out, background-color 0.15s ease-out, opacity 0.15s ease-out;
           transition-delay: 0ms !important;
         }
@@ -343,10 +356,13 @@
         inset-inline-start: 0;
         height: clamp(1.5px, 0.4vh, 3px);
         background-color: var(--tr-color-bar-adaptive);
-        width: 0%;
-        transition: width 1s linear;
+        width: 100%;
+        transform-origin: 0 50%;
+        transform: scaleX(0);
+        transition: transform 1s linear;
+        will-change: transform;
         z-index: 5;
-        box-shadow: 0 0 clamp(4px, 1vw, 8px) var(--tr-color-bar-adaptive);
+        box-shadow: var(--tr-shadow-progress);
       }
 
       .tr-day--today .tr-now-indicator {
@@ -374,7 +390,7 @@
         /* Composited layer for smooth tooltip */
         will-change: transform, opacity;
         transform: translateZ(0);
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--tr-shadow-tooltip);
         border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
       }
 
@@ -438,7 +454,7 @@
         .tr-day.tr-is-touch-active {
           transform: translateY(-1px) scale(1.01);
           transition: transform 0.1s ease-out, background-color 0.1s ease-out;
-          box-shadow: 0 6px 14px -10px oklch(from var(--tr-base-hex) 0.1 0.1 h / 0.28);
+          box-shadow: var(--tr-shadow-lift-touch);
         }
 
         /* Keep today emphasis tidy on small screens */
@@ -449,7 +465,7 @@
         }
 
         .tr-now-indicator {
-          box-shadow: 0 0 clamp(3px, 0.9vw, 6px) var(--tr-color-bar-adaptive);
+          box-shadow: var(--tr-shadow-progress-touch);
         }
       }
     </style>
