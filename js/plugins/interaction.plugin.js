@@ -141,7 +141,7 @@ export class InteractionPlugin extends TracePlugin {
 
     const processPointerMove = () => {
       this._rafPending = false;
-      if (this.ignoreHover) return;
+      if (this.ignoreHover || isDragging) return;
       const target = document.elementFromPoint(this._pendingX, this._pendingY);
       if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
         if (this._lastHoveredElement !== target) {
@@ -171,7 +171,7 @@ export class InteractionPlugin extends TracePlugin {
       this.lastPointerY = y;
       if (!this._rafPending) {
         this._rafPending = true;
-        requestAnimationFrame(processPointerMove);
+        this._lastRafId = requestAnimationFrame(processPointerMove);
       }
     };
 
@@ -192,6 +192,13 @@ export class InteractionPlugin extends TracePlugin {
         }
         if (touches.size > 1) return;
       }
+      // Cancel any pending hover RAF so stale callbacks don't re-add active classes
+      if (this._rafPending && typeof cancelAnimationFrame === 'function' && this._lastRafId) {
+        cancelAnimationFrame(this._lastRafId);
+        this._rafPending = false;
+        this._lastRafId = null;
+      }
+
       activePointerId = e.pointerId;
       this.engine.viewport.setPointerCapture(e.pointerId);
       startX = e.clientX;
@@ -263,6 +270,12 @@ export class InteractionPlugin extends TracePlugin {
 
       if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
         isDragging = true;
+        // Cancel pending hover RAF to avoid stale hover re-appearing
+        if (this._rafPending && typeof cancelAnimationFrame === 'function' && this._lastRafId) {
+          cancelAnimationFrame(this._lastRafId);
+          this._rafPending = false;
+          this._lastRafId = null;
+        }
         // While actively dragging, suppress hover updates so old "active" days
         // aren't left highlighted. Clear any existing hover highlight.
         this.ignoreHover = true;
