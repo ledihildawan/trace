@@ -92,9 +92,11 @@ export class InteractionPlugin extends TracePlugin {
   setupTouchGestures() {
     // Pointer state
     let isDragging = false;
+    let isSwipeGesture = false;
     let activePointerId = null;
     let startX = 0;
     let startY = 0;
+    let startTime = 0;
     let longPressTimer = null;
     let longPressTriggered = false;
 
@@ -165,12 +167,16 @@ export class InteractionPlugin extends TracePlugin {
       this.engine.viewport.setPointerCapture(e.pointerId);
       startX = e.clientX;
       startY = e.clientY;
+      startTime = performance.now();
       isDragging = false;
+      isSwipeGesture = false;
       longPressTriggered = false;
 
       // Long press → reset to defaults
       if (longPressTimer) clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
+        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
+        if (tooltipPlugin) tooltipPlugin.hideTooltip();
         const devTools = this.engine.plugins.get('DevToolsPlugin');
         if (devTools) devTools.resetToDefaults();
         this.triggerHaptic('success');
@@ -203,6 +209,8 @@ export class InteractionPlugin extends TracePlugin {
           const pts = Array.from(touches.values());
           const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
           if (Math.abs(dist - pinchStartDistance) > PINCH_MIN_DISTANCE_CHANGE_PX) {
+            const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
+            if (tooltipPlugin) tooltipPlugin.hideTooltip();
             const devTools = this.engine.plugins.get('DevToolsPlugin');
             if (devTools) devTools.randomizeThemeNowAndLocale();
             this.triggerHaptic('success');
@@ -252,6 +260,7 @@ export class InteractionPlugin extends TracePlugin {
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         const distance = Math.sqrt(dx * dx + dy * dy);
+        const duration = performance.now() - startTime;
 
         const devTools = this.engine.plugins.get('DevToolsPlugin');
         const themePlugin = this.engine.plugins.get('ThemePlugin');
@@ -261,7 +270,11 @@ export class InteractionPlugin extends TracePlugin {
         const tappedQuickly = now - lastTapTime < DOUBLE_TAP_MAX_DELAY_MS;
         const tappedNearby = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < DOUBLE_TAP_MAX_DISTANCE_PX;
 
+        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
+
         if (!isDragging && !longPressTriggered && !pinchTriggered && tappedQuickly && tappedNearby) {
+          // Double tap detected - hide tooltip and cycle theme
+          if (tooltipPlugin) tooltipPlugin.hideTooltip();
           if (themePlugin) themePlugin.cycleTheme();
           this.triggerHaptic('success');
           lastTapTime = 0;
@@ -272,18 +285,33 @@ export class InteractionPlugin extends TracePlugin {
           lastTapX = e.clientX;
           lastTapY = e.clientY;
 
-          // Swipe detection (single finger)
-          if (!longPressTriggered && !pinchTriggered && distance > SWIPE_MIN_DISTANCE) {
+          // Swipe detection: fast, directional gesture (not slow drag)
+          // Requirements: minimum distance + fast duration + clear direction
+          const isFastSwipe = distance > SWIPE_MIN_DISTANCE && duration < 400;
+          const shouldCheckSwipe = !longPressTriggered && !pinchTriggered && isFastSwipe;
+
+          if (shouldCheckSwipe) {
             const absDx = Math.abs(dx);
             const absDy = Math.abs(dy);
-            if (absDx > absDy) {
-              // Horizontal swipe → cycle theme
-              if (themePlugin) themePlugin.cycleTheme();
-              this.triggerHaptic('success');
-            } else {
-              // Vertical swipe → randomize
-              if (devTools) devTools.randomizeThemeNowAndLocale();
-              this.triggerHaptic('success');
+
+            // Require clear directional intent (not diagonal)
+            const isHorizontalSwipe = absDx > absDy * 1.5;
+            const isVerticalSwipe = absDy > absDx * 1.5;
+
+            if (isHorizontalSwipe || isVerticalSwipe) {
+              // Hide tooltip before swipe action
+              if (tooltipPlugin) tooltipPlugin.hideTooltip();
+              isSwipeGesture = true;
+
+              if (isHorizontalSwipe) {
+                // Horizontal swipe → cycle theme
+                if (themePlugin) themePlugin.cycleTheme();
+                this.triggerHaptic('success');
+              } else {
+                // Vertical swipe → randomize
+                if (devTools) devTools.randomizeThemeNowAndLocale();
+                this.triggerHaptic('success');
+              }
             }
           }
         }
@@ -297,8 +325,11 @@ export class InteractionPlugin extends TracePlugin {
 
       const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
       if (tooltipPlugin) {
-        const duration = isDragging ? 1250 : 2500;
-        tooltipPlugin.scheduleHide(duration);
+        // Only schedule hide if no gesture was triggered
+        if (!longPressTriggered && !pinchTriggered) {
+          const duration = isDragging ? 1250 : 2500;
+          tooltipPlugin.scheduleHide(duration);
+        }
         if (this._lastHoveredElement) {
           this._lastHoveredElement.classList.remove('tr-is-touch-active');
           this._lastHoveredElement = null;
