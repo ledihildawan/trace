@@ -162,13 +162,6 @@ export class InteractionPlugin extends TracePlugin {
         }
         if (touches.size > 1) return;
       }
-      // Cancel any pending hover RAF so stale callbacks don't re-add active classes
-      if (this._rafPending && typeof cancelAnimationFrame === 'function' && this._lastRafId) {
-        cancelAnimationFrame(this._lastRafId);
-        this._rafPending = false;
-        this._lastRafId = null;
-      }
-
       activePointerId = e.pointerId;
       this.engine.viewport.setPointerCapture(e.pointerId);
       startX = e.clientX;
@@ -238,14 +231,13 @@ export class InteractionPlugin extends TracePlugin {
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
-      if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+      // Allow a more-sensitive drag start when the press originated on a day
+      const effectiveThreshold = this._pressedElement
+        ? Math.max(8, Math.floor(DRAG_THRESHOLD_PX / 3))
+        : DRAG_THRESHOLD_PX;
+      if (dx * dx + dy * dy > effectiveThreshold * effectiveThreshold) {
         isDragging = true;
-        // Cancel pending hover RAF to avoid stale hover re-appearing
-        if (this._rafPending && typeof cancelAnimationFrame === 'function' && this._lastRafId) {
-          cancelAnimationFrame(this._lastRafId);
-          this._rafPending = false;
-          this._lastRafId = null;
-        }
+        // No RAF cancellation here — rely on ignoreHover/isDragging guards.
         // While actively dragging, suppress hover updates so old "active" days
         // aren't left highlighted. Clear any existing hover highlight.
         this.ignoreHover = true;
