@@ -99,36 +99,6 @@ export class InteractionPlugin extends TracePlugin {
     let longPressTimer = null;
     let longPressTriggered = false;
 
-    // Prevent any existing engine-level touch handlers from also processing
-    // touch pointer events (they were left active from the pre-plugin code).
-    // We use capture + stopImmediatePropagation for touch only so mouse
-    // handlers (desktop) remain unaffected.
-    const stopEngineTouchPropagation = (evt) => {
-      if (evt.pointerType === 'touch') {
-        evt.stopImmediatePropagation();
-      }
-    };
-    this.engine.viewport.addEventListener('pointerdown', stopEngineTouchPropagation, {
-      capture: true,
-      passive: true,
-      signal: this.signal,
-    });
-    this.engine.viewport.addEventListener('pointermove', stopEngineTouchPropagation, {
-      capture: true,
-      passive: true,
-      signal: this.signal,
-    });
-    this.engine.viewport.addEventListener('pointerup', stopEngineTouchPropagation, {
-      capture: true,
-      passive: true,
-      signal: this.signal,
-    });
-    this.engine.viewport.addEventListener('pointercancel', stopEngineTouchPropagation, {
-      capture: true,
-      passive: true,
-      signal: this.signal,
-    });
-
     // Multi-touch state for pinch
     const touches = new Map();
     let pinchStartDistance = 0;
