@@ -8,7 +8,6 @@ import {
   HAPTIC_SCRUB_MS,
   HAPTIC_SUCCESS_MS,
   LONG_PRESS_DURATION_MS,
-  MOUSE_DRAG_THRESHOLD,
   PINCH_MIN_DISTANCE_CHANGE_PX,
   SWIPE_MIN_DISTANCE,
 } from '../core/constants.js';
@@ -22,6 +21,7 @@ export class InteractionPlugin extends TracePlugin {
     this._pendingY = 0;
     this._lastHoveredElement = null;
     this._pressedElement = null;
+    this._draggingElement = null;
     this._lastHapticAt = { scrub: 0, success: 0 };
     this.hasHover = false;
     this.ignoreHover = false;
@@ -92,7 +92,6 @@ export class InteractionPlugin extends TracePlugin {
   setupTouchGestures() {
     // Pointer state
     let isDragging = false;
-    let isSwipeGesture = false;
     let activePointerId = null;
     let startX = 0;
     let startY = 0;
@@ -169,7 +168,6 @@ export class InteractionPlugin extends TracePlugin {
       startY = e.clientY;
       startTime = performance.now();
       isDragging = false;
-      isSwipeGesture = false;
       longPressTriggered = false;
 
       // Long press → reset to defaults
@@ -227,7 +225,17 @@ export class InteractionPlugin extends TracePlugin {
 
       if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
         isDragging = true;
-        this.ignoreHover = false;
+        // While actively dragging, suppress hover updates so old "active" days
+        // aren't left highlighted. Clear any existing hover highlight.
+        this.ignoreHover = true;
+        if (this._lastHoveredElement) {
+          try {
+            this._lastHoveredElement.classList.remove('tr-is-touch-active');
+          } catch (err) {
+            /* ignore */
+          }
+          this._lastHoveredElement = null;
+        }
         if (this._pressedElement) {
           this._pressedElement.classList.remove('tr-is-pressing');
           this._pressedElement = null;
@@ -235,6 +243,24 @@ export class InteractionPlugin extends TracePlugin {
         if (longPressTimer) {
           clearTimeout(longPressTimer);
           longPressTimer = null;
+        }
+        // Apply dragging visual class similar to hover
+        try {
+          const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
+          if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
+            // Remove previous dragging marker if present and different
+            if (this._draggingElement && this._draggingElement !== dragTarget) {
+              try {
+                this._draggingElement.classList.remove('tr-is-dragging');
+              } catch (err) {
+                /* ignore */
+              }
+            }
+            dragTarget.classList.add('tr-is-dragging');
+            this._draggingElement = dragTarget;
+          }
+        } catch (err) {
+          /* ignore */
         }
       }
 
@@ -301,7 +327,6 @@ export class InteractionPlugin extends TracePlugin {
             if (isHorizontalSwipe || isVerticalSwipe) {
               // Hide tooltip before swipe action
               if (tooltipPlugin) tooltipPlugin.hideTooltip();
-              isSwipeGesture = true;
 
               if (isHorizontalSwipe) {
                 // Horizontal swipe → cycle theme
@@ -336,6 +361,15 @@ export class InteractionPlugin extends TracePlugin {
         }
         this.ignoreHover = false;
       }
+      // remove dragging visual class for touch
+      if (this._draggingElement) {
+        try {
+          this._draggingElement.classList.remove('tr-is-dragging');
+        } catch (err) {
+          /* ignore */
+        }
+        this._draggingElement = null;
+      }
       isDragging = false;
     };
 
@@ -349,9 +383,6 @@ export class InteractionPlugin extends TracePlugin {
    * Setup mouse controls (wheel, drag)
    */
   setupMouseControls() {
-    let isMouseDragging = false;
-    let dragStartX = 0;
-
     this.engine.viewport.addEventListener(
       'wheel',
       (e) => {
@@ -365,49 +396,6 @@ export class InteractionPlugin extends TracePlugin {
         }
       },
       { passive: false, signal: this.signal }
-    );
-
-    this.engine.viewport.addEventListener(
-      'pointerdown',
-      (e) => {
-        if (!this.hasHover) return;
-        if (e.pointerType !== 'mouse') return;
-        dragStartX = e.clientX;
-        isMouseDragging = true;
-      },
-      { signal: this.signal }
-    );
-
-    this.engine.viewport.addEventListener(
-      'pointermove',
-      (e) => {
-        if (!this.hasHover) return;
-        if (!isMouseDragging || e.pointerType !== 'mouse') return;
-        const dragDistance = e.clientX - dragStartX;
-        if (Math.abs(dragDistance) > MOUSE_DRAG_THRESHOLD) {
-          const themePlugin = this.engine.plugins.get('ThemePlugin');
-          if (themePlugin) themePlugin.cycleTheme();
-          this.triggerHaptic('success');
-          isMouseDragging = false;
-        }
-      },
-      { signal: this.signal }
-    );
-
-    this.engine.viewport.addEventListener(
-      'pointerup',
-      () => {
-        isMouseDragging = false;
-      },
-      { signal: this.signal }
-    );
-
-    this.engine.viewport.addEventListener(
-      'pointerleave',
-      () => {
-        isMouseDragging = false;
-      },
-      { signal: this.signal }
     );
   }
 
