@@ -490,15 +490,15 @@ export class TraceEngine {
           }
         }
 
-        // Alt + R: Random theme/time/locale (safe across all browsers/OS)
-        if (e.altKey && key === 'r' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        // Alt/Option + Shift + R: Random theme/time/locale (avoids Chrome reload shortcuts)
+        if (e.altKey && e.shiftKey && key === 'r' && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           this.randomizeThemeNowAndLocale();
           return;
         }
 
-        // Alt + X: Reset to defaults (safe combination)
-        if (e.altKey && key === 'x' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        // Alt/Option + Shift + X: Reset to defaults (avoid browser reserved combos)
+        if (e.altKey && e.shiftKey && key === 'x' && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           this.resetToDefaults();
           return;
