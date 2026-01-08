@@ -2,10 +2,14 @@
 // Handles mouse, touch, keyboard, and gesture interactions
 
 import {
+  DOUBLE_TAP_MAX_DELAY_MS,
+  DOUBLE_TAP_MAX_DISTANCE_PX,
   DRAG_THRESHOLD_PX,
   HAPTIC_SCRUB_MS,
   HAPTIC_SUCCESS_MS,
+  LONG_PRESS_DURATION_MS,
   MOUSE_DRAG_THRESHOLD,
+  PINCH_MIN_DISTANCE_CHANGE_PX,
   SWIPE_MIN_DISTANCE,
 } from '../core/constants.js';
 import { TracePlugin } from '../core/plugin-manager.js';
@@ -171,7 +175,7 @@ export class InteractionPlugin extends TracePlugin {
         if (devTools) devTools.resetToDefaults();
         this.triggerHaptic('success');
         longPressTriggered = true;
-      }, 600);
+      }, LONG_PRESS_DURATION_MS);
 
       const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
       if (tooltipPlugin) tooltipPlugin.cancelHide();
@@ -198,7 +202,7 @@ export class InteractionPlugin extends TracePlugin {
         if (touches.size === 2 && pinchStartDistance > 0 && !pinchTriggered) {
           const pts = Array.from(touches.values());
           const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-          if (Math.abs(dist - pinchStartDistance) > 30) {
+          if (Math.abs(dist - pinchStartDistance) > PINCH_MIN_DISTANCE_CHANGE_PX) {
             const devTools = this.engine.plugins.get('DevToolsPlugin');
             if (devTools) devTools.randomizeThemeNowAndLocale();
             this.triggerHaptic('success');
@@ -254,8 +258,8 @@ export class InteractionPlugin extends TracePlugin {
 
         // Double tap → cycle theme
         const now = performance.now();
-        const tappedQuickly = now - lastTapTime < 350;
-        const tappedNearby = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 20;
+        const tappedQuickly = now - lastTapTime < DOUBLE_TAP_MAX_DELAY_MS;
+        const tappedNearby = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < DOUBLE_TAP_MAX_DISTANCE_PX;
 
         if (!isDragging && !longPressTriggered && !pinchTriggered && tappedQuickly && tappedNearby) {
           if (themePlugin) themePlugin.cycleTheme();

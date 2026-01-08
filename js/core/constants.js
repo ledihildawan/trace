@@ -18,6 +18,10 @@ export const HAPTIC_SCRUB_MS = 5;
 export const HAPTIC_SUCCESS_MS = 50;
 export const DRAG_THRESHOLD_PX = 15;
 
-export const EDGE_THRESHOLD = 30;
+// Mobile gesture thresholds (tunable based on device testing)
+export const LONG_PRESS_DURATION_MS = 600;
+export const DOUBLE_TAP_MAX_DELAY_MS = 350;
+export const DOUBLE_TAP_MAX_DISTANCE_PX = 20;
+export const PINCH_MIN_DISTANCE_CHANGE_PX = 30;
 export const SWIPE_MIN_DISTANCE = 60;
 export const MOUSE_DRAG_THRESHOLD = 80;
