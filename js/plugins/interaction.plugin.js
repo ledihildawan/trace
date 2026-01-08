@@ -236,6 +236,19 @@ export class InteractionPlugin extends TracePlugin {
           }
           this._lastHoveredElement = null;
         }
+        // Also defensively clear any leftover active classes in the DOM
+        try {
+          document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+        } catch (err) {
+          /* ignore */
+        }
+        // Hide tooltip while dragging to avoid stale highlights
+        try {
+          const _tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
+          if (_tooltipPlugin) _tooltipPlugin.hideTooltip();
+        } catch (err) {
+          /* ignore */
+        }
         if (this._pressedElement) {
           this._pressedElement.classList.remove('tr-is-pressing');
           this._pressedElement = null;
@@ -355,10 +368,13 @@ export class InteractionPlugin extends TracePlugin {
           const duration = isDragging ? 1250 : 2500;
           tooltipPlugin.scheduleHide(duration);
         }
-        if (this._lastHoveredElement) {
-          this._lastHoveredElement.classList.remove('tr-is-touch-active');
-          this._lastHoveredElement = null;
+        // Ensure any hovered markers are cleared
+        try {
+          document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+        } catch (err) {
+          /* ignore */
         }
+        this._lastHoveredElement = null;
         this.ignoreHover = false;
       }
       // remove dragging visual class for touch
