@@ -474,13 +474,35 @@ export class TraceEngine {
   init() {
     this.updateDynamicColors(this.themeColors[this.colorIndex]);
 
+    // Detect macOS for cross-platform shortcuts
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
     window.addEventListener(
       'keydown',
       (e) => {
         const key = e.key.toLowerCase();
-        if (key === 'c') this.cycleTheme();
-        else if (key === 'r' && e.altKey && (e.ctrlKey || e.metaKey)) this.randomizeThemeNowAndLocale();
-        else if (key === 'x') this.resetToDefaults();
+
+        // Single key shortcuts (no modifiers)
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          if (key === 'c') {
+            this.cycleTheme();
+            return;
+          }
+        }
+
+        // Alt + R: Random theme/time/locale (safe across all browsers/OS)
+        if (e.altKey && key === 'r' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          this.randomizeThemeNowAndLocale();
+          return;
+        }
+
+        // Alt + X: Reset to defaults (safe combination)
+        if (e.altKey && key === 'x' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          this.resetToDefaults();
+          return;
+        }
       },
       { signal: this._signal }
     );
@@ -495,6 +517,32 @@ export class TraceEngine {
 
     let isDragging = false;
     let activePointerId = null;
+
+    // Triple tap detection for reset
+    const tripleTap = { count: 0, timer: null, lastTime: 0 };
+    const handleTripleTap = () => {
+      const now = performance.now();
+      if (now - tripleTap.lastTime > 500) {
+        tripleTap.count = 1;
+      } else {
+        tripleTap.count++;
+        if (tripleTap.count === 3) {
+          this.resetToDefaults();
+          this.triggerHaptic('success');
+          tripleTap.count = 0;
+        }
+      }
+      tripleTap.lastTime = now;
+      if (tripleTap.timer) clearTimeout(tripleTap.timer);
+      tripleTap.timer = setTimeout(() => {
+        tripleTap.count = 0;
+      }, 500);
+    };
+
+    // Edge swipe detection for theme picker
+    const edgeSwipe = { isFromEdge: false, startX: 0, startY: 0 };
+    const EDGE_THRESHOLD = 30; // pixels from edge
+    const SWIPE_MIN_DISTANCE = 60; // minimum swipe distance
 
     const devTouch = { active: new Map(), timer: null, moved: false, startCenterX: 0, startCenterY: 0 };
     const clearDevTouchTimer = () => {
@@ -557,13 +605,19 @@ export class TraceEngine {
         devTouch.active.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (devTouch.active.size === 2) maybeStartDevTouchTimer();
         if (devTouch.active.size > 1) return;
+
+        // Detect edge swipe start (left or right edge)
+        const isLeftEdge = e.clientX < EDGE_THRESHOLD;
+        const isRightEdge = e.clientX > window.innerWidth - EDGE_THRESHOLD;
+        edgeSwipe.isFromEdge = isLeftEdge || isRightEdge;
+        edgeSwipe.startX = e.clientX;
+        edgeSwipe.startY = e.clientY;
       }
       activePointerId = e.pointerId;
       this.viewport.setPointerCapture(e.pointerId);
       this.startX = e.clientX;
       this.startY = e.clientY;
       isDragging = false;
-      this.isLongPressMode = false;
       if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
       schedulePointerUpdate(e.clientX, e.clientY);
       if (this._pressedElement) {
@@ -575,21 +629,6 @@ export class TraceEngine {
         this._pressedElement = pressed;
         pressed.classList.add('tr-is-pressing');
       }
-      if (this.pressTimer) clearTimeout(this.pressTimer);
-      this.pressTimer = setTimeout(() => {
-        if (!isDragging) {
-          this.isLongPressMode = true;
-          this.ignoreHover = true;
-          if (this._lastHoveredElement) {
-            this._lastHoveredElement.classList.remove('tr-is-touch-active');
-            this._lastHoveredElement = null;
-          }
-          this.tooltip.style.transition = 'opacity 0.3s ease-out';
-          this.tooltip.style.opacity = 0;
-          this.cycleTheme();
-          this.triggerHaptic('success');
-        }
-      }, TraceEngine.LONG_PRESS_DURATION);
     };
 
     const handlePointerMove = (e) => {
@@ -601,11 +640,23 @@ export class TraceEngine {
       if (activePointerId !== e.pointerId) return;
       const dx = e.clientX - this.startX;
       const dy = e.clientY - this.startY;
+
+      // Detect edge swipe gesture
+      if (edgeSwipe.isFromEdge && Math.abs(dx) > SWIPE_MIN_DISTANCE && Math.abs(dy) < 80) {
+        edgeSwipe.isFromEdge = false;
+        this.cycleTheme();
+        this.triggerHaptic('success');
+        isDragging = true;
+        if (this._pressedElement) {
+          this._pressedElement.classList.remove('tr-is-pressing');
+          this._pressedElement = null;
+        }
+        return;
+      }
+
       if (dx * dx + dy * dy > TraceEngine.DRAG_THRESHOLD_PX * TraceEngine.DRAG_THRESHOLD_PX) {
         isDragging = true;
-        this.isLongPressMode = false;
         this.ignoreHover = false;
-        if (this.pressTimer) clearTimeout(this.pressTimer);
         if (this._pressedElement) {
           this._pressedElement.classList.remove('tr-is-pressing');
           this._pressedElement = null;
@@ -620,38 +671,31 @@ export class TraceEngine {
         devTouch.active.delete(e.pointerId);
         if (devTouch.active.size < 2) clearDevTouchTimer();
         if (activePointerId !== e.pointerId) return;
+
+        // Triple tap detection (only for quick taps, not drags)
+        const dx = e.clientX - this.startX;
+        const dy = e.clientY - this.startY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 10 && !isDragging) {
+          handleTripleTap();
+        }
       }
       if (activePointerId !== e.pointerId) return;
       activePointerId = null;
+      edgeSwipe.isFromEdge = false;
       if (this._pressedElement) {
         this._pressedElement.classList.remove('tr-is-pressing');
         this._pressedElement = null;
       }
-      if (this.pressTimer) clearTimeout(this.pressTimer);
       const duration = isDragging ? TraceEngine.TOOLTIP_LINGER_MS * 0.5 : TraceEngine.TOOLTIP_LINGER_MS;
       this.tooltipHideTimer = setTimeout(() => {
-        if (this.isLongPressMode) {
-          const x = this._pendingX || this.lastPointerX || this.startX;
-          const y = this._pendingY || this.lastPointerY || this.startY;
-          const el = document.elementFromPoint(x, y);
-          if (el?.classList.contains('tr-day') && !el.classList.contains('tr-day--filler')) {
-            const { trDate: dateText, trInfo: infoText } = el.dataset;
-            this.tooltip.style.transition = 'opacity 0.2s ease-out';
-            this.showTooltipAt(x, y, true, dateText, infoText);
-          } else {
-            this.tooltip.style.transition = 'opacity 0.3s ease-out';
-            this.tooltip.style.opacity = 0;
-          }
-        } else {
-          this.tooltip.style.transition = 'opacity 0.3s ease-out';
-          this.tooltip.style.opacity = 0;
-        }
+        this.tooltip.style.transition = 'opacity 0.3s ease-out';
+        this.tooltip.style.opacity = 0;
         if (this._lastHoveredElement) {
           this._lastHoveredElement.classList.remove('tr-is-touch-active');
           this._lastHoveredElement = null;
         }
         this.ignoreHover = false;
-        this.isLongPressMode = false;
       }, duration);
       isDragging = false;
     };
@@ -966,7 +1010,8 @@ export class TraceEngine {
     if (!bar) return;
     const now = this.getNow();
     const minutes = now.getHours() * 60 + now.getMinutes();
-    bar.style.width = `${(minutes / TraceEngine.MINUTES_PER_DAY) * 100}%`;
+    const pct = minutes / TraceEngine.MINUTES_PER_DAY;
+    bar.style.transform = `scaleX(${pct})`;
   }
 
   positionTooltip(clientX, clientY, isTouch = false) {
@@ -1003,13 +1048,13 @@ export class TraceEngine {
     else placeBelow = spaceBelow > spaceAbove;
     if (placeBelow) {
       y = clamp(belowAnchorY, topBound, bottomBound - h);
-      this.tooltip.style.transform = 'translate(-50%, 0)';
+      this.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, 0)`;
     } else {
       y = clamp(aboveAnchorY, topBound + h, bottomBound);
-      this.tooltip.style.transform = 'translate(-50%, -100%)';
+      this.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -100%)`;
     }
-    this.tooltip.style.left = `${x}px`;
-    this.tooltip.style.top = `${y}px`;
+    this.tooltip.style.left = '0px';
+    this.tooltip.style.top = '0px';
   }
 
   render() {
@@ -1101,10 +1146,15 @@ export class TraceEngine {
     this.viewport.appendChild(fragment);
     requestAnimationFrame(() => {
       const r = this.viewport.getBoundingClientRect();
-      this.watermark.style.width = `${r.width}px`;
-      this.watermark.style.height = `${r.height}px`;
-      this.watermark.style.left = `${this.viewport.offsetLeft}px`;
-      this.watermark.style.top = `${this.viewport.offsetTop}px`;
+      // Round dimensions to prevent subpixel blur
+      this.watermark.style.width = `${Math.round(r.width)}px`;
+      this.watermark.style.height = `${Math.round(r.height)}px`;
+      this.watermark.style.left = `${Math.round(this.viewport.offsetLeft)}px`;
+      this.watermark.style.top = `${Math.round(this.viewport.offsetTop)}px`;
+
+      // Dynamic stroke width based on cell size for consistent appearance
+      const strokeBase = Math.max(6, Math.min(18, layout.cellSize * 0.18));
+      document.documentElement.style.setProperty('--tr-year-stroke-width', `${Math.round(strokeBase)}px`);
       if (hasToday) {
         const x = (todayCol + 0.5) * (layout.cellSize + layout.gapSize) - layout.gapSize;
         const y = (todayRow + 0.5) * (layout.cellSize + layout.gapSize) - layout.gapSize;
