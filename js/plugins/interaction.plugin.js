@@ -245,18 +245,9 @@ export class InteractionPlugin extends TracePlugin {
         this._lastHoveredElement = null;
         // Also defensively clear any leftover active classes in the DOM
         document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
-        // Hide tooltip while dragging to avoid stale highlights
-        this.engine.plugins.get('TooltipPlugin')?.hideTooltip();
-        if (this._pressedElement) {
-          this._pressedElement.classList.remove('tr-is-pressing');
-          this._pressedElement = null;
-        }
-        if (longPressTimer) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-        }
-        // Apply dragging visual class similar to hover
+        // While dragging, ensure the currently dragged day becomes active
         const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
+        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
         if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
           // Remove previous dragging marker if present and different
           if (this._draggingElement && this._draggingElement !== dragTarget && this._draggingElement.classList) {
@@ -264,6 +255,24 @@ export class InteractionPlugin extends TracePlugin {
           }
           dragTarget.classList.add('tr-is-dragging');
           this._draggingElement = dragTarget;
+
+          // Show tooltip for the dragged element so users see context while dragging
+          if (tooltipPlugin) {
+            const dateText = dragTarget.dataset.trDate;
+            const infoText = dragTarget.dataset.trInfo;
+            tooltipPlugin.showTooltipAt(e.clientX, e.clientY, true, dateText, infoText);
+          }
+        } else {
+          // If not over a day, ensure tooltip is hidden
+          if (tooltipPlugin) tooltipPlugin.hideTooltip();
+        }
+        if (this._pressedElement) {
+          this._pressedElement.classList.remove('tr-is-pressing');
+          this._pressedElement = null;
+        }
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
         }
       }
 
