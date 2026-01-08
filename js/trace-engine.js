@@ -474,34 +474,28 @@ export class TraceEngine {
   init() {
     this.updateDynamicColors(this.themeColors[this.colorIndex]);
 
-    // Detect macOS for cross-platform shortcuts
-    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-
     window.addEventListener(
       'keydown',
       (e) => {
+        // Avoid double-handling when focus is inside the grid (grid has its own key handler)
+        if (this.viewport && this.viewport.contains(e.target)) return;
         const key = e.key.toLowerCase();
 
         // Single key shortcuts (no modifiers)
         if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-          if (key === 'c') {
+          if (key === ' ' || key === 'spacebar') {
+            e.preventDefault();
             this.cycleTheme();
             return;
           }
-        }
-
-        // Alt/Option + Shift + R: Random theme/time/locale (avoids Chrome reload shortcuts)
-        if (e.altKey && e.shiftKey && key === 'r' && !e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          this.randomizeThemeNowAndLocale();
-          return;
-        }
-
-        // Alt/Option + Shift + X: Reset to defaults (avoid browser reserved combos)
-        if (e.altKey && e.shiftKey && key === 'x' && !e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          this.resetToDefaults();
-          return;
+          if (key === 'r') {
+            this.randomizeThemeNowAndLocale();
+            return;
+          }
+          if (key === 'x') {
+            this.resetToDefaults();
+            return;
+          }
         }
       },
       { signal: this._signal }
