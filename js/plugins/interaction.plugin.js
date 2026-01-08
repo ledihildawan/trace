@@ -45,6 +45,9 @@ export class InteractionPlugin extends TracePlugin {
       { signal: this.signal }
     );
 
+    // Cache frequently used plugins to avoid repeated lookups
+    this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
+
     this.setupKeyboardControls();
     this.setupTouchGestures();
     this.setupMouseControls();
@@ -124,8 +127,7 @@ export class InteractionPlugin extends TracePlugin {
         }
         const dateText = target.dataset.trDate;
         const infoText = target.dataset.trInfo;
-        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-        if (tooltipPlugin) {
+        if (this.tooltipPlugin) {
           tooltipPlugin.showTooltipAt(this._pendingX, this._pendingY, true, dateText, infoText);
         }
       } else if (this._lastHoveredElement) {
@@ -181,16 +183,13 @@ export class InteractionPlugin extends TracePlugin {
       // Long press → reset to defaults
       if (longPressTimer) clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
-        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-        if (tooltipPlugin) tooltipPlugin.hideTooltip();
+        if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
         const devTools = this.engine.plugins.get('DevToolsPlugin');
         if (devTools) devTools.resetToDefaults();
         this.triggerHaptic('success');
         longPressTriggered = true;
       }, LONG_PRESS_DURATION_MS);
-
-      const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-      if (tooltipPlugin) tooltipPlugin.cancelHide();
+      if (this.tooltipPlugin) tooltipPlugin.cancelHide();
 
       schedulePointerUpdate(e.clientX, e.clientY);
 
@@ -215,8 +214,7 @@ export class InteractionPlugin extends TracePlugin {
           const pts = Array.from(touches.values());
           const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
           if (Math.abs(dist - pinchStartDistance) > PINCH_MIN_DISTANCE_CHANGE_PX) {
-            const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-            if (tooltipPlugin) tooltipPlugin.hideTooltip();
+            if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
             const devTools = this.engine.plugins.get('DevToolsPlugin');
             if (devTools) devTools.randomizeThemeNowAndLocale();
             this.triggerHaptic('success');
@@ -247,7 +245,6 @@ export class InteractionPlugin extends TracePlugin {
         document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
         // While dragging, ensure the currently dragged day becomes active
         const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
-        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
         if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
           // Remove previous dragging marker if present and different
           if (this._draggingElement && this._draggingElement !== dragTarget && this._draggingElement.classList) {
@@ -257,14 +254,14 @@ export class InteractionPlugin extends TracePlugin {
           this._draggingElement = dragTarget;
 
           // Show tooltip for the dragged element so users see context while dragging
-          if (tooltipPlugin) {
+          if (this.tooltipPlugin) {
             const dateText = dragTarget.dataset.trDate;
             const infoText = dragTarget.dataset.trInfo;
             tooltipPlugin.showTooltipAt(e.clientX, e.clientY, true, dateText, infoText);
           }
         } else {
           // If not over a day, ensure tooltip is hidden
-          if (tooltipPlugin) tooltipPlugin.hideTooltip();
+          if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
         }
         if (this._pressedElement) {
           this._pressedElement.classList.remove('tr-is-pressing');
@@ -308,11 +305,9 @@ export class InteractionPlugin extends TracePlugin {
         const tappedQuickly = now - lastTapTime < DOUBLE_TAP_MAX_DELAY_MS;
         const tappedNearby = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < DOUBLE_TAP_MAX_DISTANCE_PX;
 
-        const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-
         if (!isDragging && !longPressTriggered && !pinchTriggered && tappedQuickly && tappedNearby) {
           // Double tap detected - hide tooltip and cycle theme
-          if (tooltipPlugin) tooltipPlugin.hideTooltip();
+          if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
           if (themePlugin) themePlugin.cycleTheme();
           this.triggerHaptic('success');
           lastTapTime = 0;
@@ -338,7 +333,7 @@ export class InteractionPlugin extends TracePlugin {
 
             if (isHorizontalSwipe || isVerticalSwipe) {
               // Hide tooltip before swipe action
-              if (tooltipPlugin) tooltipPlugin.hideTooltip();
+              if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
 
               if (isHorizontalSwipe) {
                 // Horizontal swipe → cycle theme
@@ -359,9 +354,7 @@ export class InteractionPlugin extends TracePlugin {
         this._pressedElement.classList.remove('tr-is-pressing');
         this._pressedElement = null;
       }
-
-      const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-      if (tooltipPlugin) {
+      if (this.tooltipPlugin) {
         // Only schedule hide if no gesture was triggered
         if (!longPressTriggered && !pinchTriggered) {
           const duration = isDragging ? 1250 : 2500;
@@ -412,11 +405,9 @@ export class InteractionPlugin extends TracePlugin {
     let pendingMouseX = 0;
     let pendingMouseY = 0;
 
-    const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-
     const processMouseMove = () => {
       mouseRafPending = false;
-      if (tooltipPlugin) {
+      if (this.tooltipPlugin) {
         tooltipPlugin.positionTooltip(pendingMouseX, pendingMouseY, false);
       }
     };
@@ -430,7 +421,7 @@ export class InteractionPlugin extends TracePlugin {
         if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
-          if (tooltipPlugin) {
+          if (this.tooltipPlugin) {
             tooltipPlugin.showTooltipAt(e.clientX, e.clientY, false, dateText, infoText);
           }
         }
@@ -526,7 +517,7 @@ export class InteractionPlugin extends TracePlugin {
           const rect = target.getBoundingClientRect();
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
-          if (tooltipPlugin) {
+          if (this.tooltipPlugin) {
             tooltipPlugin.showTooltipAt(
               rect.left + rect.width / 2,
               rect.top + rect.height / 2,
@@ -570,6 +561,8 @@ export class InteractionPlugin extends TracePlugin {
       this._pressedElement.classList.remove('tr-is-pressing');
       this._pressedElement = null;
     }
+    // Clear cached plugin references
+    this.tooltipPlugin = null;
     super.destroy();
   }
 }
