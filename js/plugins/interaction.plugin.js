@@ -1,8 +1,14 @@
 // TRACE Interaction Plugin
 // Handles mouse, touch, keyboard, and gesture interactions
 
+import {
+  DRAG_THRESHOLD_PX,
+  HAPTIC_SCRUB_MS,
+  HAPTIC_SUCCESS_MS,
+  MOUSE_DRAG_THRESHOLD,
+  SWIPE_MIN_DISTANCE,
+} from '../core/constants.js';
 import { TracePlugin } from '../core/plugin-manager.js';
-import { DRAG_THRESHOLD_PX, EDGE_THRESHOLD, SWIPE_MIN_DISTANCE, MOUSE_DRAG_THRESHOLD, HAPTIC_SCRUB_MS, HAPTIC_SUCCESS_MS } from '../core/constants.js';
 
 export class InteractionPlugin extends TracePlugin {
   constructor() {
@@ -80,57 +86,23 @@ export class InteractionPlugin extends TracePlugin {
    * Setup touch gestures (swipe, triple tap, long press)
    */
   setupTouchGestures() {
+    // Pointer state
     let isDragging = false;
     let activePointerId = null;
     let startX = 0;
     let startY = 0;
+    let longPressTimer = null;
+    let longPressTriggered = false;
 
-    // Triple tap detection for reset
-    const tripleTap = { count: 0, timer: null, lastTime: 0 };
-    const handleTripleTap = () => {
-      const now = performance.now();
-      if (now - tripleTap.lastTime > 500) {
-        tripleTap.count = 1;
-      } else {
-        tripleTap.count++;
-        if (tripleTap.count === 3) {
-          const devTools = this.engine.plugins.get('DevToolsPlugin');
-          if (devTools) devTools.resetToDefaults();
-          this.triggerHaptic('success');
-          tripleTap.count = 0;
-        }
-      }
-      tripleTap.lastTime = now;
-      if (tripleTap.timer) clearTimeout(tripleTap.timer);
-      tripleTap.timer = setTimeout(() => {
-        tripleTap.count = 0;
-      }, 500);
-    };
+    // Multi-touch state for pinch
+    const touches = new Map();
+    let pinchStartDistance = 0;
+    let pinchTriggered = false;
 
-    // Edge swipe detection for theme picker
-    const edgeSwipe = { isFromEdge: false, startX: 0, startY: 0 };
-
-    // Dev touch (2-finger long press)
-    const devTouch = { active: new Map(), timer: null, moved: false };
-    const clearDevTouchTimer = () => {
-      if (devTouch.timer) {
-        clearTimeout(devTouch.timer);
-        devTouch.timer = null;
-      }
-    };
-    const maybeStartDevTouchTimer = () => {
-      clearDevTouchTimer();
-      devTouch.moved = false;
-      const pts = Array.from(devTouch.active.values());
-      if (pts.length !== 2) return;
-      devTouch.timer = setTimeout(() => {
-        if (devTouch.active.size === 2 && !devTouch.moved) {
-          const devTools = this.engine.plugins.get('DevToolsPlugin');
-          if (devTools) devTools.randomizeThemeNowAndLocale();
-          this.triggerHaptic('success');
-        }
-      }, 650);
-    };
+    // Double tap detection for quick theme cycle
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
 
     const processPointerMove = () => {
       this._rafPending = false;
@@ -171,28 +143,41 @@ export class InteractionPlugin extends TracePlugin {
     const handlePointerDown = (e) => {
       if (e.pointerType === 'mouse') return;
       if (e.pointerType === 'touch') {
-        devTouch.active.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (devTouch.active.size === 2) maybeStartDevTouchTimer();
-        if (devTouch.active.size > 1) return;
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-        // Detect edge swipe start
-        const isLeftEdge = e.clientX < EDGE_THRESHOLD;
-        const isRightEdge = e.clientX > window.innerWidth - EDGE_THRESHOLD;
-        edgeSwipe.isFromEdge = isLeftEdge || isRightEdge;
-        edgeSwipe.startX = e.clientX;
-        edgeSwipe.startY = e.clientY;
+        // If second touch begins, initialise pinch tracking
+        if (touches.size === 2) {
+          const pts = Array.from(touches.values());
+          pinchStartDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          pinchTriggered = false;
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        }
+        if (touches.size > 1) return;
       }
       activePointerId = e.pointerId;
       this.engine.viewport.setPointerCapture(e.pointerId);
       startX = e.clientX;
       startY = e.clientY;
       isDragging = false;
-      
+      longPressTriggered = false;
+
+      // Long press → reset to defaults
+      if (longPressTimer) clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(() => {
+        const devTools = this.engine.plugins.get('DevToolsPlugin');
+        if (devTools) devTools.resetToDefaults();
+        this.triggerHaptic('success');
+        longPressTriggered = true;
+      }, 600);
+
       const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
       if (tooltipPlugin) tooltipPlugin.cancelHide();
-      
+
       schedulePointerUpdate(e.clientX, e.clientY);
-      
+
       if (this._pressedElement) {
         this._pressedElement.classList.remove('tr-is-pressing');
         this._pressedElement = null;
@@ -206,27 +191,27 @@ export class InteractionPlugin extends TracePlugin {
 
     const handlePointerMove = (e) => {
       if (e.pointerType === 'mouse') return;
-      if (e.pointerType === 'touch' && devTouch.active.has(e.pointerId)) {
-        devTouch.active.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (activePointerId !== e.pointerId) return;
+      if (e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        // Pinch detection: when two fingers move apart/closer
+        if (touches.size === 2 && pinchStartDistance > 0 && !pinchTriggered) {
+          const pts = Array.from(touches.values());
+          const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          if (Math.abs(dist - pinchStartDistance) > 30) {
+            const devTools = this.engine.plugins.get('DevToolsPlugin');
+            if (devTools) devTools.randomizeThemeNowAndLocale();
+            this.triggerHaptic('success');
+            pinchTriggered = true;
+          }
+        }
+
+        if (touches.size > 1) return;
       }
+
       if (activePointerId !== e.pointerId) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-
-      // Detect edge swipe gesture
-      if (edgeSwipe.isFromEdge && Math.abs(dx) > SWIPE_MIN_DISTANCE && Math.abs(dy) < 80) {
-        edgeSwipe.isFromEdge = false;
-        const themePlugin = this.engine.plugins.get('ThemePlugin');
-        if (themePlugin) themePlugin.cycleTheme();
-        this.triggerHaptic('success');
-        isDragging = true;
-        if (this._pressedElement) {
-          this._pressedElement.classList.remove('tr-is-pressing');
-          this._pressedElement = null;
-        }
-        return;
-      }
 
       if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
         isDragging = true;
@@ -235,33 +220,77 @@ export class InteractionPlugin extends TracePlugin {
           this._pressedElement.classList.remove('tr-is-pressing');
           this._pressedElement = null;
         }
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
       }
+
       schedulePointerUpdate(e.clientX, e.clientY);
     };
 
     const handlePointerEnd = (e) => {
       if (e.pointerType === 'mouse') return;
       if (e.pointerType === 'touch') {
-        devTouch.active.delete(e.pointerId);
-        if (devTouch.active.size < 2) clearDevTouchTimer();
+        touches.delete(e.pointerId);
+        if (touches.size < 2) {
+          pinchStartDistance = 0;
+          pinchTriggered = false;
+        }
         if (activePointerId !== e.pointerId) return;
 
-        // Triple tap detection
+        // Cancel pending long press if finger lifted early
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < 10 && !isDragging) {
-          handleTripleTap();
+
+        const devTools = this.engine.plugins.get('DevToolsPlugin');
+        const themePlugin = this.engine.plugins.get('ThemePlugin');
+
+        // Double tap → cycle theme
+        const now = performance.now();
+        const tappedQuickly = now - lastTapTime < 350;
+        const tappedNearby = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 20;
+
+        if (!isDragging && !longPressTriggered && !pinchTriggered && tappedQuickly && tappedNearby) {
+          if (themePlugin) themePlugin.cycleTheme();
+          this.triggerHaptic('success');
+          lastTapTime = 0;
+          lastTapX = 0;
+          lastTapY = 0;
+        } else {
+          lastTapTime = now;
+          lastTapX = e.clientX;
+          lastTapY = e.clientY;
+
+          // Swipe detection (single finger)
+          if (!longPressTriggered && !pinchTriggered && distance > SWIPE_MIN_DISTANCE) {
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+            if (absDx > absDy) {
+              // Horizontal swipe → cycle theme
+              if (themePlugin) themePlugin.cycleTheme();
+              this.triggerHaptic('success');
+            } else {
+              // Vertical swipe → randomize
+              if (devTools) devTools.randomizeThemeNowAndLocale();
+              this.triggerHaptic('success');
+            }
+          }
         }
       }
       if (activePointerId !== e.pointerId) return;
       activePointerId = null;
-      edgeSwipe.isFromEdge = false;
       if (this._pressedElement) {
         this._pressedElement.classList.remove('tr-is-pressing');
         this._pressedElement = null;
       }
-      
+
       const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
       if (tooltipPlugin) {
         const duration = isDragging ? 1250 : 2500;
@@ -354,9 +383,9 @@ export class InteractionPlugin extends TracePlugin {
     let mouseRafPending = false;
     let pendingMouseX = 0;
     let pendingMouseY = 0;
-    
+
     const tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-    
+
     const processMouseMove = () => {
       mouseRafPending = false;
       if (tooltipPlugin) {
@@ -415,14 +444,14 @@ export class InteractionPlugin extends TracePlugin {
         if (!target.classList.contains('tr-day')) return;
         const index = parseInt(target.dataset.trIndex, 10);
         if (isNaN(index)) return;
-        
+
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           const themePlugin = this.engine.plugins.get('ThemePlugin');
           if (themePlugin) themePlugin.cycleTheme();
           return;
         }
-        
+
         let targetIndex = -1;
         switch (e.key) {
           case 'ArrowRight':
@@ -446,7 +475,7 @@ export class InteractionPlugin extends TracePlugin {
           default:
             return;
         }
-        
+
         if (targetIndex >= 0 && targetIndex < this.engine.gridCells.length) {
           const targetCell = this.engine.gridCells[targetIndex];
           if (targetCell && !targetCell.classList.contains('tr-day--filler')) {
@@ -470,7 +499,13 @@ export class InteractionPlugin extends TracePlugin {
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
           if (tooltipPlugin) {
-            tooltipPlugin.showTooltipAt(rect.left + rect.width / 2, rect.top + rect.height / 2, false, dateText, infoText);
+            tooltipPlugin.showTooltipAt(
+              rect.left + rect.width / 2,
+              rect.top + rect.height / 2,
+              false,
+              dateText,
+              infoText
+            );
           }
         }
       },

@@ -38,12 +38,12 @@ Refactor TRACE from a monolithic architecture to a modular plugin-based system w
 ## 📊 Statistics
 
 ### Code Organization
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| Main file size | 1306 lines | 300 lines | -77% |
-| Number of files | 3 | 14 | +367% |
-| Modularity | Monolith | Plugins | ✨ |
-| Test coverage | Hard | Easy | ✨ |
+| Metric          | Before     | After     | Change |
+| --------------- | ---------- | --------- | ------ |
+| Main file size  | 1306 lines | 300 lines | -77%   |
+| Number of files | 3          | 14        | +367%  |
+| Modularity      | Monolith   | Plugins   | ✨      |
+| Test coverage   | Hard       | Easy      | ✨      |
 
 ### File Structure
 ```

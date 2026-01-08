@@ -21,7 +21,7 @@ export class PluginManager {
     }
 
     this.plugins.set(name, plugin);
-    
+
     try {
       plugin.init(this.engine);
       console.log(`[PluginManager] Plugin "${name}" initialized`);
@@ -90,7 +90,7 @@ export class PluginManager {
 
     // In production, this would integrate with a dev server
     console.log('[PluginManager] Hot-reload enabled (dev mode)');
-    
+
     // Expose reload method to window for manual hot-reload
     window.traceReloadPlugin = (name) => this.reload(name);
     window.traceReloadAllPlugins = () => this.reloadAll();
@@ -108,7 +108,7 @@ export class PluginManager {
     }
 
     console.log(`[PluginManager] Reloading plugin "${name}"...`);
-    
+
     try {
       // Unregister existing plugin
       this.unregister(name);

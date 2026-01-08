@@ -57,7 +57,7 @@ export class A11yPlugin extends TracePlugin {
     cell.setAttribute('tabindex', isToday ? '0' : '-1');
     cell.setAttribute('aria-label', `${dateLong}. ${infoStr}`);
     cell.dataset.trIndex = index.toString();
-    
+
     if (isToday) {
       cell.setAttribute('aria-current', 'date');
     }

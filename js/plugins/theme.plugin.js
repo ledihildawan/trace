@@ -1,9 +1,9 @@
 // TRACE Theme Plugin
 // Manages theme colors, palettes, and dynamic color updates
 
-import { TracePlugin } from '../core/plugin-manager.js';
 import { TONE_TO_DARK_LUM, TONE_TO_LIGHT_LUM } from '../core/constants.js';
-import { normalizeHex, relativeLuminanceFromHex, hexToRgb01, rgbToHsl, hslToRgb, rgbToHex } from '../core/utils.js';
+import { TracePlugin } from '../core/plugin-manager.js';
+import { hexToRgb01, hslToRgb, normalizeHex, relativeLuminanceFromHex, rgbToHex, rgbToHsl } from '../core/utils.js';
 
 export class ThemePlugin extends TracePlugin {
   constructor() {
@@ -50,7 +50,7 @@ export class ThemePlugin extends TracePlugin {
   updateDynamicColors(hex) {
     const normalized = normalizeHex(hex);
     document.documentElement.style.setProperty('--tr-base-hex', normalized);
-    
+
     const cached =
       this._themeVarCache.get(normalized) ??
       (() => {
@@ -58,40 +58,40 @@ export class ThemePlugin extends TracePlugin {
         this._themeVarCache.set(normalized, computed);
         return computed;
       })();
-    
+
     document.documentElement.style.setProperty('--tr-color-bar-adaptive', cached.bar);
     document.documentElement.style.setProperty('--tr-color-hover-adaptive', cached.hover);
     document.documentElement.style.setProperty('--tr-color-ghost-label-today', cached.ghostLabelToday);
-    
+
     if (typeof cached.watermarkBoostOpacity === 'number') {
       document.documentElement.style.setProperty(
         '--tr-watermark-boost-opacity',
         String(Math.max(0, Math.min(1, cached.watermarkBoostOpacity)))
       );
     }
-    
+
     if (typeof cached.todayRingMixPct === 'number') {
       const pct = Math.max(0, Math.min(100, cached.todayRingMixPct));
       document.documentElement.style.setProperty('--tr-today-ring-mix', `${pct}%`);
     }
-    
+
     if (typeof cached.todayShadowAlpha === 'number') {
       document.documentElement.style.setProperty(
         '--tr-today-shadow-alpha',
         String(Math.max(0, Math.min(1, cached.todayShadowAlpha)))
       );
     }
-    
+
     const prevTone = document.documentElement.dataset.trTone;
     let nextTone = cached.tone;
     const lum = relativeLuminanceFromHex(normalized);
-    
+
     if (prevTone === 'dark') {
       nextTone = lum > TONE_TO_LIGHT_LUM ? 'light' : 'dark';
     } else if (prevTone === 'light') {
       nextTone = lum < TONE_TO_DARK_LUM ? 'dark' : 'light';
     }
-    
+
     if (nextTone) document.documentElement.dataset.trTone = nextTone;
   }
 
@@ -99,22 +99,25 @@ export class ThemePlugin extends TracePlugin {
    * Set theme by index
    */
   setThemeIndex(index, { persist = true } = {}) {
-    const safeIndex = ((index % this.engine.themeColors.length) + this.engine.themeColors.length) % this.engine.themeColors.length;
+    const safeIndex =
+      ((index % this.engine.themeColors.length) + this.engine.themeColors.length) % this.engine.themeColors.length;
     this.engine.colorIndex = safeIndex;
     this.updateDynamicColors(this.engine.themeColors[this.engine.colorIndex]);
-    
+
     if (persist) {
       try {
         localStorage.setItem('tr_theme_index', this.engine.colorIndex);
       } catch {}
     }
-    
+
     if (this.engine.announcer) {
       const localePlugin = this.engine.plugins.get('LocalePlugin');
       const t = localePlugin?._t || {};
-      this.engine.announcer.innerText = t.themeChanged ? t.themeChanged(this.engine.colorIndex + 1) : `Theme ${this.engine.colorIndex + 1}`;
+      this.engine.announcer.innerText = t.themeChanged
+        ? t.themeChanged(this.engine.colorIndex + 1)
+        : `Theme ${this.engine.colorIndex + 1}`;
     }
-    
+
     this.engine.viewport.classList.remove('tr-theme-pulse');
     void this.engine.viewport.offsetWidth;
     this.engine.viewport.classList.add('tr-theme-pulse');
@@ -140,10 +143,10 @@ export class ThemePlugin extends TracePlugin {
     const minSupported = Number.isFinite(this.engine._supportedYearMin) ? this.engine._supportedYearMin : derivedMin;
     const maxSupported = Number.isFinite(this.engine._supportedYearMax) ? this.engine._supportedYearMax : derivedMax;
     const y = Number.parseInt(year, 10);
-    
+
     if (Number.isNaN(y)) return map[derivedMax];
     if (y <= minSupported) return map[derivedMin] || map[minSupported] || map[derivedMax];
-    
+
     if (y >= maxSupported) {
       const base = map[derivedMax];
       const rgb = hexToRgb01(base);
@@ -156,7 +159,7 @@ export class ThemePlugin extends TracePlugin {
       const newRgb = hslToRgb((h + shift) % 360, s, l);
       return rgbToHex(newRgb.r, newRgb.g, newRgb.b);
     }
-    
+
     let nearest = derivedMin;
     let bestDist = Infinity;
     for (const ky of keys) {
@@ -177,13 +180,13 @@ export class ThemePlugin extends TracePlugin {
       const hex = this.getColorForYear(Number(year));
       if (!hex) return;
       this.updateDynamicColors(hex);
-      
+
       if (persist) {
         try {
           localStorage.setItem('tr_theme_year', String(year));
         } catch {}
       }
-      
+
       if (this.engine.announcer) {
         this.engine.announcer.innerText = `Theme color set for ${year}`;
       }

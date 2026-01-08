@@ -158,9 +158,9 @@ export class LocalePlugin extends TracePlugin {
     const activeLocale = locale || 'en';
     if (override) this._localeOverride = activeLocale;
     this._activeLocale = activeLocale;
-    
+
     document.documentElement.lang = activeLocale;
-    
+
     const primaryRaw = activeLocale.toLowerCase().split('-')[0];
     const rtlLangs = new Set(['ar', 'fa', 'he', 'iw', 'ur', 'ps']);
     if (rtlLangs.has(primaryRaw)) {
@@ -204,7 +204,7 @@ export class LocalePlugin extends TracePlugin {
         ? this._t.localeChanged(activeLocale)
         : `Language changed: ${activeLocale}`;
     }
-    
+
     if (render) {
       this.engine.render();
     }

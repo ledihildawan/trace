@@ -41,7 +41,7 @@ export class DevToolsPlugin extends TracePlugin {
     this.engine._simulatedNow = null;
     this.engine.applyNow(this.engine.getNow());
     this.engine.render();
-    
+
     const localePlugin = this.engine.plugins.get('LocalePlugin');
     const t = localePlugin?._t || {};
     if (this.engine.announcer) {
@@ -88,7 +88,9 @@ export class DevToolsPlugin extends TracePlugin {
       const dateLong = localePlugin._dtfLongUTC.format(simulated);
       const t = localePlugin._t || {};
       if (this.engine.announcer) {
-        this.engine.announcer.innerText = t.testTimeRandomized ? t.testTimeRandomized(dateLong) : `Test time: ${dateLong}`;
+        this.engine.announcer.innerText = t.testTimeRandomized
+          ? t.testTimeRandomized(dateLong)
+          : `Test time: ${dateLong}`;
       }
     }
   }
@@ -98,7 +100,7 @@ export class DevToolsPlugin extends TracePlugin {
    */
   resetToDefaults() {
     this.engine._simulatedNow = null;
-    
+
     const localePlugin = this.engine.plugins.get('LocalePlugin');
     if (localePlugin) {
       localePlugin._localeOverride = null;

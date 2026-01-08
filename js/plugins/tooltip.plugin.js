@@ -1,8 +1,8 @@
 // TRACE Tooltip Plugin
 // Manages tooltip display and positioning
 
-import { TracePlugin } from '../core/plugin-manager.js';
 import { TOOLTIP_LINGER_MS } from '../core/constants.js';
+import { TracePlugin } from '../core/plugin-manager.js';
 import { clamp, pxVar } from '../core/utils.js';
 
 export class TooltipPlugin extends TracePlugin {
@@ -33,20 +33,20 @@ export class TooltipPlugin extends TracePlugin {
     const cacheKey = `${dateText}|${infoText}`;
     if (this.engine.tooltip.dataset.cache !== cacheKey) {
       this.engine.tooltip.textContent = '';
-      
+
       const dateLine = document.createElement('span');
       dateLine.className = 'tr-tip-line';
       dateLine.textContent = dateText;
       this.engine.tooltip.appendChild(dateLine);
-      
+
       const boldInfo = document.createElement('b');
       boldInfo.className = 'tr-tip-line';
       boldInfo.textContent = infoText;
       this.engine.tooltip.appendChild(boldInfo);
-      
+
       this.engine.tooltip.dataset.cache = cacheKey;
     }
-    
+
     const rect = this.engine.tooltip.getBoundingClientRect();
     this.tooltipWidth = rect.width;
     this.tooltipHeight = rect.height;
@@ -63,43 +63,45 @@ export class TooltipPlugin extends TracePlugin {
     const safeRight = pxVar('--tr-safe-right');
     const safeBottom = pxVar('--tr-safe-bottom');
     const safeLeft = pxVar('--tr-safe-left');
-    
+
     const w = this.tooltipWidth || this.engine.tooltip.getBoundingClientRect().width;
     const h = this.tooltipHeight || this.engine.tooltip.getBoundingClientRect().height;
-    
+
     let x = clientX;
     let y = clientY;
-    
+
     const minX = safeLeft + pad + w / 2;
     const maxX = window.innerWidth - safeRight - pad - w / 2;
     x = clamp(x, minX, maxX);
-    
+
     const vOffset = pxVar('--tr-tooltip-vertical-offset') || 40;
     const topBound = safeTop + pad;
     const bottomBound = window.innerHeight - safeBottom - pad;
-    
+
     const aboveAnchorY = clientY - vOffset;
     const belowAnchorY = clientY + vOffset;
-    
+
     const aboveFits = aboveAnchorY - h >= topBound && aboveAnchorY <= bottomBound;
     const belowFits = belowAnchorY >= topBound && belowAnchorY + h <= bottomBound;
-    
+
     const spaceAbove = aboveAnchorY - topBound;
     const spaceBelow = bottomBound - belowAnchorY;
-    
+
     let placeBelow;
     if (aboveFits) placeBelow = false;
     else if (belowFits) placeBelow = true;
     else placeBelow = spaceBelow > spaceAbove;
-    
+
     if (placeBelow) {
       y = clamp(belowAnchorY, topBound, bottomBound - h);
       this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, 0)`;
     } else {
       y = clamp(aboveAnchorY, topBound + h, bottomBound);
-      this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -100%)`;
+      this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(
+        y
+      )}px, 0) translate(-50%, -100%)`;
     }
-    
+
     this.engine.tooltip.style.left = '0px';
     this.engine.tooltip.style.top = '0px';
   }

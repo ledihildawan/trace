@@ -5,13 +5,13 @@ import { COLOR_OF_YEAR, THEME_COLORS } from './config/theme-colors.js';
 import { TraceEngine } from './core/trace-engine.js';
 
 // Import all plugins
-import { ThemePlugin } from './plugins/theme.plugin.js';
-import { LocalePlugin } from './plugins/locale.plugin.js';
-import { TooltipPlugin } from './plugins/tooltip.plugin.js';
-import { InteractionPlugin } from './plugins/interaction.plugin.js';
-import { TimeProgressPlugin } from './plugins/progress.plugin.js';
-import { DevToolsPlugin } from './plugins/devtools.plugin.js';
 import { A11yPlugin } from './plugins/a11y.plugin.js';
+import { DevToolsPlugin } from './plugins/devtools.plugin.js';
+import { InteractionPlugin } from './plugins/interaction.plugin.js';
+import { LocalePlugin } from './plugins/locale.plugin.js';
+import { TimeProgressPlugin } from './plugins/progress.plugin.js';
+import { ThemePlugin } from './plugins/theme.plugin.js';
+import { TooltipPlugin } from './plugins/tooltip.plugin.js';
 
 // Create engine instance
 const engine = new TraceEngine({

@@ -180,17 +180,17 @@ Update all references to use the new plugin API directly.
 
 ## Feature Mapping
 
-| Old Method | New Location |
-|------------|-------------|
-| `engine.cycleTheme()` | `ThemePlugin.cycleTheme()` |
-| `engine.setThemeIndex()` | `ThemePlugin.setThemeIndex()` |
+| Old Method                     | New Location                        |
+| ------------------------------ | ----------------------------------- |
+| `engine.cycleTheme()`          | `ThemePlugin.cycleTheme()`          |
+| `engine.setThemeIndex()`       | `ThemePlugin.setThemeIndex()`       |
 | `engine.updateDynamicColors()` | `ThemePlugin.updateDynamicColors()` |
-| `engine.setLocale()` | `LocalePlugin.setLocale()` |
-| `engine.formatDayInfo()` | `LocalePlugin.formatDayInfo()` |
-| `engine.showTooltipAt()` | `TooltipPlugin.showTooltipAt()` |
-| `engine.triggerHaptic()` | `InteractionPlugin.triggerHaptic()` |
-| `engine.randomizeNowUTC()` | `DevToolsPlugin.randomizeNowUTC()` |
-| `engine.resetToDefaults()` | `DevToolsPlugin.resetToDefaults()` |
+| `engine.setLocale()`           | `LocalePlugin.setLocale()`          |
+| `engine.formatDayInfo()`       | `LocalePlugin.formatDayInfo()`      |
+| `engine.showTooltipAt()`       | `TooltipPlugin.showTooltipAt()`     |
+| `engine.triggerHaptic()`       | `InteractionPlugin.triggerHaptic()` |
+| `engine.randomizeNowUTC()`     | `DevToolsPlugin.randomizeNowUTC()`  |
+| `engine.resetToDefaults()`     | `DevToolsPlugin.resetToDefaults()`  |
 
 ## Benefits
 

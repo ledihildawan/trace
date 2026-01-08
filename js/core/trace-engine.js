@@ -1,8 +1,8 @@
 // TRACE Core Engine (Minimal)
 // Framework-agnostic core with plugin architecture
 
+import { GRAYSCALE_RATE, MS_PER_DAY, OPACITY_DECAY_RATE, RESIZE_DEBOUNCE_MS } from './constants.js';
 import { PluginManager } from './plugin-manager.js';
-import { MS_PER_DAY, OPACITY_DECAY_RATE, GRAYSCALE_RATE, RESIZE_DEBOUNCE_MS } from './constants.js';
 
 export class TraceEngine {
   /**
@@ -113,7 +113,7 @@ export class TraceEngine {
    */
   render() {
     const localePlugin = this.plugins.get('LocalePlugin');
-    
+
     const isLeap = (this.year % 4 === 0 && this.year % 100 !== 0) || this.year % 400 === 0;
     const daysInYear = isLeap ? 366 : 365;
     const layout = this.calculateGrid(window.innerWidth, window.innerHeight, daysInYear);
@@ -122,7 +122,7 @@ export class TraceEngine {
     startDate.setUTCDate(startDate.getUTCDate() - Math.floor((totalCells - daysInYear) / 2));
 
     this.viewport.style.cssText = `gap:${layout.gapSize}px; grid-template-columns:repeat(${layout.columns},${layout.cellSize}px); grid-template-rows:repeat(${layout.rows},${layout.cellSize}px);`;
-    
+
     const fragment = document.createDocumentFragment();
     const gridCells = [];
     let todayCol = 0;
@@ -135,7 +135,7 @@ export class TraceEngine {
       const el = document.createElement('div');
       const isTargetYear = startDate.getUTCFullYear() === this.year;
       const cellDayTime = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
-      
+
       let type = 'filler';
       if (isTargetYear) {
         const currentDateStr = this.getUTCDateString(startDate);
@@ -143,23 +143,23 @@ export class TraceEngine {
         else if (cellDayTime < this.todayTime) type = 'past';
         else type = 'future';
       }
-      
+
       el.className = `tr-day tr-day--${type}`;
       el.style.setProperty('--tr-delay', `${((i % layout.columns) + Math.floor(i / layout.columns)) * 12}ms`);
-      
+
       if (startDate.getUTCDay() === 1) el.classList.add('tr-day--monday');
-      
+
       if (type === 'past') {
         const diff = Math.round((this.todayTime - cellDayTime) / MS_PER_DAY);
         el.style.opacity = Math.max(0.12, 1 - diff * OPACITY_DECAY_RATE);
         el.style.filter = `grayscale(${Math.min(100, diff * GRAYSCALE_RATE)}%)`;
       }
-      
+
       if (type === 'future') {
         const diff = Math.max(0, Math.round((cellDayTime - this.todayTime) / MS_PER_DAY));
         el.style.opacity = Math.max(0.28, 0.9 - diff * 0.0016);
       }
-      
+
       if (type === 'today') {
         hasToday = true;
         todayCol = i % layout.columns;
@@ -169,7 +169,7 @@ export class TraceEngine {
         bar.id = 'tr-today-bar';
         el.appendChild(bar);
       }
-      
+
       if (isTargetYear && startDate.getUTCDate() === 1 && localePlugin) {
         const label = localePlugin._dtfMonthLabelUTC.format(startDate).toLocaleUpperCase();
         el.setAttribute('data-tr-ghost-label', label);
@@ -178,7 +178,7 @@ export class TraceEngine {
         const monthLabelOpacity = Math.max(0.12, 0.38 - distance * 0.0014);
         el.style.setProperty('--tr-ghost-label-opacity', monthLabelOpacity.toFixed(3));
       }
-      
+
       if (type !== 'filler' && localePlugin) {
         const yearStart = Date.UTC(this.year, 0, 1, 12, 0, 0);
         const currentDate = Date.UTC(
@@ -194,7 +194,7 @@ export class TraceEngine {
         const infoStr = localePlugin.formatDayInfo(dayNum, daysInYear);
         el.dataset.trDate = dateLong;
         el.dataset.trInfo = infoStr;
-        
+
         // A11y setup
         if (a11yPlugin) {
           a11yPlugin.setupCellA11y(el, {
@@ -202,11 +202,11 @@ export class TraceEngine {
             dateLong,
             infoStr,
             isToday: type === 'today',
-            index: i
+            index: i,
           });
         }
       }
-      
+
       gridCells.push(el);
       fragment.appendChild(el);
       startDate.setUTCDate(startDate.getUTCDate() + 1);
@@ -214,7 +214,7 @@ export class TraceEngine {
 
     this.gridCells = gridCells;
     this._currentColumns = layout.columns;
-    
+
     while (this.viewport.firstChild) {
       this.viewport.removeChild(this.viewport.firstChild);
     }
@@ -231,7 +231,7 @@ export class TraceEngine {
       // Dynamic stroke width based on cell size
       const strokeBase = Math.max(6, Math.min(18, layout.cellSize * 0.18));
       document.documentElement.style.setProperty('--tr-year-stroke-width', `${Math.round(strokeBase)}px`);
-      
+
       if (hasToday) {
         const x = (todayCol + 0.5) * (layout.cellSize + layout.gapSize) - layout.gapSize;
         const y = (todayRow + 0.5) * (layout.cellSize + layout.gapSize) - layout.gapSize;
@@ -264,10 +264,10 @@ export class TraceEngine {
     const idealColumns = Math.sqrt((totalDays * availableWidth) / availableHeight);
     const searchStart = Math.max(1, Math.floor(idealColumns * 0.7));
     const searchEnd = Math.min(totalDays, Math.ceil(idealColumns * 1.3));
-    
+
     let bestCellSize = 0;
     let bestColumns = 1;
-    
+
     for (let columns = searchStart; columns <= searchEnd; columns++) {
       const rows = Math.ceil(totalDays / columns);
       const cellSize = Math.min(
@@ -279,7 +279,7 @@ export class TraceEngine {
         bestColumns = columns;
       }
     }
-    
+
     const cellSize = Math.floor(bestCellSize);
     const columns = Math.floor((availableWidth + gapSize) / (cellSize + gapSize));
     const rows = Math.floor((availableHeight + gapSize) / (cellSize + gapSize));
@@ -293,14 +293,14 @@ export class TraceEngine {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     if (this._resizeObserver) this._resizeObserver.disconnect();
     if (this._ac) this._ac.abort();
-    
+
     // Destroy all plugins
     this.plugins.destroyAll();
-    
+
     while (this.viewport.firstChild) {
       this.viewport.removeChild(this.viewport.firstChild);
     }
-    
+
     console.log('[TraceEngine] Core destroyed');
   }
 }

@@ -2,6 +2,24 @@
 
 All notable changes to the **TRACE** project will be documented in this file.
 
+## [1.1.0] - 2026-01-08
+
+### Features
+- **Year-aware themes:** Add year→color mapping and engine support so historical years use curated "color of the year" values and future years receive a plausible hue-predicted color.
+- **Programmatic theme-by-year API:** `TraceEngine.getColorForYear()` and `TraceEngine.setThemeByYear(year, {persist})` allow deterministic theme application and safe persistence.
+
+### Improvements
+- **Modularization:** Extracted theme constants to `js/theme.js`, moved core engine to `js/trace-engine.js`, and added `js/app.js` bootstrap for framework-agnostic initialization.
+- **Tooltip & UX polish:** Unified tooltip positioning and show/hide logic (above-biased auto-flip) ensuring consistent behavior across mouse, touch, and keyboard.
+- **Randomization respects supported range:** Random theme/time selection now respects instance `supportedYearMin/Max` and prefers year-based colors when available.
+- **Watermark and visual tuning:** Tuned watermark opacity, radii, and adaptive variables for better legibility and manifesto alignment.
+
+### Fixes
+- Reverted optional auto-restore of `localStorage.tr_theme_year` on init (behavior remains index-based by default).
+
+### Notes
+- This release is backward-compatible and non-breaking. Developers can call `traceEngine.setThemeByYear(year)` to apply year-aware themes.
+
 ## [1.0.6] - 2026-01-07
 
 ### Performance Optimizations
