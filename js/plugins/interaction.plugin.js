@@ -99,6 +99,40 @@ export class InteractionPlugin extends TracePlugin {
     let longPressTimer = null;
     let longPressTriggered = false;
 
+    // Prevent any existing engine-level touch handlers from also processing
+    // touch pointer events (they were left active from the pre-plugin code).
+    // We use capture + stopImmediatePropagation for touch only so mouse
+    // handlers (desktop) remain unaffected.
+    const stopEngineTouchPropagation = (evt) => {
+      if (evt.pointerType === 'touch') {
+        try {
+          evt.stopImmediatePropagation();
+        } catch (err) {
+          /* ignore */
+        }
+      }
+    };
+    this.engine.viewport.addEventListener('pointerdown', stopEngineTouchPropagation, {
+      capture: true,
+      passive: true,
+      signal: this.signal,
+    });
+    this.engine.viewport.addEventListener('pointermove', stopEngineTouchPropagation, {
+      capture: true,
+      passive: true,
+      signal: this.signal,
+    });
+    this.engine.viewport.addEventListener('pointerup', stopEngineTouchPropagation, {
+      capture: true,
+      passive: true,
+      signal: this.signal,
+    });
+    this.engine.viewport.addEventListener('pointercancel', stopEngineTouchPropagation, {
+      capture: true,
+      passive: true,
+      signal: this.signal,
+    });
+
     // Multi-touch state for pinch
     const touches = new Map();
     let pinchStartDistance = 0;
@@ -169,6 +203,30 @@ export class InteractionPlugin extends TracePlugin {
       startTime = performance.now();
       isDragging = false;
       longPressTriggered = false;
+
+      // Defensive cleanup: clear any stale hover/drag markers left from
+      // previous interactions so a new press doesn't inherit them.
+      if (this._lastHoveredElement) {
+        try {
+          this._lastHoveredElement.classList.remove('tr-is-touch-active');
+        } catch (err) {
+          /* ignore */
+        }
+        this._lastHoveredElement = null;
+      }
+      try {
+        document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+      } catch (err) {
+        /* ignore */
+      }
+      if (this._draggingElement) {
+        try {
+          this._draggingElement.classList.remove('tr-is-dragging');
+        } catch (err) {
+          /* ignore */
+        }
+        this._draggingElement = null;
+      }
 
       // Long press → reset to defaults
       if (longPressTimer) clearTimeout(longPressTimer);
