@@ -105,11 +105,7 @@ export class InteractionPlugin extends TracePlugin {
     // handlers (desktop) remain unaffected.
     const stopEngineTouchPropagation = (evt) => {
       if (evt.pointerType === 'touch') {
-        try {
-          evt.stopImmediatePropagation();
-        } catch (err) {
-          /* ignore */
-        }
+        evt.stopImmediatePropagation();
       }
     };
     this.engine.viewport.addEventListener('pointerdown', stopEngineTouchPropagation, {
@@ -206,27 +202,11 @@ export class InteractionPlugin extends TracePlugin {
 
       // Defensive cleanup: clear any stale hover/drag markers left from
       // previous interactions so a new press doesn't inherit them.
-      if (this._lastHoveredElement) {
-        try {
-          this._lastHoveredElement.classList.remove('tr-is-touch-active');
-        } catch (err) {
-          /* ignore */
-        }
-        this._lastHoveredElement = null;
-      }
-      try {
-        document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
-      } catch (err) {
-        /* ignore */
-      }
-      if (this._draggingElement) {
-        try {
-          this._draggingElement.classList.remove('tr-is-dragging');
-        } catch (err) {
-          /* ignore */
-        }
-        this._draggingElement = null;
-      }
+      if (this._lastHoveredElement?.classList) this._lastHoveredElement.classList.remove('tr-is-touch-active');
+      this._lastHoveredElement = null;
+      document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+      if (this._draggingElement?.classList) this._draggingElement.classList.remove('tr-is-dragging');
+      this._draggingElement = null;
 
       // Long press → reset to defaults
       if (longPressTimer) clearTimeout(longPressTimer);
@@ -286,27 +266,12 @@ export class InteractionPlugin extends TracePlugin {
         // While actively dragging, suppress hover updates so old "active" days
         // aren't left highlighted. Clear any existing hover highlight.
         this.ignoreHover = true;
-        if (this._lastHoveredElement) {
-          try {
-            this._lastHoveredElement.classList.remove('tr-is-touch-active');
-          } catch (err) {
-            /* ignore */
-          }
-          this._lastHoveredElement = null;
-        }
+        if (this._lastHoveredElement?.classList) this._lastHoveredElement.classList.remove('tr-is-touch-active');
+        this._lastHoveredElement = null;
         // Also defensively clear any leftover active classes in the DOM
-        try {
-          document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
-        } catch (err) {
-          /* ignore */
-        }
+        document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
         // Hide tooltip while dragging to avoid stale highlights
-        try {
-          const _tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-          if (_tooltipPlugin) _tooltipPlugin.hideTooltip();
-        } catch (err) {
-          /* ignore */
-        }
+        this.engine.plugins.get('TooltipPlugin')?.hideTooltip();
         if (this._pressedElement) {
           this._pressedElement.classList.remove('tr-is-pressing');
           this._pressedElement = null;
@@ -316,22 +281,14 @@ export class InteractionPlugin extends TracePlugin {
           longPressTimer = null;
         }
         // Apply dragging visual class similar to hover
-        try {
-          const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
-          if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
-            // Remove previous dragging marker if present and different
-            if (this._draggingElement && this._draggingElement !== dragTarget) {
-              try {
-                this._draggingElement.classList.remove('tr-is-dragging');
-              } catch (err) {
-                /* ignore */
-              }
-            }
-            dragTarget.classList.add('tr-is-dragging');
-            this._draggingElement = dragTarget;
+        const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
+        if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
+          // Remove previous dragging marker if present and different
+          if (this._draggingElement && this._draggingElement !== dragTarget && this._draggingElement.classList) {
+            this._draggingElement.classList.remove('tr-is-dragging');
           }
-        } catch (err) {
-          /* ignore */
+          dragTarget.classList.add('tr-is-dragging');
+          this._draggingElement = dragTarget;
         }
       }
 
@@ -427,23 +384,13 @@ export class InteractionPlugin extends TracePlugin {
           tooltipPlugin.scheduleHide(duration);
         }
         // Ensure any hovered markers are cleared
-        try {
-          document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
-        } catch (err) {
-          /* ignore */
-        }
+        document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
         this._lastHoveredElement = null;
         this.ignoreHover = false;
       }
       // remove dragging visual class for touch
-      if (this._draggingElement) {
-        try {
-          this._draggingElement.classList.remove('tr-is-dragging');
-        } catch (err) {
-          /* ignore */
-        }
-        this._draggingElement = null;
-      }
+      if (this._draggingElement?.classList) this._draggingElement.classList.remove('tr-is-dragging');
+      this._draggingElement = null;
       isDragging = false;
     };
 
