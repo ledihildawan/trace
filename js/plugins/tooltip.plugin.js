@@ -1,5 +1,5 @@
 // TRACE Tooltip Plugin
-// Optimized: CSS Individual Transforms, Anti-Collision, Intra-Element Transitions
+// Optimized: CSS Individual Transforms & High-Speed Snap
 
 import { TracePlugin } from '../core/plugin-manager.js';
 import { clamp, pxVar } from '../core/utils.js';
@@ -20,13 +20,8 @@ export class TooltipPlugin extends TracePlugin {
       zIndex: '10000',
       pointerEvents: 'none',
       willChange: 'translate, opacity',
-      translate: '0 0', // Modern Individual Transform
-      display: 'flex',
-      flexDirection: 'column',
+      translate: '0 0', // Properti CSS Modern
     });
-
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.engine.tooltip.style.transition = reduce ? 'opacity 0ms' : 'opacity 150ms ease-out, translate 0.1s ease-out';
   }
 
   showTooltipForElement(el, isTouch = false) {
@@ -43,24 +38,24 @@ export class TooltipPlugin extends TracePlugin {
     this.engine.tooltip.setAttribute('aria-hidden', 'false');
 
     this._target = el;
-    this.updatePosition();
+    this._updatePosition();
   }
 
   _render(date, info) {
     const el = this.engine.tooltip;
-    el.style.opacity = '0.4'; // Content transition hint
+    el.style.opacity = '0.4';
 
     const frag = document.createDocumentFragment();
-    const create = (tag, text, cls) => {
-      const n = document.createElement(tag);
-      n.className = cls;
-      n.textContent = text;
-      return n;
-    };
+    const dateLine = document.createElement('span');
+    dateLine.className = 'tr-tip-line';
+    dateLine.textContent = date;
 
-    frag.append(create('span', date, 'tr-tip-line'), create('b', info, 'tr-tip-line'));
+    const infoLine = document.createElement('b');
+    infoLine.className = 'tr-tip-line';
+    infoLine.textContent = info;
 
-    // Batch DOM update
+    frag.append(dateLine, infoLine);
+
     setTimeout(() => {
       el.replaceChildren(frag);
       el.style.opacity = '1';
@@ -68,7 +63,7 @@ export class TooltipPlugin extends TracePlugin {
     }, 30);
   }
 
-  updatePosition() {
+  _updatePosition() {
     if (this._raf) cancelAnimationFrame(this._raf);
 
     const loop = () => {
@@ -78,17 +73,17 @@ export class TooltipPlugin extends TracePlugin {
       const t = this.engine.tooltip.getBoundingClientRect();
       const pad = 14;
 
-      // Collision Avoidance: Horizontal
+      // Horizontal Center
       const x = clamp(r.left + r.width / 2, pad + t.width / 2, window.innerWidth - pad - t.width / 2);
 
-      // Dynamic Offsets
+      // Vertical Snap
       const offset = this._isTouch ? 50 : 15;
       const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
       const useBottom = r.top - safeTop < t.height;
 
       const y = useBottom ? r.bottom + offset : r.top - offset;
 
-      // Performance: GPU Accelerated Individual Transforms
+      // GPU Accelerated
       this.engine.tooltip.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
       this.engine.tooltip.style.transform = `translate(-50%, ${useBottom ? '0' : '-100%'})`;
 
