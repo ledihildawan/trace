@@ -3,290 +3,302 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TRACE — The Shape of Time</title>
+    <title>Grid Architect V50 - Pure Monolith</title>
     <style>
       :root {
-        --bg: #000;
-        --cell-past: #111;
-        --cell-future: #080808;
-        --accent: #fff; /* Neutral Minimalist */
-        --watermark: rgba(255, 255, 255, 0.012);
+        --bg: #fdfdfe;
+        --grid-bg: #f1f5f9;
+        --border: #e2e8f0;
+        --cell-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #94a3b8;
+        --accent: #6366f1;
+        --cyan: #22d3ee;
+        --weekend-bg: #f5f3ff;
+        --weekend-text: #8b5cf6;
+        --today-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        --month-start-bg: #f0f9ff;
       }
 
-      body.light-mode {
-        --bg: #fafafa;
-        --cell-past: #e2e2e2;
-        --cell-future: #f0f0f0;
-        --accent: #000;
-        --watermark: rgba(0, 0, 0, 0.015);
-      }
-
-      body,
-      html {
-        background: var(--bg);
+      /* --- PURE INTERFACE --- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
         margin: 0;
         padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        transition: background 2s cubic-bezier(0.4, 0, 0.2, 1);
-        font-family: 'JetBrains Mono', monospace;
-        cursor: none; /* Zero-UI: Cursor diganti oleh interaksi grid */
-      }
-
-      #year-watermark {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 40vw;
-        font-weight: 900;
-        color: var(--watermark);
-        pointer-events: none;
+        -webkit-font-smoothing: antialiased;
         user-select: none;
-        z-index: 1;
-        letter-spacing: -3vw;
-        transition: color 2s ease;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
       }
 
-      #seasonal-canvas {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
+      html,
+      body {
         height: 100%;
-        pointer-events: none;
-        z-index: 5;
-        opacity: 0.3; /* Subtle seasonal presence */
+        width: 100%;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+        overscroll-behavior: none;
       }
 
       #viewport {
         width: 100vw;
         height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 2;
-        opacity: 0;
-        transition: opacity 3s ease;
-      }
-
-      #grid-container {
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
         position: relative;
-        will-change: transform;
+        transform: translateZ(0);
+      }
+      #viewport::-webkit-scrollbar {
+        display: none;
       }
 
-      .day-cell {
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+      }
+
+      .year-block {
         position: absolute;
-        border-radius: 0px; /* Honest Feedback: Pure Geometry */
-        box-sizing: border-box;
-        transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), background 1.5s ease, opacity 1.5s ease;
-      }
-
-      /* Tactile Satisfaction: Hover effect feels heavy and physical */
-      .day-cell:hover {
-        transform: scale(1.4) !important;
-        z-index: 100;
-        background: var(--accent) !important;
-        opacity: 1 !important;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      }
-
-      .day-cell.today {
-        background: var(--accent) !important;
-        box-shadow: 0 0 40px var(--accent);
-        z-index: 10;
-      }
-
-      .day-cell.filler {
-        border: 0.5px solid var(--watermark);
-        background: transparent;
-      }
-
-      /* Accessibility: Screen Reader Only */
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
         overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        border: 0;
+        contain: strict;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+      }
+
+      /* WATERMARK: Penunjuk navigasi utama yang samar namun pasti */
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 6%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: 32vh;
+        font-weight: 950;
+        color: transparent;
+        background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(34, 211, 238, 0.12), transparent);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.05);
+        opacity: 0;
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        z-index: 5;
+        letter-spacing: -2vh;
+        white-space: nowrap;
+        transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1);
+        transform: translateY(20px);
+        will-change: transform, opacity;
+      }
+
+      .year-block.active .watermark-embedded {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .grid-layer {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 1px;
+        background: var(--border);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease-out;
+      }
+
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+      }
+
+      .cell-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        height: 100%;
+        padding: 12% 0;
+        text-align: center;
+      }
+
+      .cell .info-meta {
+        font-size: clamp(5px, 0.8vh, 7.5px);
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+      }
+
+      .cell .date-num {
+        font-size: clamp(14px, 2.8vh, 22px);
+        font-weight: 900;
+        line-height: 1;
+        color: var(--text-main);
+      }
+
+      .cell.filler {
+        background: var(--bg);
+        opacity: 0.2;
+      }
+      .cell.weekend {
+        background: var(--weekend-bg);
+      }
+      .cell.weekend .date-num,
+      .cell.weekend .info-meta {
+        color: var(--weekend-text);
+      }
+      .cell.month-start {
+        background: var(--month-start-bg);
+        box-shadow: inset 4px 0 0 var(--cyan);
+      }
+
+      .cell.today {
+        background: var(--today-bg) !important;
+        z-index: 10;
+        box-shadow: 0 8px 20px -5px rgba(79, 70, 229, 0.4);
+      }
+      .cell.today .date-num,
+      .cell.today .info-meta {
+        color: #fff !important;
+      }
+
+      .cell:not(.filler):hover {
+        background: #f8fafc;
+        cursor: pointer;
       }
     </style>
   </head>
-  <body aria-label="Lanskap Waktu TRACE">
-    <div id="year-watermark" aria-hidden="true">2026</div>
-    <canvas id="seasonal-canvas"></canvas>
-
+  <body>
     <main id="viewport">
-      <div id="grid-container" role="grid" aria-label="Kalender Tahunan"></div>
+      <div id="infinite-canvas"></div>
     </main>
 
-    <div class="sr-only" id="announcer" aria-live="polite"></div>
-
     <script>
-      /**
-       * TRACE Core Engine - Manifesto Version
-       * Sovereignty: No external dependencies. Pure Logic.
-       */
-      const container = document.getElementById('grid-container');
-      const canvas = document.getElementById('seasonal-canvas');
-      const watermark = document.getElementById('year-watermark');
-      const viewport = document.getElementById('viewport');
-      const announcer = document.getElementById('announcer');
-      const ctx = canvas.getContext('2d');
+      const Viewport = document.getElementById('viewport');
+      const Canvas = document.getElementById('infinite-canvas');
 
-      let state = {
-        now: new Date(),
-        isLightMode: false,
-        particles: [],
-      };
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+      const daysLabel = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
-      const SEASONS = {
-        WINTER: { color: '#E0F7FA', bgDark: '#010409', bgLight: '#F0F4F8' },
-        SPRING: { color: '#FFB7C5', bgDark: '#080104', bgLight: '#FFF0F3' },
-        SUMMER: { color: '#FFD700', bgDark: '#0A0800', bgLight: '#FFFBEB' },
-        AUTUMN: { color: '#E67E22', bgDark: '#0A0502', bgLight: '#FFF5F0' },
-      };
+      const today = new Date();
+      const startVirtualYear = today.getFullYear();
 
-      function getSeasonConfig(date) {
-        const m = date.getMonth();
-        if (m >= 2 && m <= 4) return SEASONS.SPRING;
-        if (m >= 5 && m <= 7) return SEASONS.SUMMER;
-        if (m >= 8 && m <= 10) return SEASONS.AUTUMN;
-        return SEASONS.WINTER;
+      const YEAR_HEIGHT = window.innerHeight;
+      const TOTAL_VIRTUAL_YEARS = 2000;
+      const START_Y = (TOTAL_VIRTUAL_YEARS / 2) * YEAR_HEIGHT;
+
+      let activeYears = new Map();
+      let isTicking = false;
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) entry.target.classList.add('active');
+            else entry.target.classList.remove('active');
+          });
+        },
+        { threshold: 0.2 }
+      );
+
+      function isLeap(y) {
+        return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
       }
 
-      function buildLanscape() {
-        const year = state.now.getFullYear();
-        const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-        const actualDays = isLeap ? 366 : 365;
-        const todayTime = new Date(year, state.now.getMonth(), state.now.getDate()).getTime();
+      function createYearBlock(year, yPos) {
+        if (activeYears.has(year)) return;
+        const block = document.createElement('section');
+        block.className = 'year-block';
+        block.style.top = `${yPos}px`;
 
-        watermark.innerText = year;
+        const firstDayOfYear = new Date(year, 0, 1).getDay();
+        const totalDays = isLeap(year) ? 366 : 365;
+        const cols = Math.ceil(Math.sqrt(365 * (window.innerWidth / window.innerHeight)));
+        const rows = Math.ceil((totalDays + firstDayOfYear) / cols);
 
-        // Fluid Geometry: Adaptive to any vessel (screen)
-        const vw = window.innerWidth * 0.95;
-        const vh = window.innerHeight * 0.95;
-        const ratio = vw / vh;
-        const cols = Math.ceil(Math.sqrt(actualDays * ratio));
-        const rows = Math.ceil(actualDays / cols);
-        const totalSlots = cols * rows;
-        const startFillerCount = Math.floor((totalSlots - actualDays) / 2);
+        let gridHTML = `<div class="grid-container">
+                <div class="watermark-embedded">${year}</div>
+                <div class="grid-layer" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">`;
 
-        const gap = 2; // Minimalist spacing
-        const cellSize = Math.min((vw - (cols - 1) * gap) / cols, (vh - (rows - 1) * gap) / rows);
-
-        container.style.width = `${cols * (cellSize + gap) - gap}px`;
-        container.style.height = `${rows * (cellSize + gap) - gap}px`;
-        container.innerHTML = '';
-
-        const fragment = document.createDocumentFragment();
-
-        for (let i = 0; i < totalSlots; i++) {
-          const cell = document.createElement('div');
-          const r = Math.floor(i / cols);
-          const c = i % cols;
-
-          cell.className = 'day-cell';
-          cell.style.width = `${cellSize}px`;
-          cell.style.height = `${cellSize}px`;
-          cell.style.transform = `translate3d(${c * (cellSize + gap)}px, ${r * (cellSize + gap)}px, 0)`;
-
-          if (i >= startFillerCount && i < startFillerCount + actualDays) {
-            const dayIdx = i - startFillerCount;
-            const date = new Date(year, 0, 1 + dayIdx);
-            const time = date.getTime();
-
-            // Inclusivity: Metadata for Screen Readers
-            cell.setAttribute('role', 'gridcell');
-            const dateLabel = date.toLocaleDateString('id-ID', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            });
-            cell.setAttribute('aria-label', dateLabel);
-
-            if (time === todayTime) {
-              cell.classList.add('today');
-              announcer.innerText = 'Anda berada di hari ini: ' + dateLabel;
-            } else if (time < todayTime) {
-              const diff = (todayTime - time) / 86400000;
-              cell.style.background = 'var(--cell-past)';
-              cell.style.opacity = Math.max(0.08, 1 - diff * 0.0038);
-            } else {
-              cell.style.background = 'var(--cell-future)';
-              cell.style.opacity = '0.12';
-            }
-          } else {
-            cell.classList.add('filler');
-            cell.setAttribute('aria-hidden', 'true');
+        for (let s = 0; s < cols * rows; s++) {
+          const targetDate = new Date(year, 0, 1);
+          targetDate.setDate(targetDate.getDate() + (s - firstDayOfYear));
+          let classes = ['cell'];
+          if (targetDate.getFullYear() !== year) classes.push('filler');
+          else {
+            if (targetDate.getDate() === 1) classes.push('month-start');
+            if (targetDate.getDay() === 0 || targetDate.getDay() === 6) classes.push('weekend');
+            if (targetDate.toDateString() === today.toDateString()) classes.push('today');
           }
-          fragment.appendChild(cell);
+          gridHTML += `<div class="${classes.join(' ')}"><div class="cell-content">
+                    <span class="info-meta">${months[targetDate.getMonth()]}</span>
+                    <span class="date-num">${targetDate.getDate()}</span>
+                    <span class="info-meta">${daysLabel[targetDate.getDay()]}</span>
+                </div></div>`;
         }
-        container.appendChild(fragment);
-        setTimeout(() => (viewport.style.opacity = '1'), 500);
+        gridHTML += `</div></div>`;
+        block.innerHTML = gridHTML;
+        Canvas.appendChild(block);
+        activeYears.set(year, block);
+        observer.observe(block);
       }
 
-      // Seasonal Particles: "Digital Furniture" Aesthetics
-      function initParticles() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        state.particles = Array.from({ length: 60 }, () => ({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          size: Math.random() * 2 + 1,
-          speed: Math.random() * 0.3 + 0.1,
-        }));
-      }
-
-      function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const season = getSeasonConfig(state.now);
-        ctx.fillStyle = season.color;
-        state.particles.forEach((p) => {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-          p.y += p.speed;
-          if (p.y > canvas.height) p.y = -10;
-        });
-        requestAnimationFrame(draw);
-      }
-
-      // Invisible until Necessary: Logic for Simulation & Toggle
-      window.addEventListener('keydown', (e) => {
-        const key = e.key.toLowerCase();
-        if (e.altKey && key === 'r') {
-          // Randomize (Simulate Journey)
-          state.now = new Date(2026, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28));
-          buildLanscape();
+      function updateInfinite() {
+        const scrollTop = Viewport.scrollTop;
+        const currentIdx = Math.round(scrollTop / YEAR_HEIGHT);
+        const currentYear = startVirtualYear + (currentIdx - TOTAL_VIRTUAL_YEARS / 2);
+        for (let i = -1; i <= 1; i++) createYearBlock(currentYear + i, (currentIdx + i) * YEAR_HEIGHT);
+        for (let [year, block] of activeYears) {
+          if (Math.abs(year - currentYear) > 1) {
+            observer.unobserve(block);
+            block.remove();
+            activeYears.delete(year);
+          }
         }
-        if (e.altKey && key === 'm') {
-          // Toggle Mode
-          state.isLightMode = !state.isLightMode;
-          document.body.classList.toggle('light-mode');
-          buildLanscape();
+        isTicking = false;
+      }
+
+      Viewport.addEventListener('scroll', () => {
+        if (!isTicking) {
+          window.requestAnimationFrame(updateInfinite);
+          isTicking = true;
         }
       });
 
-      window.addEventListener('resize', () => {
-        initParticles();
-        buildLanscape();
-      });
+      function jumpToToday() {
+        Viewport.style.scrollBehavior = 'auto';
+        Viewport.scrollTop = START_Y;
+        setTimeout(() => {
+          Viewport.style.scrollBehavior = 'smooth';
+        }, 50);
+      }
 
-      // Initialize Existential State
-      initParticles();
-      draw();
-      buildLanscape();
-
-      console.log('TRACE: Time as a landscape. Exist. Be here now.');
+      Viewport.addEventListener('dblclick', jumpToToday);
+      Canvas.style.height = `${TOTAL_VIRTUAL_YEARS * YEAR_HEIGHT}px`;
+      Viewport.scrollTop = START_Y;
+      updateInfinite();
+      window.addEventListener('resize', () => location.reload());
     </script>
   </body>
 </html>
