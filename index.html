@@ -3,48 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Grid Architect V57 - Midnight Edition</title>
+    <title>Grid Architect V62 - Gesture Control</title>
     <style>
-      /* --- DYNAMIC THEME VARIABLES --- */
-      :root {
-        /* Light Theme (Default) */
-        --bg: #fdfdfe;
-        --grid-bg: #f1f5f9;
-        --border: #e2e8f0;
+      /* CSS Variables - Psychological Palette */
+      :root[data-theme='light'] {
+        --bg: #f8fafc;
+        --grid-bg: #e2e8f0;
+        --border: #cbd5e1;
         --cell-bg: #ffffff;
-        --text-main: #0f172a;
-        --text-muted: #94a3b8;
-        --accent: #6366f1;
-        --cyan: #22d3ee;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --accent: #4f46e5;
+        --cyan: #0891b2;
         --weekend-bg: #f5f3ff;
-        --weekend-text: #8b5cf6;
-        --today-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        --weekend-text: #7c3aed;
+        --today-bg: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
         --month-start-bg: #f0f9ff;
-        --filler-bg: #f8fafc;
-        --filler-text: #cbd5e1;
+        --filler-bg: #f1f5f9;
+        --filler-text: #94a3b8;
       }
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          /* Dark Theme (Midnight Polish) */
-          --bg: #020617; /* Deep Midnight */
-          --grid-bg: #0f172a;
-          --border: #1e293b;
-          --cell-bg: #020617;
-          --text-main: #f1f5f9;
-          --text-muted: #475569;
-          --accent: #818cf8; /* Lighter indigo for dark bg */
-          --cyan: #22d3ee;
-          --weekend-bg: #0c0a21; /* Deep purple tint */
-          --weekend-text: #a78bfa;
-          --today-bg: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-          --month-start-bg: #082f49; /* Deep teal/blue */
-          --filler-bg: #010413;
-          --filler-text: #1e293b;
-        }
+      :root[data-theme='dark'] {
+        --bg: #020617;
+        --grid-bg: #0f172a;
+        --border: #1e293b;
+        --cell-bg: #020617;
+        --text-main: #f1f5f9;
+        --text-muted: #475569;
+        --accent: #818cf8;
+        --cyan: #22d3ee;
+        --weekend-bg: #0c0a21;
+        --weekend-text: #a78bfa;
+        --today-bg: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
+        --month-start-bg: #082f49;
+        --filler-bg: #010413;
+        --filler-text: #1e293b;
       }
 
-      /* --- PURE INTERFACE & PERFORMANCE --- */
       *,
       *::before,
       *::after {
@@ -53,7 +48,6 @@
         padding: 0;
         -webkit-font-smoothing: antialiased;
         user-select: none;
-        -webkit-user-select: none;
         -webkit-tap-highlight-color: transparent;
       }
 
@@ -63,10 +57,10 @@
         width: 100vw;
         background: var(--bg);
         color: var(--text-main);
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
-        transition: background 0.5s ease; /* Transisi halus saat ganti tema */
+        transition: background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       #viewport {
@@ -77,15 +71,9 @@
         scrollbar-width: none;
         position: relative;
         transform: translateZ(0);
-      }
-      #viewport::-webkit-scrollbar {
-        display: none;
-      }
-
-      #infinite-canvas {
-        position: relative;
-        width: 100%;
-        contain: paints;
+        &::-webkit-scrollbar {
+          display: none;
+        }
       }
 
       .year-block {
@@ -107,7 +95,6 @@
         background: var(--bg);
       }
 
-      /* WATERMARK: Adaptive Opacity */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -115,7 +102,7 @@
         height: 100%;
         display: flex;
         align-items: center;
-        font-size: clamp(150px, 30dvh, 400px);
+        font-size: clamp(150px, 32dvh, 450px);
         font-weight: 950;
         color: transparent;
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
@@ -128,13 +115,12 @@
         white-space: nowrap;
         opacity: 0;
         letter-spacing: -2dvh;
-        transform: translateY(40px) scale(0.9) translateZ(0);
-        transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-
-      .year-block.active .watermark-embedded {
-        opacity: 0.15;
-        transform: translateY(0) scale(1) translateZ(0);
+        transform: translateY(30px) scale(0.95);
+        transition: all 1.2s cubic-bezier(0.2, 1, 0.3, 1);
+        .year-block.active & {
+          opacity: 0.12;
+          transform: translateY(0) scale(1);
+        }
       }
 
       .grid-layer {
@@ -146,19 +132,44 @@
         width: 100%;
         height: 100%;
         opacity: 0;
-        transform: scale(1.01) translateZ(0);
-        transition: opacity 0.8s ease-out, transform 1s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-
-      .year-block.active .grid-layer {
-        opacity: 1;
-        transform: scale(1) translateZ(0);
+        transition: opacity 0.6s ease;
+        .year-block.active & {
+          opacity: 1;
+        }
       }
 
       .cell {
         background: var(--cell-bg);
         position: relative;
-        overflow: hidden;
+        transition: background 0.3s ease, transform 0.2s ease;
+        &.filler {
+          background: var(--filler-bg);
+          .date-num,
+          .info-meta {
+            color: var(--filler-text);
+            opacity: 0.4;
+          }
+        }
+        &.weekend {
+          background: var(--weekend-bg);
+          .date-num,
+          .info-meta {
+            color: var(--weekend-text);
+          }
+        }
+        &.month-start {
+          background: var(--month-start-bg);
+          box-shadow: inset 3px 0 0 var(--cyan);
+        }
+        &.today {
+          background: var(--today-bg) !important;
+          z-index: 10;
+          box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+          .date-num,
+          .info-meta {
+            color: #fff !important;
+          }
+        }
       }
 
       .cell-content {
@@ -167,194 +178,176 @@
         justify-content: space-between;
         align-items: center;
         height: 100%;
-        padding: 10% 2px;
+        padding-block: 10%;
         text-align: center;
-        contain: layout style;
       }
 
-      .cell .info-meta {
+      .info-meta {
         font-size: clamp(6px, 0.8dvh, 10px);
         text-transform: uppercase;
-        color: var(--text-muted);
         font-weight: 800;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
       }
-
-      .cell .date-num {
-        font-size: clamp(12px, 2.5dvh, 26px);
+      .date-num {
+        font-size: clamp(12px, 2.6dvh, 28px);
         font-weight: 900;
         line-height: 1;
-      }
-
-      .cell.filler {
-        background: var(--filler-bg);
-      }
-      .cell.filler .date-num,
-      .cell.filler .info-meta {
-        color: var(--filler-text);
-        opacity: 0.3;
-      }
-
-      .cell.weekend {
-        background: var(--weekend-bg);
-      }
-      .cell.weekend .date-num,
-      .cell.weekend .info-meta {
-        color: var(--weekend-text);
-      }
-      .cell.month-start {
-        background: var(--month-start-bg);
-        box-shadow: inset 3px 0 0 var(--cyan);
-      }
-
-      .cell.today {
-        background: var(--today-bg) !important;
-        z-index: 10;
-        box-shadow: 0 4px 15px -2px rgba(79, 70, 229, 0.5);
-      }
-      .cell.today .date-num,
-      .cell.today .info-meta {
-        color: #fff !important;
-      }
-
-      @media (hover: hover) {
-        .cell:not(.filler):hover {
-          background: var(--grid-bg);
-          transition: 0.2s;
-          z-index: 5;
-        }
       }
     </style>
   </head>
   <body>
     <main id="viewport">
-      <div id="infinite-canvas"></div>
+      <div id="infinite-canvas" style="position: relative; width: 100%"></div>
     </main>
 
-    <script>
-      const Viewport = document.getElementById('viewport');
-      const Canvas = document.getElementById('infinite-canvas');
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-      const daysLabel = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-      const today = new Date();
-      const startVirtualYear = today.getFullYear();
-      let YEAR_HEIGHT = window.innerHeight;
-      const TOTAL_VIRTUAL_YEARS = 1000;
-      const START_Y = (TOTAL_VIRTUAL_YEARS / 2) * YEAR_HEIGHT;
+    <script type="module">
+      class GridArchitect {
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        #days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        #today = new Date();
+        #yearHeight = window.innerHeight;
+        #activeYears = new Map();
+        #tapCount = 0;
+        #tapTimer = null;
 
-      let activeYears = new Map();
-      let isTicking = false;
+        constructor() {
+          this.totalYears = 2000;
+          this.startY = (this.totalYears / 2) * this.#yearHeight;
+          this.#initTheme();
+          this.#init();
+          this.#initGestures();
+        }
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            window.requestAnimationFrame(() => {
-              if (entry.isIntersecting) entry.target.classList.add('active');
-              else entry.target.classList.remove('active');
-            });
+        #initTheme() {
+          const savedTheme = localStorage.getItem('theme');
+          const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const initialTheme = savedTheme || (systemDark ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', initialTheme);
+        }
+
+        #toggleTheme() {
+          const current = document.documentElement.getAttribute('data-theme');
+          const next = current === 'light' ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('theme', next);
+
+          // Feedback getaran di mobile (jika didukung)
+          if (navigator.vibrate) navigator.vibrate([10, 30, 10]);
+        }
+
+        #initGestures() {
+          // Shortcut Keyboard
+          window.addEventListener('keydown', (e) => {
+            if (['t', 'd'].includes(e.key.toLowerCase())) this.#toggleTheme();
+            if (e.key.toLowerCase() === 'h' || e.key === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
           });
-        },
-        { threshold: 0.1 }
-      );
 
-      function isLeap(y) {
-        return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-      }
+          // Triple Tap Gesture untuk Mobile
+          this.#viewport.addEventListener(
+            'touchstart',
+            (e) => {
+              this.#tapCount++;
+              clearTimeout(this.#tapTimer);
 
-      function createYearBlock(year, yPos) {
-        if (activeYears.has(year)) return;
-        const block = document.createElement('section');
-        block.className = 'year-block';
-        block.style.top = `${yPos}px`;
-        const firstDayOfYear = new Date(year, 0, 1).getDay();
-        const totalDays = isLeap(year) ? 366 : 365;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        let cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
-        if (vw < 500) cols = Math.max(cols, 14);
-        if (vw > 1200) cols = Math.min(cols, 28);
-        const rows = Math.ceil((totalDays + firstDayOfYear) / cols);
+              if (this.#tapCount === 3) {
+                this.#toggleTheme();
+                this.#tapCount = 0;
+              } else {
+                this.#tapTimer = setTimeout(() => {
+                  this.#tapCount = 0;
+                }, 350);
+              }
+            },
+            { passive: true }
+          );
 
-        let gridHTML = `<div class="grid-container">
-                <div class="watermark-embedded">${year}</div>
-                <div class="grid-layer" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">`;
-
-        for (let s = 0; s < cols * rows; s++) {
-          const targetDate = new Date(year, 0, 1);
-          targetDate.setDate(targetDate.getDate() + (s - firstDayOfYear));
-          const d = targetDate.getDate();
-          const m = targetDate.getMonth();
-          const dy = targetDate.getDay();
-          const isThisYear = targetDate.getFullYear() === year;
-
-          let classes = ['cell'];
-          if (!isThisYear) classes.push('filler');
-          else {
-            if (d === 1) classes.push('month-start');
-            if (dy === 0 || dy === 6) classes.push('weekend');
-            if (targetDate.toDateString() === today.toDateString()) classes.push('today');
-          }
-
-          gridHTML += `
-                    <div class="${classes.join(' ')}">
-                        <div class="cell-content">
-                            <span class="info-meta">${months[m]}</span>
-                            <span class="date-num">${d}</span>
-                            <span class="info-meta">${daysLabel[dy]}</span>
-                        </div>
-                    </div>`;
+          // Double Click/Tap untuk Kembali ke Hari Ini
+          let lastClick = 0;
+          this.#viewport.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastClick < 300) this.jumpToToday();
+            lastClick = now;
+          });
         }
-        gridHTML += `</div></div>`;
-        block.innerHTML = gridHTML;
-        Canvas.appendChild(block);
-        activeYears.set(year, block);
-        observer.observe(block);
-      }
 
-      function updateInfinite() {
-        const scrollTop = Viewport.scrollTop;
-        const currentIdx = Math.round(scrollTop / YEAR_HEIGHT);
-        const currentYear = startVirtualYear + (currentIdx - TOTAL_VIRTUAL_YEARS / 2);
-        for (let i = -1; i <= 1; i++) createYearBlock(currentYear + i, (currentIdx + i) * YEAR_HEIGHT);
-        for (let [year, block] of activeYears) {
-          if (Math.abs(year - currentYear) > 1) {
-            observer.unobserve(block);
-            block.remove();
-            activeYears.delete(year);
-          }
+        #init() {
+          this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => e.target.classList.toggle('active', e.isIntersecting));
+            },
+            { threshold: 0.15 }
+          );
+          this.#viewport.addEventListener('scroll', () => this.#render(), { passive: true });
+          window.addEventListener('resize', () => location.reload());
+          this.#render();
         }
-        isTicking = false;
-      }
 
-      Viewport.addEventListener(
-        'scroll',
-        () => {
-          if (!isTicking) {
-            window.requestAnimationFrame(updateInfinite);
-            isTicking = true;
+        #render() {
+          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          for (let i = -1; i <= 1; i++) this.#createYear(year + i, (idx + i) * this.#yearHeight);
+          this.#activeYears.forEach((block, y) => {
+            if (Math.abs(y - year) > 1) {
+              this.observer.unobserve(block);
+              block.remove();
+              this.#activeYears.delete(y);
+            }
+          });
+        }
+
+        #createYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+          const firstDay = new Date(year, 0, 1).getDay();
+          const totalDays = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth;
+          let cols = Math.ceil(Math.sqrt(365 * (vw / window.innerHeight)));
+          if (vw < 500) cols = Math.max(cols, 14);
+          const rows = Math.ceil((totalDays + firstDay) / cols);
+
+          let html = `<div class="grid-container"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">`;
+          for (let s = 0; s < cols * rows; s++) {
+            const date = new Date(year, 0, 1);
+            date.setDate(date.getDate() + (s - firstDay));
+            const isMain = date.getFullYear() === year;
+            const d = date.getDate(),
+              m = date.getMonth(),
+              dy = date.getDay();
+            let cls = ['cell'];
+            if (!isMain) cls.push('filler');
+            else {
+              if (d === 1) cls.push('month-start');
+              if (dy === 0 || dy === 6) cls.push('weekend');
+              if (date.toDateString() === this.#today.toDateString()) cls.push('today');
+            }
+            html += `<div class="${cls.join(' ')}"><div class="cell-content"><span class="info-meta">${
+              this.#months[m]
+            }</span><span class="date-num">${d}</span><span class="info-meta">${this.#days[dy]}</span></div></div>`;
           }
-        },
-        { passive: true }
-      );
+          block.innerHTML = html + `</div></div>`;
+          this.#canvas.appendChild(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
 
-      function jumpToToday() {
-        Viewport.style.scrollBehavior = 'auto';
-        Viewport.scrollTop = START_Y;
-        setTimeout(() => {
-          Viewport.style.scrollBehavior = 'smooth';
-        }, 50);
+        jumpToToday() {
+          this.#viewport.style.scrollBehavior = 'auto';
+          this.#viewport.scrollTop = this.startY;
+          setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
+        }
       }
-      Viewport.addEventListener('dblclick', jumpToToday);
-      Canvas.style.height = `${TOTAL_VIRTUAL_YEARS * YEAR_HEIGHT}px`;
-      Viewport.scrollTop = START_Y;
-      updateInfinite();
-      let resizeTimer;
-      window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          location.reload();
-        }, 250);
-      });
+
+      new GridArchitect();
     </script>
   </body>
 </html>
