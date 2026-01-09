@@ -220,6 +220,9 @@ export class TraceEngine {
     }
     this.viewport.appendChild(fragment);
 
+    // Setup native tooltip interactions (hover and touch)
+    this._setupNativeInteractions();
+
     requestAnimationFrame(() => {
       const r = this.viewport.getBoundingClientRect();
       // Round dimensions to prevent subpixel blur
@@ -287,11 +290,77 @@ export class TraceEngine {
   }
 
   /**
+   * Setup native CSS-based tooltip interactions
+   * Uses hover and touch events to show/hide tooltips
+   */
+  _setupNativeInteractions() {
+    const tooltipPlugin = this.plugins.get('TooltipPlugin');
+    if (!tooltipPlugin) return;
+
+    // Remove old listeners if they exist
+    if (this._interactionAC) {
+      this._interactionAC.abort();
+    }
+    this._interactionAC = new AbortController();
+    const signal = this._interactionAC.signal;
+
+    // Event delegation: single listener on viewport
+    const handlePointerEnter = (e) => {
+      const cell = e.target.closest('.tr-day[data-tr-date]');
+      if (cell) {
+        cell.classList.add('tr-is-touch-active');
+        tooltipPlugin.showTooltipForElement(cell, false);
+      }
+    };
+
+    const handlePointerLeave = (e) => {
+      const cell = e.target.closest('.tr-day[data-tr-date]');
+      if (cell) {
+        cell.classList.remove('tr-is-touch-active');
+        tooltipPlugin.hideTooltip();
+      }
+    };
+
+    // Touch: show on pointerdown, hide on pointerup
+    const handlePointerDown = (e) => {
+      const cell = e.target.closest('.tr-day[data-tr-date]');
+      if (cell && e.pointerType === 'touch') {
+        cell.classList.add('tr-is-touch-active');
+        tooltipPlugin.showTooltipForElement(cell, true);
+      }
+    };
+
+    const handlePointerUp = (e) => {
+      const cell = e.target.closest('.tr-day[data-tr-date]');
+      if (cell) {
+        cell.classList.remove('tr-is-touch-active');
+        tooltipPlugin.hideTooltip();
+      }
+    };
+
+    // Attach listeners with signal for cleanup
+    this.viewport.addEventListener('pointerenter', handlePointerEnter, { signal, capture: false });
+    this.viewport.addEventListener('pointerleave', handlePointerLeave, { signal, capture: false });
+    this.viewport.addEventListener('pointerdown', handlePointerDown, { signal, capture: false });
+    this.viewport.addEventListener('pointerup', handlePointerUp, { signal, capture: false });
+
+    // Handle when pointer leaves viewport entirely
+    this.viewport.addEventListener('pointerout', (e) => {
+      if (e.target.classList.contains('tr-day')) {
+        const cell = e.target;
+        cell.classList.remove('tr-is-touch-active');
+        tooltipPlugin.hideTooltip();
+      }
+    }, { signal, capture: false });
+  }
+
+  /**
    * Destroy engine and cleanup
    */
   destroy() {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     if (this._resizeObserver) this._resizeObserver.disconnect();
+    if (this._interactionAC) this._interactionAC.abort();
     if (this._ac) this._ac.abort();
 
     // Destroy all plugins

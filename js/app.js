@@ -7,7 +7,6 @@ import { TraceEngine } from './core/trace-engine.js';
 // Import all plugins
 import { A11yPlugin } from './plugins/a11y.plugin.js';
 import { DevToolsPlugin } from './plugins/devtools.plugin.js';
-import { InteractionPlugin } from './plugins/interaction.plugin.js';
 import { LocalePlugin } from './plugins/locale.plugin.js';
 import { TimeProgressPlugin } from './plugins/progress.plugin.js';
 import { ThemePlugin } from './plugins/theme.plugin.js';
@@ -32,16 +31,6 @@ engine.plugins.register('A11yPlugin', new A11yPlugin());
 engine.plugins.register('TooltipPlugin', new TooltipPlugin());
 
 // Feature plugins (can be disabled/enabled)
-engine.plugins.register('InteractionPlugin', new InteractionPlugin());
-engine.plugins.register('TimeProgressPlugin', new TimeProgressPlugin());
-engine.plugins.register('DevToolsPlugin', new DevToolsPlugin());
-
-// Initialize engine after plugins are registered
-engine.init();
-engine.render();
-
-// (development-only tooling removed)
-
 // Expose for debugging via console
 window.traceEngine = engine;
 window.tracePlugins = engine.plugins;

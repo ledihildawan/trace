@@ -124,7 +124,7 @@
         justify-content: center;
         align-content: center;
         transition: opacity 0.4s ease;
-        touch-action: none; /* Changed from pan-y for stability */
+        touch-action: manipulation;
         user-select: none;
         -webkit-user-select: none;
       }
@@ -141,6 +141,7 @@
         contain: layout style paint;
         transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
           transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        will-change: transform;
       }
 
       .tr-day--past {
@@ -174,12 +175,6 @@
         opacity: 1 !important;
         background-color: var(--tr-color-hover-adaptive);
         box-shadow: var(--tr-shadow-lift);
-      }
-
-      .tr-day.tr-is-pressing {
-        transform: translateY(0) scale(0.96) !important;
-        transition-duration: 80ms !important;
-        box-shadow: none !important;
       }
 
       .tr-day--monday::after {
