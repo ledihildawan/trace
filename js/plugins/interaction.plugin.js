@@ -1,51 +1,27 @@
 // TRACE Interaction Plugin
-// FIXED: Increased Jitter Tolerance (Anti-Flicker on Quick Taps)
+// SIMPLE VERSION: Touch behaves like Mouse Hover + Native Scroll Handling
 
-import {
-  DOUBLE_TAP_MAX_DELAY_MS,
-  HAPTIC_SCRUB_MS,
-  HAPTIC_SUCCESS_MS,
-  LONG_PRESS_DURATION_MS,
-} from '../core/constants.js';
+import { HAPTIC_SCRUB_MS, LONG_PRESS_DURATION_MS } from '../core/constants.js';
 import { TracePlugin } from '../core/plugin-manager.js';
 
-// --- CONFIGURATION ---
-const LINGER_DURATION = 1500;
-// UPDATE: Dinaikkan dari 8 ke 16 agar sentuhan yang sedikit goyang tidak dianggap scroll
-const GESTURE_LOCK_THRESHOLD = 16;
+const LINGER_DURATION = 1500; // Time tooltip stays visible after touch ends
 
 export class InteractionPlugin extends TracePlugin {
   constructor() {
     super('InteractionPlugin');
 
-    this._state = 'IDLE'; // 'IDLE' | 'MEASURING' | 'SCRUBBING' | 'SCROLLING'
+    this._activeElement = null; // The day element currently highlighted
+    this._isTouching = false; // Flag: is user currently touching screen?
+    this._timerLinger = null; // Timer for hiding tooltip after release
+    this._timerLongPress = null;
 
-    // Tracking Data
-    this._startX = 0;
-    this._startY = 0;
-    this._activePointerId = null;
-    this._lastTapTime = 0;
-
-    // Element References
-    this._activeElement = null;
-
-    // Timers
-    this._timers = {
-      longPress: null,
-      linger: null,
-    };
-
-    this._rafPending = false;
-    this._pendingX = 0;
-    this._pendingY = 0;
-
-    this._lastHaptic = 0;
     this.hasHover = false;
   }
 
   init(engine) {
     super.init(engine);
 
+    // Detect Hover Capability
     this._hoverMql = window.matchMedia('(hover: hover)');
     this.hasHover = this._hoverMql.matches;
     this._hoverMql.addEventListener(
@@ -58,237 +34,118 @@ export class InteractionPlugin extends TracePlugin {
 
     this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
 
+    // CSS: Allow native vertical scrolling (pan-y)
+    // This allows the browser to claim the interaction for scrolling if needed,
+    // firing a 'pointercancel' event which we use to cleanup.
     this.engine.viewport.style.touchAction = 'pan-y';
+
+    // Prevent text/image selection on long press
     this.engine.viewport.style.userSelect = 'none';
     this.engine.viewport.style.webkitUserSelect = 'none';
 
     this.setupPointerEvents();
     this.setupKeyboardControls();
-    this.setupMouseWheel();
   }
 
   isValidDay(el) {
     return el?.classList.contains('tr-day') && !el.classList.contains('tr-day--filler');
   }
 
-  // --- STATE MANAGEMENT ---
-
-  _setState(newState) {
-    this._state = newState;
-  }
-
-  _clearTimers() {
-    if (this._timers.longPress) clearTimeout(this._timers.longPress);
-    if (this._timers.linger) clearTimeout(this._timers.linger);
-    this._timers.longPress = null;
-    this._timers.linger = null;
-  }
-
-  _resetVisuals(immediate = false) {
-    const clear = () => {
-      if (this._activeElement) {
-        this._activeElement.classList.remove('tr-is-touch-active');
-        this._activeElement.classList.remove('tr-is-dragging');
-        this._activeElement.classList.remove('tr-is-pressing');
-        this._activeElement = null;
-      }
-    };
-
-    if (immediate) {
-      clear();
-    } else {
-      this._timers.linger = setTimeout(clear, LINGER_DURATION);
-    }
-  }
-
-  // --- POINTER EVENTS ---
+  // --- CORE POINTER LOGIC ---
 
   setupPointerEvents() {
     const vp = this.engine.viewport;
 
-    // 1. POINTER DOWN
+    // 1. POINTER DOWN: Start Interaction
     vp.addEventListener(
       'pointerdown',
       (e) => {
+        // Ignore mouse here (handled by mouseover delegate below)
         if (e.pointerType === 'mouse') return;
 
-        this._clearTimers();
-        this._resetVisuals(true);
-        this.tooltipPlugin?.cancelHide();
-
-        this._activePointerId = e.pointerId;
-        this._startX = e.clientX;
-        this._startY = e.clientY;
+        this._isTouching = true;
+        this._clearLinger(); // Cancel any pending hide timers
 
         const target = document.elementFromPoint(e.clientX, e.clientY);
 
-        if (this.isValidDay(target)) {
-          // Visual feedback INSTAN saat disentuh
-          this._setActiveElement(target, 'press');
+        // Attempt to capture pointer to track movement
+        // (Browser may steal this back if it detects a scroll gesture)
+        try {
+          vp.setPointerCapture(e.pointerId);
+        } catch (err) {
+          // Ignore capture errors
         }
 
-        this._setState('MEASURING');
+        this._handleTouchUpdate(target, true); // true = add 'pressing' visual
 
-        this._timers.longPress = setTimeout(() => {
-          if (this._state === 'MEASURING' || this._state === 'SCRUBBING') {
-            this._handleLongPress();
+        // Optional Long Press Logic
+        this._timerLongPress = setTimeout(() => {
+          if (this._isTouching && this._activeElement) {
+            this.triggerHaptic();
+            this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
+            // Reset interaction on success
+            this._resetInteraction(true);
           }
         }, LONG_PRESS_DURATION_MS);
       },
       { passive: true, signal: this.signal }
     );
 
-    // 2. POINTER MOVE
+    // 2. POINTER MOVE: Update Highlight
     vp.addEventListener(
       'pointermove',
       (e) => {
-        if (e.pointerType === 'mouse' || this._activePointerId !== e.pointerId) return;
+        if (e.pointerType === 'mouse' || !this._isTouching) return;
 
-        const x = e.clientX;
-        const y = e.clientY;
-
-        if (this._state === 'MEASURING') {
-          const dx = Math.abs(x - this._startX);
-          const dy = Math.abs(y - this._startY);
-          const dist = Math.hypot(dx, dy);
-
-          // Hanya kunci gesture jika gerakan SUDAH CUKUP BESAR (> 16px)
-          if (dist > GESTURE_LOCK_THRESHOLD) {
-            if (dx > dy) {
-              // Gerak Horizontal -> LOCK SCRUB
-              this._setState('SCRUBBING');
-              vp.setPointerCapture(e.pointerId);
-              this._updateScrub(x, y);
-            } else {
-              // Gerak Vertikal -> SCROLL
-              // Kita batalkan interaksi highlight karena user mau scroll
-              this._setState('SCROLLING');
-              this._cancelInteraction();
-            }
-          }
-          // Jika dist < threshold, kita biarkan status MEASURING.
-          // Highlight TETAP NYALA (tr-is-touch-active aman).
-        } else if (this._state === 'SCRUBBING') {
-          this._pendingX = x;
-          this._pendingY = y;
-          if (!this._rafPending) {
-            this._rafPending = true;
-            requestAnimationFrame(() => {
-              this._rafPending = false;
-              this._updateScrub(this._pendingX, this._pendingY);
-            });
-          }
-        }
+        // Use elementFromPoint because e.target is locked to the initial element during capture
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        this._handleTouchUpdate(target, false);
       },
       { passive: true, signal: this.signal }
     );
 
-    // 3. POINTER UP
+    // 3. POINTER UP: End Interaction (with Linger)
     vp.addEventListener(
       'pointerup',
       (e) => {
-        if (e.pointerType === 'mouse' || this._activePointerId !== e.pointerId) return;
+        if (e.pointerType === 'mouse') return;
 
-        // Jika masih MEASURING (artinya gerakan < threshold), anggap sebagai TAP
-        if (this._state === 'MEASURING') {
-          this._handleTap();
-        }
-
-        this._startLinger(); // Mulai timer hilang perlahan
+        this._isTouching = false;
+        if (this._timerLongPress) clearTimeout(this._timerLongPress);
 
         if (vp.hasPointerCapture(e.pointerId)) {
           vp.releasePointerCapture(e.pointerId);
         }
 
-        this._activePointerId = null;
-        this._setState('IDLE');
+        // Don't hide immediately. Schedule linger so user can read tooltip.
+        this._scheduleLinger();
       },
       { passive: true, signal: this.signal }
     );
 
-    // 4. POINTER CANCEL
+    // 4. POINTER CANCEL: Native Scroll Interruption
+    // This fires when the browser decides the user is scrolling the page.
     vp.addEventListener(
       'pointercancel',
       () => {
-        this._cancelInteraction();
-        this._setState('IDLE');
+        this._isTouching = false;
+        if (this._timerLongPress) clearTimeout(this._timerLongPress);
+
+        // If scrolling, immediately clear visuals so they don't stick
+        this._resetInteraction(true);
       },
       { passive: true, signal: this.signal }
     );
 
-    this.setupHoverDelegate();
-  }
+    // --- DESKTOP MOUSE DELEGATE ---
+    // (Standard hover behavior for non-touch devices)
 
-  // --- ACTIONS ---
-
-  _setActiveElement(el, type = 'drag') {
-    if (this._activeElement === el) return;
-
-    if (this._activeElement) {
-      this._activeElement.classList.remove('tr-is-touch-active');
-      this._activeElement.classList.remove('tr-is-dragging');
-      this._activeElement.classList.remove('tr-is-pressing');
-    }
-
-    this._activeElement = el;
-    el.classList.add('tr-is-touch-active');
-
-    if (type === 'press') el.classList.add('tr-is-pressing');
-    if (type === 'drag') el.classList.add('tr-is-dragging');
-
-    if (this.tooltipPlugin) {
-      this.tooltipPlugin.showTooltipForElement(el, true);
-    }
-  }
-
-  _updateScrub(x, y) {
-    const target = document.elementFromPoint(x, y);
-    if (this.isValidDay(target)) {
-      if (this._activeElement !== target) {
-        this._setActiveElement(target, 'drag');
-        this.triggerHaptic('scrub');
-      }
-    }
-  }
-
-  _handleTap() {
-    const now = performance.now();
-    // Deteksi Double Tap
-    if (now - this._lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
-      this.engine.plugins.get('ThemePlugin')?.cycleTheme();
-      this.triggerHaptic('success');
-      this._cancelInteraction(); // Double tap sukses -> reset UI
-    }
-    // Single tap tidak perlu aksi khusus karena highlight sudah nyala di PointerDown
-    this._lastTapTime = now;
-  }
-
-  _handleLongPress() {
-    this.triggerHaptic('success');
-    this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
-    this._cancelInteraction();
-  }
-
-  _startLinger() {
-    if (this.tooltipPlugin) {
-      this.tooltipPlugin.scheduleHide(LINGER_DURATION);
-    }
-    this._resetVisuals(false); // Delay cleanup
-  }
-
-  _cancelInteraction() {
-    this._clearTimers();
-    this._resetVisuals(true); // Immediate cleanup
-    this.tooltipPlugin?.hideTooltip();
-  }
-
-  // --- DESKTOP CONTROLS ---
-
-  setupHoverDelegate() {
-    this.engine.viewport.addEventListener(
+    vp.addEventListener(
       'mouseover',
       (e) => {
+        if (this._isTouching) return; // Priority to touch
         if (!this.hasHover) return;
+
         const target = e.target;
         if (this.isValidDay(target)) {
           if (this.tooltipPlugin) this.tooltipPlugin.showTooltipForElement(target, false);
@@ -297,16 +154,81 @@ export class InteractionPlugin extends TracePlugin {
       { passive: true, signal: this.signal }
     );
 
-    this.engine.viewport.addEventListener(
+    vp.addEventListener(
       'mouseout',
       (e) => {
+        if (this._isTouching) return;
         if (!this.hasHover) return;
-        if (!this.engine.viewport.contains(e.relatedTarget)) {
+
+        if (!vp.contains(e.relatedTarget)) {
           this.tooltipPlugin?.hideTooltip();
         }
       },
       { signal: this.signal }
     );
+  }
+
+  // --- HELPERS ---
+
+  _handleTouchUpdate(target, isPressing) {
+    // If not a valid day, do nothing (keep previous valid one active for smoothness)
+    // OR: You could clear it if you want strict behavior. Here we are sticky.
+    if (!this.isValidDay(target)) return;
+
+    // If we moved to a new element
+    if (this._activeElement !== target) {
+      this._resetVisuals(); // Clear old element
+
+      this._activeElement = target;
+
+      // Add Visual Classes
+      target.classList.add('tr-is-touch-active');
+      target.classList.add('tr-is-dragging'); // Re-use drag style for active state
+      if (isPressing) target.classList.add('tr-is-pressing');
+
+      // Update Tooltip (Magnetic Snap)
+      if (this.tooltipPlugin) {
+        this.tooltipPlugin.showTooltipForElement(target, true);
+      }
+
+      // Haptic Feedback on cell change
+      this.triggerHaptic();
+    }
+  }
+
+  _resetInteraction(immediate = false) {
+    if (this._timerLongPress) clearTimeout(this._timerLongPress);
+
+    if (immediate) {
+      this._clearLinger();
+      this._resetVisuals();
+      this._activeElement = null;
+      this.tooltipPlugin?.hideTooltip();
+    } else {
+      this._scheduleLinger();
+    }
+  }
+
+  _resetVisuals() {
+    if (this._activeElement) {
+      this._activeElement.classList.remove('tr-is-touch-active');
+      this._activeElement.classList.remove('tr-is-pressing');
+      this._activeElement.classList.remove('tr-is-dragging');
+    }
+  }
+
+  _scheduleLinger() {
+    this._clearLinger();
+    this._timerLinger = setTimeout(() => {
+      this._resetVisuals();
+      this._activeElement = null;
+      this.tooltipPlugin?.hideTooltip();
+    }, LINGER_DURATION);
+  }
+
+  _clearLinger() {
+    if (this._timerLinger) clearTimeout(this._timerLinger);
+    this._timerLinger = null;
   }
 
   setupKeyboardControls() {
@@ -323,26 +245,7 @@ export class InteractionPlugin extends TracePlugin {
     );
   }
 
-  setupMouseWheel() {
-    this.engine.viewport.addEventListener(
-      'wheel',
-      (e) => {
-        if (!this.hasHover || e.ctrlKey) return;
-        if (Math.abs(e.deltaY) > 50) {
-          e.preventDefault();
-          this.engine.plugins.get('ThemePlugin')?.cycleTheme();
-        }
-      },
-      { passive: false, signal: this.signal }
-    );
-  }
-
-  triggerHaptic(type) {
-    if (!navigator.vibrate) return;
-    const now = performance.now();
-    const minGap = type === 'scrub' ? 60 : 200;
-    if (now - this._lastHaptic < minGap) return;
-    this._lastHaptic = now;
-    navigator.vibrate(type === 'scrub' ? HAPTIC_SCRUB_MS : HAPTIC_SUCCESS_MS);
+  triggerHaptic() {
+    if (navigator.vibrate) navigator.vibrate(HAPTIC_SCRUB_MS);
   }
 }

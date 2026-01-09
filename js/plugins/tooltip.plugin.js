@@ -1,5 +1,5 @@
 // TRACE Tooltip Plugin
-// REWRITE: Magnetic Snap Positioning (Element-Based)
+// STABLE VERSION: "Magnetic" Element-based positioning
 
 import { TracePlugin } from '../core/plugin-manager.js';
 import { clamp, pxVar } from '../core/utils.js';
@@ -20,7 +20,7 @@ export class TooltipPlugin extends TracePlugin {
     el.setAttribute('role', 'tooltip');
     el.setAttribute('aria-hidden', 'true');
 
-    // FORCE FIXED: Kunci stabilitas
+    // Fixed position ensures stability during scroll/zoom
     Object.assign(el.style, {
       position: 'fixed',
       top: '0',
@@ -36,76 +36,62 @@ export class TooltipPlugin extends TracePlugin {
   }
 
   /**
-   * API UTAMA: Tampilkan tooltip menempel pada elemen DOM tertentu
+   * Main API: Anchors the tooltip to a specific DOM element.
+   * This creates the "Magnetic Snap" effect.
    */
   showTooltipForElement(element, isTouch = false) {
     if (!element) return;
-
-    // 1. Batalkan timer sembunyi (jika ada)
     this.cancelHide();
 
-    // 2. Update Konten
     const date = element.dataset.trDate;
     const info = element.dataset.trInfo;
-    if (!date || !info) return; // Data tidak valid
+    if (!date || !info) return;
 
     this._updateContent(date, info);
 
-    // 3. Tampilkan Visual
     this.engine.tooltip.setAttribute('aria-hidden', 'false');
     this.engine.tooltip.style.opacity = '1';
 
-    // 4. Mulai loop posisi
     this._targetEl = element;
     this._isTouch = isTouch;
 
+    // Start Position Loop
     if (!this._rafId) {
       this._rafId = requestAnimationFrame(this._updatePosition.bind(this));
     }
   }
 
-  /**
-   * Loop Render Posisi (RAF)
-   */
   _updatePosition() {
     this._rafId = null;
     if (!this._targetEl) return;
 
     const rect = this._targetEl.getBoundingClientRect();
     const toolRect = this.engine.tooltip.getBoundingClientRect();
+    const pad = 14;
 
-    const pad = 14; // Padding layar
-
-    // --- HORIZONTAL: CENTER ---
+    // Horizontal Center
     let centerX = rect.left + rect.width / 2;
-    // Clamp agar tidak keluar layar kiri/kanan
+    // Clamp to viewport
     centerX = clamp(centerX, pad + toolRect.width / 2, window.innerWidth - pad - toolRect.width / 2);
 
-    // --- VERTICAL: MAGNETIC SNAP ---
-    // Jarak aman agar tidak tertutup jari
-    const touchOffset = 50; // Lebih tinggi untuk touch
+    // Vertical Snap
+    const touchOffset = 45; // Higher offset for touch to avoid finger occlusion
     const mouseOffset = 15;
     const offset = this._isTouch ? touchOffset : mouseOffset;
 
     const topAnchor = rect.top - offset;
-    const bottomAnchor = rect.bottom + offset;
-
-    // Cek ruang
     const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
     const spaceAbove = topAnchor - safeTop;
 
-    // Logika: Selalu coba di atas dulu.
-    // Jika touch, kita paksa di atas kecuali mentok banget.
     let finalY = topAnchor;
-    let anchorBottom = true; // Transform anchor (-100%)
+    let anchorBottom = true;
 
+    // Logic: Try Top first. If no space, flip to Bottom.
     if (spaceAbove < toolRect.height) {
-      // Tidak muat di atas, pindah ke bawah
-      finalY = bottomAnchor;
+      finalY = rect.bottom + offset;
       anchorBottom = false;
     }
 
-    // --- APPLY ---
     const transY = anchorBottom ? '-100%' : '0';
     this.engine.tooltip.style.transform = `translate3d(${Math.round(centerX)}px, ${Math.round(
       finalY
@@ -131,7 +117,7 @@ export class TooltipPlugin extends TracePlugin {
 
   hideTooltip() {
     this.cancelHide();
-    this._targetEl = null; // Stop tracking
+    this._targetEl = null;
     if (this._rafId) cancelAnimationFrame(this._rafId);
     this._rafId = null;
 
