@@ -2,8 +2,8 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Grid Architect V50 - Pure Monolith</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Grid Architect V53 - Mobile DVH</title>
     <style>
       :root {
         --bg: #fdfdfe;
@@ -20,7 +20,6 @@
         --month-start-bg: #f0f9ff;
       }
 
-      /* --- PURE INTERFACE --- */
       *,
       *::before,
       *::after {
@@ -35,18 +34,19 @@
 
       html,
       body {
-        height: 100%;
-        width: 100%;
+        /* Menggunakan dvh untuk akurasi full screen di mobile */
+        height: 100dvh;
+        width: 100vw;
         background: var(--bg);
         color: var(--text-main);
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
       }
 
       #viewport {
         width: 100vw;
-        height: 100vh;
+        height: 100dvh;
         overflow-y: auto;
         scroll-snap-type: y mandatory;
         scrollbar-width: none;
@@ -60,13 +60,14 @@
       #infinite-canvas {
         position: relative;
         width: 100%;
+        contain: paints;
       }
 
       .year-block {
         position: absolute;
         left: 0;
         width: 100vw;
-        height: 100vh;
+        height: 100dvh;
         scroll-snap-align: start;
         scroll-snap-stop: always;
         display: flex;
@@ -81,7 +82,6 @@
         background: var(--bg);
       }
 
-      /* WATERMARK: Penunjuk navigasi utama yang samar namun pasti */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -89,27 +89,30 @@
         height: 100%;
         display: flex;
         align-items: center;
-        font-size: 32vh;
+        font-size: 32dvh;
         font-weight: 950;
         color: transparent;
-        background: linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(34, 211, 238, 0.12), transparent);
+        background: linear-gradient(180deg, rgba(99, 102, 241, 0.15), rgba(34, 211, 238, 0.15), transparent);
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-stroke: 1px rgba(148, 163, 184, 0.05);
-        opacity: 0;
         writing-mode: vertical-rl;
         pointer-events: none;
         z-index: 5;
-        letter-spacing: -2vh;
         white-space: nowrap;
-        transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.1, 0.9, 0.2, 1);
-        transform: translateY(20px);
-        will-change: transform, opacity;
+
+        opacity: 0;
+        letter-spacing: -3dvh;
+        transform: translateY(60px) scale(0.9) translateZ(0);
+        transition: opacity 1.4s cubic-bezier(0.2, 1, 0.3, 1), transform 1.4s cubic-bezier(0.2, 1, 0.3, 1),
+          letter-spacing 1.6s cubic-bezier(0.2, 1, 0.3, 1);
+        /* will-change diatur lewat JS hanya saat dibutuhkan untuk hemat baterai */
       }
 
       .year-block.active .watermark-embedded {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1) translateZ(0);
+        letter-spacing: -2dvh;
       }
 
       .grid-layer {
@@ -121,11 +124,13 @@
         width: 100%;
         height: 100%;
         opacity: 0;
-        transition: opacity 0.8s ease-out;
+        transform: scale(1.02) translateZ(0);
+        transition: opacity 0.8s ease-out, transform 1s cubic-bezier(0.2, 1, 0.3, 1);
       }
 
       .year-block.active .grid-layer {
         opacity: 1;
+        transform: scale(1) translateZ(0);
       }
 
       .cell {
@@ -141,10 +146,11 @@
         height: 100%;
         padding: 12% 0;
         text-align: center;
+        contain: layout style;
       }
 
       .cell .info-meta {
-        font-size: clamp(5px, 0.8vh, 7.5px);
+        font-size: clamp(5px, 0.8dvh, 7.5px);
         text-transform: uppercase;
         color: var(--text-muted);
         font-weight: 800;
@@ -152,15 +158,14 @@
       }
 
       .cell .date-num {
-        font-size: clamp(14px, 2.8vh, 22px);
+        font-size: clamp(14px, 2.8dvh, 22px);
         font-weight: 900;
         line-height: 1;
-        color: var(--text-main);
       }
 
       .cell.filler {
         background: var(--bg);
-        opacity: 0.2;
+        opacity: 0.15;
       }
       .cell.weekend {
         background: var(--weekend-bg);
@@ -186,7 +191,7 @@
 
       .cell:not(.filler):hover {
         background: #f8fafc;
-        cursor: pointer;
+        transition: background 0.2s ease;
       }
     </style>
   </head>
@@ -206,7 +211,7 @@
       const startVirtualYear = today.getFullYear();
 
       const YEAR_HEIGHT = window.innerHeight;
-      const TOTAL_VIRTUAL_YEARS = 2000;
+      const TOTAL_VIRTUAL_YEARS = 1000;
       const START_Y = (TOTAL_VIRTUAL_YEARS / 2) * YEAR_HEIGHT;
 
       let activeYears = new Map();
@@ -215,11 +220,13 @@
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
-            if (entry.isIntersecting) entry.target.classList.add('active');
-            else entry.target.classList.remove('active');
+            window.requestAnimationFrame(() => {
+              if (entry.isIntersecting) entry.target.classList.add('active');
+              else entry.target.classList.remove('active');
+            });
           });
         },
-        { threshold: 0.2 }
+        { threshold: 0.1 }
       );
 
       function isLeap(y) {
@@ -244,19 +251,30 @@
         for (let s = 0; s < cols * rows; s++) {
           const targetDate = new Date(year, 0, 1);
           targetDate.setDate(targetDate.getDate() + (s - firstDayOfYear));
+
+          const d = targetDate.getDate();
+          const m = targetDate.getMonth();
+          const dy = targetDate.getDay();
+          const isThisYear = targetDate.getFullYear() === year;
+
           let classes = ['cell'];
-          if (targetDate.getFullYear() !== year) classes.push('filler');
+          if (!isThisYear) classes.push('filler');
           else {
-            if (targetDate.getDate() === 1) classes.push('month-start');
-            if (targetDate.getDay() === 0 || targetDate.getDay() === 6) classes.push('weekend');
+            if (d === 1) classes.push('month-start');
+            if (dy === 0 || dy === 6) classes.push('weekend');
             if (targetDate.toDateString() === today.toDateString()) classes.push('today');
           }
-          gridHTML += `<div class="${classes.join(' ')}"><div class="cell-content">
-                    <span class="info-meta">${months[targetDate.getMonth()]}</span>
-                    <span class="date-num">${targetDate.getDate()}</span>
-                    <span class="info-meta">${daysLabel[targetDate.getDay()]}</span>
-                </div></div>`;
+
+          gridHTML += `
+                    <div class="${classes.join(' ')}">
+                        <div class="cell-content">
+                            <span class="info-meta">${months[m]}</span>
+                            <span class="date-num">${d}</span>
+                            <span class="info-meta">${daysLabel[dy]}</span>
+                        </div>
+                    </div>`;
         }
+
         gridHTML += `</div></div>`;
         block.innerHTML = gridHTML;
         Canvas.appendChild(block);
@@ -268,7 +286,11 @@
         const scrollTop = Viewport.scrollTop;
         const currentIdx = Math.round(scrollTop / YEAR_HEIGHT);
         const currentYear = startVirtualYear + (currentIdx - TOTAL_VIRTUAL_YEARS / 2);
-        for (let i = -1; i <= 1; i++) createYearBlock(currentYear + i, (currentIdx + i) * YEAR_HEIGHT);
+
+        for (let i = -1; i <= 1; i++) {
+          createYearBlock(currentYear + i, (currentIdx + i) * YEAR_HEIGHT);
+        }
+
         for (let [year, block] of activeYears) {
           if (Math.abs(year - currentYear) > 1) {
             observer.unobserve(block);
@@ -279,12 +301,16 @@
         isTicking = false;
       }
 
-      Viewport.addEventListener('scroll', () => {
-        if (!isTicking) {
-          window.requestAnimationFrame(updateInfinite);
-          isTicking = true;
-        }
-      });
+      Viewport.addEventListener(
+        'scroll',
+        () => {
+          if (!isTicking) {
+            window.requestAnimationFrame(updateInfinite);
+            isTicking = true;
+          }
+        },
+        { passive: true }
+      );
 
       function jumpToToday() {
         Viewport.style.scrollBehavior = 'auto';
@@ -295,10 +321,15 @@
       }
 
       Viewport.addEventListener('dblclick', jumpToToday);
+
       Canvas.style.height = `${TOTAL_VIRTUAL_YEARS * YEAR_HEIGHT}px`;
       Viewport.scrollTop = START_Y;
       updateInfinite();
-      window.addEventListener('resize', () => location.reload());
+
+      window.addEventListener('resize', () => {
+        // Re-kalkulasi hanya jika lebar layar berubah (menghindari glitch saat URL bar mobile muncul/hilang)
+        location.reload();
+      });
     </script>
   </body>
 </html>
