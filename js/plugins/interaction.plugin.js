@@ -432,6 +432,7 @@ export class InteractionPlugin extends TracePlugin {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const speedSeed = dpr < 1.25 ? 350 : dpr < 2 ? 600 : 800;
     const dwellSeed = dpr < 1.25 ? 110 : 90;
+    const totalInteractiveCells = this.engine.gridCells.filter((c) => this.isValidDay(c)).length;
 
     // Mouse position and RAF state
     let mouseRafPending = false;
@@ -446,6 +447,7 @@ export class InteractionPlugin extends TracePlugin {
     // Gap crossing behavior
     let gapHideTimer = null;
     let gapEnterTime = 0;
+    let viewportLeaveTimer = null;
 
     // Adaptive speed tracking (EWMA)
     let lastMouseX = 0;
@@ -650,15 +652,12 @@ export class InteractionPlugin extends TracePlugin {
 
         if (targetIndex >= 0 && targetIndex < this.engine.gridCells.length) {
           const targetCell = this.engine.gridCells[targetIndex];
-          if (targetCell && !targetCell.classList.contains('tr-day--filler')) {
+          if (this.isValidDay(targetCell)) {
             e.preventDefault();
             targetCell.focus();
-            // Enhanced screen reader feedback with position context
             if (this.engine.srStatus) {
               const label = targetCell.getAttribute('aria-label');
-              const position = `${targetIndex + 1} of ${
-                this.engine.gridCells.filter((c) => !c.classList.contains('tr-day--filler')).length
-              }`;
+              const position = `${targetIndex + 1} of ${totalInteractiveCells}`;
               this.engine.srStatus.textContent = `${label}, ${position}`;
             }
           }
@@ -668,22 +667,25 @@ export class InteractionPlugin extends TracePlugin {
     );
 
     this.engine.viewport.addEventListener(
-      'focusin',
+      'mouseout',
       (e) => {
-        const target = e.target;
-        if (this.isValidDay(target)) {
-          const rect = target.getBoundingClientRect();
-          const dateText = target.dataset.trDate;
-          const infoText = target.dataset.trInfo;
-          if (this.tooltipPlugin) {
-            this.tooltipPlugin.showTooltipAt(
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2,
-              false,
-              dateText,
-              infoText
-            );
+        if (!this.hasHover) return;
+        const leftViewport = !this.engine.viewport.contains(e.relatedTarget) || e.relatedTarget === null;
+        if (leftViewport) {
+          // Clear any gap timer; schedule a short grace hide to avoid jitter
+          if (gapHideTimer) {
+            clearTimeout(gapHideTimer);
+            gapHideTimer = null;
           }
+          if (viewportLeaveTimer) {
+            clearTimeout(viewportLeaveTimer);
+          }
+          viewportLeaveTimer = setTimeout(() => {
+            if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
+            tooltipVisible = false;
+            hoveredDayEl = null;
+            viewportLeaveTimer = null;
+          }, 60);
         }
       },
       { signal: this.signal }

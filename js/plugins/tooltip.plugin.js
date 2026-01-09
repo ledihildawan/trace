@@ -28,6 +28,7 @@ export class TooltipPlugin extends TracePlugin {
   showTooltipAt(clientX, clientY, isTouch, dateText, infoText) {
     if (!dateText || !infoText) return;
     this.updateTooltipContent(dateText, infoText);
+    this.engine.tooltip.setAttribute('aria-hidden', 'false');
     this.positionTooltip(clientX, clientY, isTouch);
   }
 
@@ -50,11 +51,12 @@ export class TooltipPlugin extends TracePlugin {
       this.engine.tooltip.appendChild(boldInfo);
 
       this.engine.tooltip.dataset.cache = cacheKey;
-    }
 
-    const rect = this.engine.tooltip.getBoundingClientRect();
-    this.tooltipWidth = rect.width;
-    this.tooltipHeight = rect.height;
+      // Measure once after content change to avoid repeated layouts later
+      const rect = this.engine.tooltip.getBoundingClientRect();
+      this.tooltipWidth = rect.width;
+      this.tooltipHeight = rect.height;
+    }
     this.engine.tooltip.style.opacity = '1';
   }
 
@@ -81,11 +83,17 @@ export class TooltipPlugin extends TracePlugin {
       const safeLeft = pxVar('--tr-safe-left');
 
       // Measure sizes only when needed (content may have changed)
-      const rect = this.engine.tooltip.getBoundingClientRect();
-      const w = this.tooltipWidth || rect.width;
-      const h = this.tooltipHeight || rect.height;
+      if (!this.tooltipWidth || !this.tooltipHeight) {
+        const rect = this.engine.tooltip.getBoundingClientRect();
+        this.tooltipWidth = rect.width;
+        this.tooltipHeight = rect.height;
+      }
 
-      let x = clientX;
+      const w = this.tooltipWidth;
+      const h = this.tooltipHeight;
+
+      // Nudge touch horizontally so the finger doesn't sit on top of tooltip anchor
+      let x = clientX + (isTouch ? 10 : 0);
       let y = clientY;
 
       const minX = safeLeft + pad + w / 2;
@@ -137,12 +145,17 @@ export class TooltipPlugin extends TracePlugin {
    * Hide tooltip
    */
   hideTooltip() {
+    if (this.tooltipHideTimer) {
+      clearTimeout(this.tooltipHideTimer);
+      this.tooltipHideTimer = null;
+    }
     if (this._lastRafId) {
       cancelAnimationFrame(this._lastRafId);
       this._lastRafId = null;
       this._rafPending = false;
     }
     this.engine.tooltip.style.opacity = '0';
+    this.engine.tooltip.setAttribute('aria-hidden', 'true');
   }
 
   /**
