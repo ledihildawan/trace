@@ -128,7 +128,7 @@ export class InteractionPlugin extends TracePlugin {
         const dateText = target.dataset.trDate;
         const infoText = target.dataset.trInfo;
         if (this.tooltipPlugin) {
-          tooltipPlugin.showTooltipAt(this._pendingX, this._pendingY, true, dateText, infoText);
+          this.tooltipPlugin.showTooltipAt(this._pendingX, this._pendingY, true, dateText, infoText);
         }
       } else if (this._lastHoveredElement) {
         this._lastHoveredElement.classList.remove('tr-is-touch-active');
@@ -183,13 +183,13 @@ export class InteractionPlugin extends TracePlugin {
       // Long press → reset to defaults
       if (longPressTimer) clearTimeout(longPressTimer);
       longPressTimer = setTimeout(() => {
-        if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
+        if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
         const devTools = this.engine.plugins.get('DevToolsPlugin');
         if (devTools) devTools.resetToDefaults();
         this.triggerHaptic('success');
         longPressTriggered = true;
       }, LONG_PRESS_DURATION_MS);
-      if (this.tooltipPlugin) tooltipPlugin.cancelHide();
+      if (this.tooltipPlugin) this.tooltipPlugin.cancelHide();
 
       schedulePointerUpdate(e.clientX, e.clientY);
 
@@ -214,7 +214,7 @@ export class InteractionPlugin extends TracePlugin {
           const pts = Array.from(touches.values());
           const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
           if (Math.abs(dist - pinchStartDistance) > PINCH_MIN_DISTANCE_CHANGE_PX) {
-            if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
+            if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
             const devTools = this.engine.plugins.get('DevToolsPlugin');
             if (devTools) devTools.randomizeThemeNowAndLocale();
             this.triggerHaptic('success');
@@ -257,11 +257,11 @@ export class InteractionPlugin extends TracePlugin {
           if (this.tooltipPlugin) {
             const dateText = dragTarget.dataset.trDate;
             const infoText = dragTarget.dataset.trInfo;
-            tooltipPlugin.showTooltipAt(e.clientX, e.clientY, true, dateText, infoText);
+            this.tooltipPlugin.showTooltipAt(e.clientX, e.clientY, true, dateText, infoText);
           }
         } else {
           // If not over a day, ensure tooltip is hidden
-          if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
+          if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
         }
         if (this._pressedElement) {
           this._pressedElement.classList.remove('tr-is-pressing');
@@ -307,7 +307,7 @@ export class InteractionPlugin extends TracePlugin {
 
         if (!isDragging && !longPressTriggered && !pinchTriggered && tappedQuickly && tappedNearby) {
           // Double tap detected - hide tooltip and cycle theme
-          if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
+          if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
           if (themePlugin) themePlugin.cycleTheme();
           this.triggerHaptic('success');
           lastTapTime = 0;
@@ -333,7 +333,7 @@ export class InteractionPlugin extends TracePlugin {
 
             if (isHorizontalSwipe || isVerticalSwipe) {
               // Hide tooltip before swipe action
-              if (this.tooltipPlugin) tooltipPlugin.hideTooltip();
+              if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
 
               if (isHorizontalSwipe) {
                 // Horizontal swipe → cycle theme
@@ -358,7 +358,7 @@ export class InteractionPlugin extends TracePlugin {
         // Only schedule hide if no gesture was triggered
         if (!longPressTriggered && !pinchTriggered) {
           const duration = isDragging ? 1250 : 2500;
-          tooltipPlugin.scheduleHide(duration);
+          this.tooltipPlugin.scheduleHide(duration);
         }
         // Ensure any hovered markers are cleared
         document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
@@ -408,7 +408,7 @@ export class InteractionPlugin extends TracePlugin {
     const processMouseMove = () => {
       mouseRafPending = false;
       if (this.tooltipPlugin) {
-        tooltipPlugin.positionTooltip(pendingMouseX, pendingMouseY, false);
+        this.tooltipPlugin.positionTooltip(pendingMouseX, pendingMouseY, false);
       }
     };
 
@@ -422,7 +422,7 @@ export class InteractionPlugin extends TracePlugin {
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
           if (this.tooltipPlugin) {
-            tooltipPlugin.showTooltipAt(e.clientX, e.clientY, false, dateText, infoText);
+            this.tooltipPlugin.showTooltipAt(e.clientX, e.clientY, false, dateText, infoText);
           }
         }
       },
@@ -433,7 +433,8 @@ export class InteractionPlugin extends TracePlugin {
       'mousemove',
       (e) => {
         if (!this.hasHover) return;
-        if (this.engine.tooltip.style.opacity === '1') {
+        // Use computed style for opacity check — inline style may be empty.
+        if (this.tooltipPlugin && getComputedStyle(this.engine.tooltip).opacity === '1') {
           pendingMouseX = e.clientX;
           pendingMouseY = e.clientY;
           if (!mouseRafPending) {
@@ -450,7 +451,8 @@ export class InteractionPlugin extends TracePlugin {
       (e) => {
         if (!this.hasHover) return;
         if (!this.engine.viewport.contains(e.relatedTarget)) {
-          this.engine.tooltip.style.opacity = '0';
+          if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
+          else this.engine.tooltip.style.opacity = '0';
         }
       },
       { signal: this.signal }
@@ -518,7 +520,7 @@ export class InteractionPlugin extends TracePlugin {
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
           if (this.tooltipPlugin) {
-            tooltipPlugin.showTooltipAt(
+            this.tooltipPlugin.showTooltipAt(
               rect.left + rect.width / 2,
               rect.top + rect.height / 2,
               false,
@@ -534,7 +536,8 @@ export class InteractionPlugin extends TracePlugin {
     this.engine.viewport.addEventListener(
       'focusout',
       () => {
-        this.engine.tooltip.style.opacity = '0';
+        if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
+        else this.engine.tooltip.style.opacity = '0';
       },
       { signal: this.signal }
     );

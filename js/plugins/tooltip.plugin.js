@@ -11,6 +11,11 @@ export class TooltipPlugin extends TracePlugin {
     this.tooltipHideTimer = null;
     this.tooltipWidth = 0;
     this.tooltipHeight = 0;
+    this._rafPending = false;
+    this._pendingX = 0;
+    this._pendingY = 0;
+    this._pendingIsTouch = false;
+    this._lastRafId = null;
   }
 
   init(engine) {
@@ -58,58 +63,80 @@ export class TooltipPlugin extends TracePlugin {
    * Position tooltip relative to cursor/touch point
    */
   positionTooltip(clientX, clientY, isTouch = false) {
-    const pad = 12;
-    const safeTop = pxVar('--tr-safe-top');
-    const safeRight = pxVar('--tr-safe-right');
-    const safeBottom = pxVar('--tr-safe-bottom');
-    const safeLeft = pxVar('--tr-safe-left');
+    this._pendingX = clientX;
+    this._pendingY = clientY;
+    this._pendingIsTouch = Boolean(isTouch);
+    if (this._rafPending) return;
+    this._rafPending = true;
+    this._lastRafId = requestAnimationFrame(() => {
+      this._rafPending = false;
+      this._lastRafId = null;
+      const clientX = this._pendingX;
+      const clientY = this._pendingY;
+      const isTouch = this._pendingIsTouch;
 
-    const w = this.tooltipWidth || this.engine.tooltip.getBoundingClientRect().width;
-    const h = this.tooltipHeight || this.engine.tooltip.getBoundingClientRect().height;
+      const pad = 12;
+      const safeTop = pxVar('--tr-safe-top');
+      const safeRight = pxVar('--tr-safe-right');
+      const safeBottom = pxVar('--tr-safe-bottom');
+      const safeLeft = pxVar('--tr-safe-left');
 
-    let x = clientX;
-    let y = clientY;
+      // Measure sizes only when needed (content may have changed)
+      const rect = this.engine.tooltip.getBoundingClientRect();
+      const w = this.tooltipWidth || rect.width;
+      const h = this.tooltipHeight || rect.height;
 
-    const minX = safeLeft + pad + w / 2;
-    const maxX = window.innerWidth - safeRight - pad - w / 2;
-    x = clamp(x, minX, maxX);
+      let x = clientX;
+      let y = clientY;
 
-    const vOffset = pxVar('--tr-tooltip-vertical-offset') || 40;
-    const topBound = safeTop + pad;
-    const bottomBound = window.innerHeight - safeBottom - pad;
+      const minX = safeLeft + pad + w / 2;
+      const maxX = window.innerWidth - safeRight - pad - w / 2;
+      x = clamp(x, minX, maxX);
 
-    const aboveAnchorY = clientY - vOffset;
-    const belowAnchorY = clientY + vOffset;
+      const vOffset = pxVar('--tr-tooltip-vertical-offset') || 40;
+      const topBound = safeTop + pad;
+      const bottomBound = window.innerHeight - safeBottom - pad;
 
-    const aboveFits = aboveAnchorY - h >= topBound && aboveAnchorY <= bottomBound;
-    const belowFits = belowAnchorY >= topBound && belowAnchorY + h <= bottomBound;
+      const aboveAnchorY = clientY - vOffset;
+      const belowAnchorY = clientY + vOffset;
 
-    const spaceAbove = aboveAnchorY - topBound;
-    const spaceBelow = bottomBound - belowAnchorY;
+      const aboveFits = aboveAnchorY - h >= topBound && aboveAnchorY <= bottomBound;
+      const belowFits = belowAnchorY >= topBound && belowAnchorY + h <= bottomBound;
 
-    let placeBelow;
-    if (aboveFits) placeBelow = false;
-    else if (belowFits) placeBelow = true;
-    else placeBelow = spaceBelow > spaceAbove;
+      const spaceAbove = aboveAnchorY - topBound;
+      const spaceBelow = bottomBound - belowAnchorY;
 
-    if (placeBelow) {
-      y = clamp(belowAnchorY, topBound, bottomBound - h);
-      this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, 0)`;
-    } else {
-      y = clamp(aboveAnchorY, topBound + h, bottomBound);
-      this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(
-        y
-      )}px, 0) translate(-50%, -100%)`;
-    }
+      let placeBelow;
+      if (aboveFits) placeBelow = false;
+      else if (belowFits) placeBelow = true;
+      else placeBelow = spaceBelow > spaceAbove;
 
-    this.engine.tooltip.style.left = '0px';
-    this.engine.tooltip.style.top = '0px';
+      if (placeBelow) {
+        y = clamp(belowAnchorY, topBound, bottomBound - h);
+        this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(
+          y
+        )}px, 0) translate(-50%, 0)`;
+      } else {
+        y = clamp(aboveAnchorY, topBound + h, bottomBound);
+        this.engine.tooltip.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(
+          y
+        )}px, 0) translate(-50%, -100%)`;
+      }
+
+      this.engine.tooltip.style.left = '0px';
+      this.engine.tooltip.style.top = '0px';
+    });
   }
 
   /**
    * Hide tooltip
    */
   hideTooltip() {
+    if (this._lastRafId) {
+      cancelAnimationFrame(this._lastRafId);
+      this._lastRafId = null;
+      this._rafPending = false;
+    }
     this.engine.tooltip.style.transition = 'opacity 0.3s ease-out';
     this.engine.tooltip.style.opacity = '0';
   }
