@@ -112,6 +112,9 @@ export class InteractionPlugin extends TracePlugin {
     let lastTapX = 0;
     let lastTapY = 0;
 
+    // Cache touch-active elements to avoid querySelectorAll on pointerEnd
+    let touchActiveElements = new Set();
+
     const processPointerMove = () => {
       this._rafPending = false;
       if (this.ignoreHover || isDragging) return;
@@ -120,8 +123,10 @@ export class InteractionPlugin extends TracePlugin {
         if (this._lastHoveredElement !== target) {
           if (this._lastHoveredElement) {
             this._lastHoveredElement.classList.remove('tr-is-touch-active');
+            touchActiveElements.delete(this._lastHoveredElement);
           }
           target.classList.add('tr-is-touch-active');
+          touchActiveElements.add(target);
           this._lastHoveredElement = target;
           this.triggerHaptic('scrub');
         }
@@ -132,6 +137,7 @@ export class InteractionPlugin extends TracePlugin {
         }
       } else if (this._lastHoveredElement) {
         this._lastHoveredElement.classList.remove('tr-is-touch-active');
+        touchActiveElements.delete(this._lastHoveredElement);
         this._lastHoveredElement = null;
       }
     };
@@ -174,9 +180,14 @@ export class InteractionPlugin extends TracePlugin {
 
       // Defensive cleanup: clear any stale hover/drag markers left from
       // previous interactions so a new press doesn't inherit them.
-      if (this._lastHoveredElement?.classList) this._lastHoveredElement.classList.remove('tr-is-touch-active');
+      if (this._lastHoveredElement?.classList) {
+        this._lastHoveredElement.classList.remove('tr-is-touch-active');
+        touchActiveElements.delete(this._lastHoveredElement);
+      }
       this._lastHoveredElement = null;
-      document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+      // Clear cached touch-active set instead of DOM query
+      touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+      touchActiveElements.clear();
       if (this._draggingElement?.classList) this._draggingElement.classList.remove('tr-is-dragging');
       this._draggingElement = null;
 
@@ -239,10 +250,14 @@ export class InteractionPlugin extends TracePlugin {
         // While actively dragging, suppress hover updates so old "active" days
         // aren't left highlighted. Clear any existing hover highlight.
         this.ignoreHover = true;
-        if (this._lastHoveredElement?.classList) this._lastHoveredElement.classList.remove('tr-is-touch-active');
+        if (this._lastHoveredElement?.classList) {
+          this._lastHoveredElement.classList.remove('tr-is-touch-active');
+          touchActiveElements.delete(this._lastHoveredElement);
+        }
         this._lastHoveredElement = null;
-        // Also defensively clear any leftover active classes in the DOM
-        document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+        // Clear cached touch-active set (no expensive querySelectorAll)
+        touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+        touchActiveElements.clear();
         // While dragging, ensure the currently dragged day becomes active
         const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
         if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
@@ -360,8 +375,9 @@ export class InteractionPlugin extends TracePlugin {
           const duration = isDragging ? 1250 : 2500;
           this.tooltipPlugin.scheduleHide(duration);
         }
-        // Ensure any hovered markers are cleared
-        document.querySelectorAll('.tr-is-touch-active').forEach((el) => el.classList.remove('tr-is-touch-active'));
+        // Clear cached touch-active elements
+        touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+        touchActiveElements.clear();
         this._lastHoveredElement = null;
         this.ignoreHover = false;
       }
@@ -404,6 +420,57 @@ export class InteractionPlugin extends TracePlugin {
     let mouseRafPending = false;
     let pendingMouseX = 0;
     let pendingMouseY = 0;
+    let hoveredDayEl = null;
+    let tooltipVisible = false;
+    let lastMouseOverTargetId = null;
+    let gapHideTimer = null;
+    let gapHideDelay = 100; // Default fallback
+    let gapEnterTime = 0; // Track when mouse enters gap
+    // Pointer speed tracking (EWMA)
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    let lastMouseTs = 0;
+    // Adaptive seeds based on devicePixelRatio: lower DPR → slower default speeds
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    let speedEwma = dpr < 1.25 ? 350 : dpr < 2 ? 600 : 800; // px/s starting assumption
+    // Track observed gap dwell via EWMA to adapt to real user speed
+    let dwellEwma = dpr < 1.25 ? 110 : 90; // ms starting assumption
+
+    // Calculate optimal gap hide delay based on actual grid gap size
+    const calculateGapDelay = () => {
+      const style = window.getComputedStyle(this.engine.viewport);
+      const gap = parseFloat(style.gap) || parseFloat(style.gridGap) || 0;
+      // Use EWMA mouse speed to adapt for DPI and user pace
+      const speed = Math.max(100, Math.min(1800, speedEwma)); // clamp px/s
+      const traversalMs = (gap / speed) * 1000;
+      // Buffer scales with DPR; higher DPR → slightly smaller buffer
+      const baseBuffer = dpr < 1.25 ? 80 : dpr < 2 ? 65 : 55;
+      const delay = Math.max(100, Math.min(240, traversalMs + baseBuffer));
+      return Math.round(delay);
+    };
+
+    // Compute dynamic delay factoring cell size as a small hysteresis
+    const calculateGapDelayDynamic = () => {
+      const style = window.getComputedStyle(this.engine.viewport);
+      const gap = parseFloat(style.gap) || parseFloat(style.gridGap) || 0;
+      let cellW = 0;
+      if (hoveredDayEl) {
+        const r = hoveredDayEl.getBoundingClientRect();
+        cellW = Math.round(r.width);
+      } else if (this.engine.gridCells?.length) {
+        const r = this.engine.gridCells[0].getBoundingClientRect();
+        cellW = Math.round(r.width);
+      }
+      const speed = Math.max(100, Math.min(1800, speedEwma));
+      // Effective crossing includes gap plus a small portion of next cell to avoid premature hide
+      const effectivePx = gap + Math.min(24, Math.round(cellW * 0.12));
+      const traversalMs = (effectivePx / speed) * 1000;
+      // Adaptive buffer combines DPR-based base buffer + observed dwell margin
+      const baseBuffer = dpr < 1.25 ? 85 : dpr < 2 ? 70 : 60;
+      const dwellMargin = Math.min(60, Math.max(30, dwellEwma * 0.5));
+      const delay = Math.max(110, Math.min(280, traversalMs + baseBuffer + dwellMargin));
+      return Math.round(delay);
+    };
 
     const processMouseMove = () => {
       mouseRafPending = false;
@@ -418,41 +485,103 @@ export class InteractionPlugin extends TracePlugin {
         if (!this.hasHover) return;
         if (this.ignoreHover) return;
         const target = e.target;
-        if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+        // Debounce: skip if mouseover fires on same element multiple times
+        if (target === lastMouseOverTargetId) return;
+        lastMouseOverTargetId = target;
+        const isDay = target.classList.contains('tr-day');
+        const isFiller = target.classList.contains('tr-day--filler');
+        if (isDay && !isFiller) {
+          // Cancel any pending gap hide timer
+          if (gapHideTimer) {
+            clearTimeout(gapHideTimer);
+            gapHideTimer = null;
+          }
+          // Update observed dwell time if we just crossed a gap
+          if (gapEnterTime) {
+            const spent = performance.now() - gapEnterTime;
+            // EWMA update (alpha = 0.2)
+            dwellEwma = dwellEwma * 0.8 + spent * 0.2;
+            gapEnterTime = 0;
+          }
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
           if (this.tooltipPlugin) {
             this.tooltipPlugin.showTooltipAt(e.clientX, e.clientY, false, dateText, infoText);
+            tooltipVisible = true;
           }
+          hoveredDayEl = target;
+        } else {
+          // Delay hide when hovering gap/filler to prevent flicker when moving between cells
+          if (gapHideTimer) clearTimeout(gapHideTimer);
+          gapEnterTime = performance.now();
+          const dynamicDelay = calculateGapDelayDynamic();
+          gapHideTimer = setTimeout(() => {
+            if (this.tooltipPlugin) {
+              this.tooltipPlugin.hideTooltip();
+              tooltipVisible = false;
+              hoveredDayEl = null;
+            }
+            gapHideTimer = null;
+          }, dynamicDelay); // Dynamically calculated delay based on gap + cell size + speed
         }
       },
-      { signal: this.signal }
+      { passive: true, signal: this.signal }
     );
 
     this.engine.viewport.addEventListener(
       'mousemove',
       (e) => {
         if (!this.hasHover) return;
-        // Use computed style for opacity check — inline style may be empty.
-        if (this.tooltipPlugin && getComputedStyle(this.engine.tooltip).opacity === '1') {
-          pendingMouseX = e.clientX;
-          pendingMouseY = e.clientY;
-          if (!mouseRafPending) {
-            mouseRafPending = true;
-            requestAnimationFrame(processMouseMove);
+        // Update mouse speed EWMA for adaptive delay
+        const now = performance.now();
+        if (lastMouseTs) {
+          const dt = now - lastMouseTs; // ms
+          if (dt > 0) {
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            const dist = Math.hypot(dx, dy);
+            const instSpeed = (dist / dt) * 1000; // px/s
+            // EWMA with alpha = 0.25
+            speedEwma = speedEwma * 0.75 + instSpeed * 0.25;
           }
         }
+        lastMouseTs = now;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        // Skip expensive hit-tests; rely on latest mouseover-set hoveredDayEl.
+        if (!hoveredDayEl || hoveredDayEl.classList.contains('tr-day--filler')) {
+          // Don't immediately hide here - let gap timer handle it
+          return;
+        }
+        // Only update position if tooltip is visible; avoid getComputedStyle (layout thrashing).
+        if (tooltipVisible && this.tooltipPlugin && !mouseRafPending) {
+          pendingMouseX = e.clientX;
+          pendingMouseY = e.clientY;
+          mouseRafPending = true;
+          requestAnimationFrame(processMouseMove);
+        }
       },
-      { signal: this.signal }
+      { passive: true, signal: this.signal }
     );
+
+    // Calculate gap delay once after first render
+    requestAnimationFrame(() => {
+      gapHideDelay = calculateGapDelay();
+    });
 
     this.engine.viewport.addEventListener(
       'mouseout',
       (e) => {
         if (!this.hasHover) return;
         if (!this.engine.viewport.contains(e.relatedTarget)) {
+          // Clear gap timer and hide immediately when leaving viewport
+          if (gapHideTimer) {
+            clearTimeout(gapHideTimer);
+            gapHideTimer = null;
+          }
           if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
-          else this.engine.tooltip.style.opacity = '0';
+          tooltipVisible = false;
+          hoveredDayEl = null;
         }
       },
       { signal: this.signal }
@@ -537,7 +666,6 @@ export class InteractionPlugin extends TracePlugin {
       'focusout',
       () => {
         if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
-        else this.engine.tooltip.style.opacity = '0';
       },
       { signal: this.signal }
     );

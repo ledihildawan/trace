@@ -55,7 +55,6 @@ export class TooltipPlugin extends TracePlugin {
     const rect = this.engine.tooltip.getBoundingClientRect();
     this.tooltipWidth = rect.width;
     this.tooltipHeight = rect.height;
-    this.engine.tooltip.style.transition = 'opacity 0.2s ease-out';
     this.engine.tooltip.style.opacity = '1';
   }
 
@@ -137,7 +136,6 @@ export class TooltipPlugin extends TracePlugin {
       this._lastRafId = null;
       this._rafPending = false;
     }
-    this.engine.tooltip.style.transition = 'opacity 0.3s ease-out';
     this.engine.tooltip.style.opacity = '0';
   }
 
