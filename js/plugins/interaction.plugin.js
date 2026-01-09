@@ -25,7 +25,7 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   #setupViewport() {
-    // NATIVE FIX: Disable touch actions to prevent native scrolling from killing pointer events
+    // NATIVE FIX: Mencegah scroll native agar tidak mengganggu event pointer
     Object.assign(this.engine.viewport.style, {
       touchAction: 'none',
       userSelect: 'none',
@@ -38,23 +38,23 @@ export class InteractionPlugin extends TracePlugin {
     const options = { passive: false, signal: this.signal };
     const vp = this.engine.viewport;
 
-    // Pointer Events - Unified for touch and stylus
+    // Pointer Events
     vp.addEventListener('pointerdown', (e) => this.#onPointerDown(e), options);
     vp.addEventListener('pointermove', (e) => this.#onPointerMove(e), options);
     vp.addEventListener('pointerup', (e) => this.#onPointerUp(e), options);
     vp.addEventListener('pointercancel', () => this.#cleanup(true), options);
 
-    // Mouse specific for Desktop hover
+    // Hover & Keyboard
     vp.addEventListener('mouseover', (e) => this.#onMouseOver(e), { passive: true, signal: this.signal });
     window.addEventListener('keydown', (e) => this.#onKeyDown(e), { passive: true, signal: this.signal });
   }
 
-  // --- INTERACTION HANDLERS ---
+  // --- HANDLER UTAMA ---
 
   #onPointerDown(e) {
     if (e.pointerType === 'mouse') return;
 
-    // NATIVE: Lock event to original target to ensure pointerup is accurate
+    // NATIVE: Mengunci event ke elemen target awal
     e.target.setPointerCapture(e.pointerId);
 
     this.#cleanup(true);
@@ -76,7 +76,7 @@ export class InteractionPlugin extends TracePlugin {
 
     this.#handleHapticScrub(el, true);
 
-    // Initialize Long Press with specific element reference
+    // Inisialisasi Long Press
     this.#setTimer('longPress', () => this.#onLongPress(el), LONG_PRESS_DURATION_MS);
   }
 
@@ -94,7 +94,7 @@ export class InteractionPlugin extends TracePlugin {
       this.#track.lastTime = now;
     }
 
-    // SMALL SCREEN FIX: Higher movement threshold (20px) to prevent jitter from canceling actions
+    // FIX LAYAR KECIL: Threshold ditingkatkan ke 20px
     if (this.#hasMoved(e.clientX, e.clientY, 20)) {
       this.#clearTimer('longPress');
     }
@@ -111,7 +111,7 @@ export class InteractionPlugin extends TracePlugin {
     const now = performance.now();
     const currentTarget = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tr-day');
 
-    // NATIVE VALIDATION: Abort if release is outside grid or on a different cell
+    // NATIVE VALIDATION: Abaikan jika jari lepas di luar kotak atau di kotak berbeda
     if (!currentTarget) {
       this.#lastTapTarget = null;
       this.#cleanup(true);
@@ -121,14 +121,14 @@ export class InteractionPlugin extends TracePlugin {
     const duration = now - this.#track.startTime;
     const deltaY = e.clientY - this.#track.startY;
 
-    // 1. Vertical Swipe (Gesture)
+    // 1. Swipe Vertical (Gesture)
     if (Math.abs(deltaY) > 80 && duration < 250) {
       this.#onSwipeVertical();
       this.#lastTapTarget = null;
       return;
     }
 
-    // 2. Double Tap vs Single Tap (Object Identity Validation)
+    // 2. Double Tap vs Single Tap (Validasi Target Identik)
     if (now - this.#lastTapTime < DOUBLE_TAP_MAX_DELAY_MS && this.#lastTapTarget === currentTarget) {
       this.#onDoubleTap();
       this.#lastTapTime = 0;
@@ -140,7 +140,7 @@ export class InteractionPlugin extends TracePlugin {
     }
   }
 
-  // --- DISCRETE ACTIONS ---
+  // --- AKSI SPESIFIK ---
 
   #onSingleTap() {
     this.#scheduleLingerTooltip();
@@ -151,7 +151,6 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   #onLongPress(el) {
-    // Extra validation: only reset if finger hasn't strayed from the origin element
     if (this.#isTouching && this.#activeEl === el) {
       this.#executeAction('reset');
     }
@@ -161,7 +160,7 @@ export class InteractionPlugin extends TracePlugin {
     this.#executeAction('random');
   }
 
-  // --- LOGIC HELPERS ---
+  // --- HELPERS & LOGIK ---
 
   #handleHapticScrub(el, isPressing) {
     if (!el || el.classList.contains('tr-day--filler')) return;
@@ -181,7 +180,7 @@ export class InteractionPlugin extends TracePlugin {
 
   #scheduleLingerTooltip() {
     this.#clearTimer('linger');
-    // MOBILE FIX: Increased minimum linger time (1500ms) for legibility on small screens
+    // FIX LAYAR KECIL: Durasi linger minimum ditingkatkan
     const lingerTime = Math.max(1500, Math.min(3500, 3000 - this.#track.velocity * 500));
     this.#setTimer('linger', () => this.#cleanup(true), lingerTime);
     this.tooltip?.scheduleHide(lingerTime);
@@ -193,10 +192,19 @@ export class InteractionPlugin extends TracePlugin {
     if (action === 'reset') p.get('DevToolsPlugin')?.resetToDefaults();
     if (action === 'random') {
       p.get('DevToolsPlugin')?.randomizeThemeNowAndLocale();
-      this.#animatePulse();
+      this.#animatePulse(); // Memanggil metode privat yang sebelumnya bermasalah
     }
     this.#vibrate('success');
-    this.#cleanup(false); // Do not cleanup immediately to allow visual feedback
+    this.#cleanup(false);
+  }
+
+  // --- FIX: DEKLARASI METODE PRIVAT #animatePulse ---
+  #animatePulse() {
+    const vp = this.engine.viewport;
+    if (!vp) return;
+    vp.classList.remove('tr-theme-pulse');
+    void vp.offsetWidth; // Force reflow
+    vp.classList.add('tr-theme-pulse');
   }
 
   #cleanup(immediate) {
