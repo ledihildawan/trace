@@ -122,8 +122,13 @@ export class InteractionPlugin extends TracePlugin {
     // Cache touch-active elements to avoid querySelectorAll on pointerEnd
     let touchActiveElements = new Set();
     let touchClearTimer = null;
+    let touchGapTimer = null;
 
     const clearTouchState = () => {
+      if (touchGapTimer) {
+        clearTimeout(touchGapTimer);
+        touchGapTimer = null;
+      }
       if (this._lastHoveredElement?.classList) {
         this._lastHoveredElement.classList.remove('tr-is-touch-active');
       }
@@ -138,6 +143,10 @@ export class InteractionPlugin extends TracePlugin {
       if (this.ignoreHover || isDragging) return;
       const target = document.elementFromPoint(this._pendingX, this._pendingY);
       if (this.isValidDay(target)) {
+        if (touchGapTimer) {
+          clearTimeout(touchGapTimer);
+          touchGapTimer = null;
+        }
         if (this._lastHoveredElement !== target) {
           if (this._lastHoveredElement) {
             this._lastHoveredElement.classList.remove('tr-is-touch-active');
@@ -154,9 +163,14 @@ export class InteractionPlugin extends TracePlugin {
           this.tooltipPlugin.showTooltipAt(this._pendingX, this._pendingY, true, dateText, infoText);
         }
       } else if (this._lastHoveredElement) {
-        this._lastHoveredElement.classList.remove('tr-is-touch-active');
-        touchActiveElements.delete(this._lastHoveredElement);
-        this._lastHoveredElement = null;
+        if (!touchGapTimer) {
+          touchGapTimer = setTimeout(() => {
+            this._lastHoveredElement?.classList?.remove('tr-is-touch-active');
+            touchActiveElements.delete(this._lastHoveredElement);
+            this._lastHoveredElement = null;
+            touchGapTimer = null;
+          }, 140); // small grace to avoid instant drop when finger jitters
+        }
       }
     };
 
@@ -201,6 +215,10 @@ export class InteractionPlugin extends TracePlugin {
       if (touchClearTimer) {
         clearTimeout(touchClearTimer);
         touchClearTimer = null;
+      }
+      if (touchGapTimer) {
+        clearTimeout(touchGapTimer);
+        touchGapTimer = null;
       }
       if (this._lastHoveredElement?.classList) {
         this._lastHoveredElement.classList.remove('tr-is-touch-active');
@@ -398,7 +416,7 @@ export class InteractionPlugin extends TracePlugin {
       if (this.tooltipPlugin) {
         // Only schedule hide if no gesture was triggered
         if (!longPressTriggered && !pinchTriggered) {
-          const duration = isDragging ? 1250 : 2500;
+          const duration = isDragging ? 1200 : 2000;
           this.tooltipPlugin.scheduleHide(duration);
           if (touchClearTimer) {
             clearTimeout(touchClearTimer);
