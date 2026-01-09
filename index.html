@@ -124,7 +124,7 @@
         justify-content: center;
         align-content: center;
         transition: opacity 0.4s ease;
-        touch-action: pan-y;
+        touch-action: none; /* Changed from pan-y for stability */
         user-select: none;
         -webkit-user-select: none;
       }
@@ -143,7 +143,6 @@
           transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
 
-      /* Day Variants */
       .tr-day--past {
         background-color: var(--tr-color-past);
       }
@@ -158,7 +157,6 @@
         pointer-events: none;
       }
 
-      /* Today Highlight */
       .tr-day--today {
         background-color: var(--tr-color-today) !important;
         opacity: 1 !important;
@@ -169,7 +167,6 @@
         border-radius: 3px;
       }
 
-      /* Interaction States */
       .tr-day:hover,
       .tr-day.tr-is-touch-active {
         transform: translateY(-2px) scale(1.05);
@@ -185,7 +182,6 @@
         box-shadow: none !important;
       }
 
-      /* Ghost Labels & Monday Indicators */
       .tr-day--monday::after {
         content: '';
         position: absolute;
@@ -221,7 +217,6 @@
         opacity: 0.5;
       }
 
-      /* Progress Indicator */
       .tr-now-indicator {
         position: absolute;
         bottom: 0;
@@ -254,14 +249,20 @@
         opacity: 0;
         box-shadow: var(--tr-shadow-tooltip);
         border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
-
         display: flex;
         flex-direction: column;
         contain: layout style paint;
-
         translate: 0 0;
         will-change: translate, opacity;
         transition: opacity 150ms ease-out, translate 100ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      /* Mobile Adjustment for Tooltip */
+      @media (max-width: 600px) {
+        #tr-tooltip {
+          padding: 8px 12px;
+          font-size: 13px;
+        }
       }
 
       #tr-tooltip .tr-tip-line {
@@ -327,9 +328,6 @@
         opacity: 0.21;
       }
 
-      /* ==========================================================================
-         6. ANIMATIONS & UTILITIES
-         ========================================================================== */
       @keyframes tr-theme-pulse-anim {
         0% {
           transform: scale(1);
@@ -344,11 +342,9 @@
           filter: brightness(1);
         }
       }
-
       .tr-theme-pulse {
         animation: tr-theme-pulse-anim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
       }
-
       .tr-sr-only {
         position: absolute;
         width: 1px;

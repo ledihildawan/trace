@@ -72,7 +72,10 @@ export class TooltipPlugin extends TracePlugin {
       const t = this.engine.tooltip.getBoundingClientRect();
       const pad = 14;
 
+      // X Clamping - ensures tooltip stays within screen bounds
       const x = clamp(r.left + r.width / 2, pad + t.width / 2, window.innerWidth - pad - t.width / 2);
+
+      // MOBILE FIX: Increased offset for touch (50px) to keep it above the thumb
       const offset = this.#isTouch ? 50 : 15;
       const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
       const useBottom = r.top - safeTop < t.height;

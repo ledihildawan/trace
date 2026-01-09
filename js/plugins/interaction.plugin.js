@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// Version: Modular Native-Logic Standard (ES2024+)
+// Version: Stable Mobile-Optimized Standard (ES2024+)
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -25,8 +25,9 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   #setupViewport() {
+    // NATIVE FIX: Disable touch actions to prevent native scrolling from killing pointer events
     Object.assign(this.engine.viewport.style, {
-      touchAction: 'pan-y',
+      touchAction: 'none',
       userSelect: 'none',
       webkitUserSelect: 'none',
       webkitTouchCallout: 'none',
@@ -34,18 +35,18 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   #bindEvents() {
-    const options = { passive: true, signal: this.signal };
+    const options = { passive: false, signal: this.signal };
     const vp = this.engine.viewport;
 
-    // Unified Pointer Events
-    vp.addEventListener('pointerdown', (e) => this.#onPointerDown(e), { passive: false, signal: this.signal });
+    // Pointer Events - Unified for touch and stylus
+    vp.addEventListener('pointerdown', (e) => this.#onPointerDown(e), options);
     vp.addEventListener('pointermove', (e) => this.#onPointerMove(e), options);
     vp.addEventListener('pointerup', (e) => this.#onPointerUp(e), options);
     vp.addEventListener('pointercancel', () => this.#cleanup(true), options);
 
-    // Hover & Keyboard
-    vp.addEventListener('mouseover', (e) => this.#onMouseOver(e), options);
-    window.addEventListener('keydown', (e) => this.#onKeyDown(e), options);
+    // Mouse specific for Desktop hover
+    vp.addEventListener('mouseover', (e) => this.#onMouseOver(e), { passive: true, signal: this.signal });
+    window.addEventListener('keydown', (e) => this.#onKeyDown(e), { passive: true, signal: this.signal });
   }
 
   // --- INTERACTION HANDLERS ---
@@ -53,7 +54,7 @@ export class InteractionPlugin extends TracePlugin {
   #onPointerDown(e) {
     if (e.pointerType === 'mouse') return;
 
-    // NATIVE: Mengunci event agar tetap di target awal meski jari bergeser
+    // NATIVE: Lock event to original target to ensure pointerup is accurate
     e.target.setPointerCapture(e.pointerId);
 
     this.#cleanup(true);
@@ -75,7 +76,7 @@ export class InteractionPlugin extends TracePlugin {
 
     this.#handleHapticScrub(el, true);
 
-    // Inisialisasi Long Press hanya pada elemen yang ditekan
+    // Initialize Long Press with specific element reference
     this.#setTimer('longPress', () => this.#onLongPress(el), LONG_PRESS_DURATION_MS);
   }
 
@@ -93,8 +94,8 @@ export class InteractionPlugin extends TracePlugin {
       this.#track.lastTime = now;
     }
 
-    // Jika jari bergerak jauh, batalkan Long Press
-    if (this.#hasMoved(e.clientX, e.clientY)) {
+    // SMALL SCREEN FIX: Higher movement threshold (20px) to prevent jitter from canceling actions
+    if (this.#hasMoved(e.clientX, e.clientY, 20)) {
       this.#clearTimer('longPress');
     }
 
@@ -110,30 +111,31 @@ export class InteractionPlugin extends TracePlugin {
     const now = performance.now();
     const currentTarget = document.elementFromPoint(e.clientX, e.clientY)?.closest('.tr-day');
 
-    // NATIVE VALIDATION: Abaikan jika jari lepas di luar kotak atau di kotak yang berbeda
+    // NATIVE VALIDATION: Abort if release is outside grid or on a different cell
     if (!currentTarget) {
       this.#lastTapTarget = null;
+      this.#cleanup(true);
       return;
     }
 
     const duration = now - this.#track.startTime;
     const deltaY = e.clientY - this.#track.startY;
 
-    // 1. Swipe Vertical (Gesture)
+    // 1. Vertical Swipe (Gesture)
     if (Math.abs(deltaY) > 80 && duration < 250) {
       this.#onSwipeVertical();
       this.#lastTapTarget = null;
       return;
     }
 
-    // 2. Double Tap vs Single Tap (Validasi Target Identik)
+    // 2. Double Tap vs Single Tap (Object Identity Validation)
     if (now - this.#lastTapTime < DOUBLE_TAP_MAX_DELAY_MS && this.#lastTapTarget === currentTarget) {
       this.#onDoubleTap();
       this.#lastTapTime = 0;
       this.#lastTapTarget = null;
     } else {
       this.#lastTapTime = now;
-      this.#lastTapTarget = currentTarget; // Simpan elemen untuk ketukan kedua
+      this.#lastTapTarget = currentTarget;
       this.#onSingleTap();
     }
   }
@@ -149,6 +151,7 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   #onLongPress(el) {
+    // Extra validation: only reset if finger hasn't strayed from the origin element
     if (this.#isTouching && this.#activeEl === el) {
       this.#executeAction('reset');
     }
@@ -158,22 +161,7 @@ export class InteractionPlugin extends TracePlugin {
     this.#executeAction('random');
   }
 
-  #onMouseOver(e) {
-    if (this.#isTouching || !window.matchMedia('(hover: hover)').matches) return;
-    const target = e.target.closest('.tr-day');
-    if (target && !target.classList.contains('tr-day--filler')) {
-      this.tooltip?.showTooltipForElement(target, false);
-    }
-  }
-
-  #onKeyDown(e) {
-    if (this.engine.viewport?.contains(e.target)) return;
-    const actions = { c: 'theme', x: 'reset', r: 'random' };
-    const action = actions[e.key.toLowerCase()];
-    if (action) this.#executeAction(action);
-  }
-
-  // --- HELPERS ---
+  // --- LOGIC HELPERS ---
 
   #handleHapticScrub(el, isPressing) {
     if (!el || el.classList.contains('tr-day--filler')) return;
@@ -193,7 +181,8 @@ export class InteractionPlugin extends TracePlugin {
 
   #scheduleLingerTooltip() {
     this.#clearTimer('linger');
-    const lingerTime = Math.max(1200, Math.min(3000, 2500 - this.#track.velocity * 500));
+    // MOBILE FIX: Increased minimum linger time (1500ms) for legibility on small screens
+    const lingerTime = Math.max(1500, Math.min(3500, 3000 - this.#track.velocity * 500));
     this.#setTimer('linger', () => this.#cleanup(true), lingerTime);
     this.tooltip?.scheduleHide(lingerTime);
   }
@@ -207,14 +196,7 @@ export class InteractionPlugin extends TracePlugin {
       this.#animatePulse();
     }
     this.#vibrate('success');
-    this.#cleanup(true);
-  }
-
-  #animatePulse() {
-    const vp = this.engine.viewport;
-    vp.classList.remove('tr-theme-pulse');
-    void vp.offsetWidth; // Force reflow
-    vp.classList.add('tr-theme-pulse');
+    this.#cleanup(false); // Do not cleanup immediately to allow visual feedback
   }
 
   #cleanup(immediate) {
@@ -227,12 +209,14 @@ export class InteractionPlugin extends TracePlugin {
     }
   }
 
+  // --- UTILITIES ---
+
   #clearVisuals() {
     this.#activeEl?.classList.remove('tr-is-touch-active', 'tr-is-pressing');
   }
 
-  #hasMoved(x, y) {
-    return Math.hypot(x - this.#track.startX, y - this.#track.startY) > 12;
+  #hasMoved(x, y, threshold = 12) {
+    return Math.hypot(x - this.#track.startX, y - this.#track.startY) > threshold;
   }
 
   #setTimer(k, f, ms) {
@@ -249,5 +233,20 @@ export class InteractionPlugin extends TracePlugin {
     if (!navigator.vibrate) return;
     const p = { scrub: HAPTIC_SCRUB_MS, success: HAPTIC_SUCCESS_MS, boundary: [10, 25, 10] };
     navigator.vibrate(p[t] || HAPTIC_SCRUB_MS);
+  }
+
+  #onMouseOver(e) {
+    if (this.#isTouching || !window.matchMedia('(hover: hover)').matches) return;
+    const target = e.target.closest('.tr-day');
+    if (target && !target.classList.contains('tr-day--filler')) {
+      this.tooltip?.showTooltipForElement(target, false);
+    }
+  }
+
+  #onKeyDown(e) {
+    if (this.engine.viewport?.contains(e.target)) return;
+    const actions = { c: 'theme', x: 'reset', r: 'random' };
+    const action = actions[e.key.toLowerCase()];
+    if (action) this.#executeAction(action);
   }
 }
