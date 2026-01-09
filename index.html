@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Grid Architect V54 - Hyper-Responsive</title>
+    <title>Grid Architect V55 - Ghost Architecture</title>
     <style>
       :root {
         --bg: #fdfdfe;
@@ -18,6 +18,10 @@
         --weekend-text: #8b5cf6;
         --today-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
         --month-start-bg: #f0f9ff;
+
+        /* WARNA FILLER BARU: Mengambil rona slate yang sangat halus */
+        --filler-bg: #f8fafc;
+        --filler-text: #cbd5e1;
       }
 
       *,
@@ -81,7 +85,6 @@
         background: var(--bg);
       }
 
-      /* RESPONSIVE WATERMARK */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -147,7 +150,6 @@
         contain: layout style;
       }
 
-      /* RESPONSIVE TYPOGRAPHY */
       .cell .info-meta {
         font-size: clamp(6px, 0.8dvh, 10px);
         text-transform: uppercase;
@@ -162,10 +164,16 @@
         line-height: 1;
       }
 
+      /* PERBAIKAN FILLER: Selaras dengan palette slate */
       .cell.filler {
-        background: var(--bg);
-        opacity: 0.1;
+        background: var(--filler-bg);
       }
+      .cell.filler .date-num,
+      .cell.filler .info-meta {
+        color: var(--filler-text);
+        opacity: 0.4;
+      }
+
       .cell.weekend {
         background: var(--weekend-bg);
       }
@@ -205,13 +213,10 @@
     <script>
       const Viewport = document.getElementById('viewport');
       const Canvas = document.getElementById('infinite-canvas');
-
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
       const daysLabel = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-
       const today = new Date();
       const startVirtualYear = today.getFullYear();
-
       let YEAR_HEIGHT = window.innerHeight;
       const TOTAL_VIRTUAL_YEARS = 1000;
       const START_Y = (TOTAL_VIRTUAL_YEARS / 2) * YEAR_HEIGHT;
@@ -240,20 +245,13 @@
         const block = document.createElement('section');
         block.className = 'year-block';
         block.style.top = `${yPos}px`;
-
         const firstDayOfYear = new Date(year, 0, 1).getDay();
         const totalDays = isLeap(year) ? 366 : 365;
-
-        // LOGIKA RESPONSIVE COLS
-        // Mengatur jumlah kolom secara dinamis berdasarkan lebar layar
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         let cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
-
-        // Penyesuaian manual untuk mobile portrait agar grid tidak terlalu sempit
         if (vw < 500) cols = Math.max(cols, 14);
         if (vw > 1200) cols = Math.min(cols, 28);
-
         const rows = Math.ceil((totalDays + firstDayOfYear) / cols);
 
         let gridHTML = `<div class="grid-container">
@@ -263,7 +261,6 @@
         for (let s = 0; s < cols * rows; s++) {
           const targetDate = new Date(year, 0, 1);
           targetDate.setDate(targetDate.getDate() + (s - firstDayOfYear));
-
           const d = targetDate.getDate();
           const m = targetDate.getMonth();
           const dy = targetDate.getDay();
@@ -286,7 +283,6 @@
                         </div>
                     </div>`;
         }
-
         gridHTML += `</div></div>`;
         block.innerHTML = gridHTML;
         Canvas.appendChild(block);
@@ -298,11 +294,7 @@
         const scrollTop = Viewport.scrollTop;
         const currentIdx = Math.round(scrollTop / YEAR_HEIGHT);
         const currentYear = startVirtualYear + (currentIdx - TOTAL_VIRTUAL_YEARS / 2);
-
-        for (let i = -1; i <= 1; i++) {
-          createYearBlock(currentYear + i, (currentIdx + i) * YEAR_HEIGHT);
-        }
-
+        for (let i = -1; i <= 1; i++) createYearBlock(currentYear + i, (currentIdx + i) * YEAR_HEIGHT);
         for (let [year, block] of activeYears) {
           if (Math.abs(year - currentYear) > 1) {
             observer.unobserve(block);
@@ -331,13 +323,10 @@
           Viewport.style.scrollBehavior = 'smooth';
         }, 50);
       }
-
       Viewport.addEventListener('dblclick', jumpToToday);
-
       Canvas.style.height = `${TOTAL_VIRTUAL_YEARS * YEAR_HEIGHT}px`;
       Viewport.scrollTop = START_Y;
       updateInfinite();
-
       let resizeTimer;
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
