@@ -2,345 +2,112 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';"
-    />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>TRACE - The Shape of Time</title>
-    <meta
-      name="description"
-      content="Pemandangan waktu meditatif yang dirancang untuk membungkam kebisingan digital."
-    />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRACE — The Shape of Time</title>
     <style>
-      /* ==========================================================================
-         1. CSS VARIABLES & HOUDINI PROPERTIES
-         ========================================================================== */
-      @property --tr-base-hex {
-        syntax: '<color>';
-        initial-value: #f6f2ea;
-        inherits: true;
-      }
-
-      @property --tr-color-year-subliminal {
-        syntax: '<color>';
-        initial-value: #111111;
-        inherits: true;
-      }
-
       :root {
-        /* Core Colors */
-        --tr-base-hex: #f6f2ea;
-        --tr-bg-system: oklch(from var(--tr-base-hex) 0.97 0.01 h);
-        --tr-color-today: var(--tr-base-hex);
-        --tr-color-past: oklch(from var(--tr-base-hex) 0.45 0.05 h);
-        --tr-color-future: oklch(from var(--tr-base-hex) 0.93 0.02 h);
-        --tr-color-ghost-label: oklch(from var(--tr-base-hex) 0.22 0.04 h);
-        --tr-color-ghost-label-today: var(--tr-color-ghost-label);
-        --tr-color-bar-adaptive: oklch(from var(--tr-base-hex) 0.3 0.1 h / 0.6);
-        --tr-color-hover-adaptive: var(--tr-base-hex);
-
-        /* Watermark & Decorative */
-        --tr-color-year-subliminal: color-mix(
-          in oklch,
-          oklch(from var(--tr-base-hex) 0.22 0.05 h) 72%,
-          var(--tr-bg-system) 28%
-        );
-        --tr-color-year-stroke: color-mix(in oklch, var(--tr-color-year-subliminal) 82%, var(--tr-bg-system) 18%);
-        --tr-watermark-base-opacity: 0.31;
-        --tr-year-stroke-width: 12px;
-        --tr-year-letter-spacing: clamp(-0.06em, calc(-0.052em + 0.15vw), -0.028em);
-
-        /* Tooltip */
-        --tr-tooltip-bg: oklch(from var(--tr-bg-system) 0.99 0.01 h / 0.98);
-        --tr-tooltip-text: oklch(from var(--tr-base-hex) 0.18 0.02 h);
-        --tr-tooltip-accent: oklch(from var(--tr-base-hex) 0.26 0.1 h);
-
-        /* Layout & Metrics */
-        --tr-full-h: 100dvh;
-        --tr-safe-top: env(safe-area-inset-top, 0px);
-        --tr-safe-right: env(safe-area-inset-right, 0px);
-        --tr-safe-bottom: env(safe-area-inset-bottom, 0px);
-        --tr-safe-left: env(safe-area-inset-left, 0px);
-        --tr-radius-standard: 2px;
-
-        /* Shadows */
-        --tr-today-ring-mix: 55%;
-        --tr-today-shadow-alpha: 0.28;
-        --tr-shadow-lift: 0 6px 12px -10px oklch(from var(--tr-base-hex) 0.08 0.08 h / 0.22);
-        --tr-shadow-tooltip: 0 15px 40px rgba(0, 0, 0, 0.1);
-        --tr-shadow-progress: 0 0 clamp(4px, 1vw, 8px) var(--tr-color-bar-adaptive);
-
-        /* Transitions */
-        --tr-transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        --bg: #000;
+        --cell-past: #111;
+        --cell-future: #080808;
+        --accent: #fff; /* Neutral Minimalist */
+        --watermark: rgba(255, 255, 255, 0.012);
       }
 
-      /* ==========================================================================
-         2. GLOBAL RESET & BASE STYLES
-         ========================================================================== */
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
+      body.light-mode {
+        --bg: #fafafa;
+        --cell-past: #e2e2e2;
+        --cell-future: #f0f0f0;
+        --accent: #000;
+        --watermark: rgba(0, 0, 0, 0.015);
+      }
+
+      body,
+      html {
+        background: var(--bg);
         margin: 0;
         padding: 0;
-        cursor: default;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      body {
-        height: var(--tr-full-h);
-        width: 100dvw;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         display: flex;
         justify-content: center;
         align-items: center;
-        background-color: var(--tr-bg-system);
-        font-family: 'Poppins', -apple-system, sans-serif;
-        transition: background-color 1.2s ease, --tr-base-hex 1.2s ease;
-        overscroll-behavior: none;
+        transition: background 2s cubic-bezier(0.4, 0, 0.2, 1);
+        font-family: 'JetBrains Mono', monospace;
+        cursor: none; /* Zero-UI: Cursor diganti oleh interaksi grid */
       }
 
-      #tr-container {
-        position: relative;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-        height: 100%;
-        isolation: isolate;
-      }
-
-      #tr-viewport {
-        display: grid;
-        contain: layout style;
-        will-change: transform;
-        z-index: 2;
-        justify-content: center;
-        align-content: center;
-        transition: opacity 0.4s ease;
-        touch-action: manipulation;
-        user-select: none;
-        -webkit-user-select: none;
-      }
-
-      /* ==========================================================================
-         3. GRID ITEMS (DAY CELLS)
-         ========================================================================== */
-      .tr-day {
-        width: 100%;
-        height: 100%;
-        border-radius: var(--tr-radius-standard);
-        position: relative;
-        outline: none;
-        contain: layout style paint;
-        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
-          transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        will-change: transform;
-      }
-
-      .tr-day--past {
-        background-color: var(--tr-color-past);
-      }
-      .tr-day--future {
-        background-color: var(--tr-color-future);
-        box-shadow: inset 0 0 0 0.5px oklch(from var(--tr-base-hex) 0.8 0.02 h / 0.15);
-      }
-      .tr-day--filler {
-        opacity: 0.06;
-        background-color: var(--tr-color-past);
-        filter: grayscale(100%);
-        pointer-events: none;
-      }
-
-      .tr-day--today {
-        background-color: var(--tr-color-today) !important;
-        opacity: 1 !important;
-        box-shadow: 0 0 0 2px var(--tr-bg-system),
-          0 0 0 5px color-mix(in oklch, var(--tr-color-bar-adaptive) var(--tr-today-ring-mix, 55%), transparent),
-          0 14px 34px oklch(from var(--tr-base-hex) 0.2 0.1 h / var(--tr-today-shadow-alpha, 0.28));
-        z-index: 10;
-        border-radius: 3px;
-      }
-
-      .tr-day:hover,
-      .tr-day.tr-is-touch-active {
-        transform: translateY(-2px) scale(1.05);
-        z-index: 20;
-        opacity: 1 !important;
-        background-color: var(--tr-color-hover-adaptive);
-        box-shadow: var(--tr-shadow-lift);
-      }
-
-      .tr-day--monday::after {
-        content: '';
-        position: absolute;
-        bottom: 12%;
-        left: 50%;
-        translate: -50% 0;
-        width: 2px;
-        height: 2px;
-        border-radius: 50%;
-        background-color: var(--tr-color-ghost-label);
-        opacity: 0.15;
-        pointer-events: none;
-      }
-
-      .tr-day[data-tr-ghost-label]::before {
-        content: attr(data-tr-ghost-label);
+      #year-watermark {
         position: absolute;
         top: 50%;
         left: 50%;
-        translate: -50% -50%;
-        font-size: clamp(6px, 0.8vw, 11px);
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        color: var(--tr-color-ghost-label);
-        opacity: var(--tr-ghost-label-opacity, 0.33);
-        pointer-events: none;
-        white-space: nowrap;
-      }
-
-      .tr-day.tr-is-touch-active[data-tr-ghost-label]::before,
-      .tr-day:hover[data-tr-ghost-label]::before {
-        color: var(--tr-color-ghost-label-today);
-        opacity: 0.5;
-      }
-
-      .tr-now-indicator {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        height: clamp(1.5px, 0.4vh, 3px);
-        background-color: var(--tr-color-bar-adaptive);
-        width: 100%;
-        transform-origin: 0 50%;
-        transform: scaleX(0);
-        transition: transform 1s linear;
-        box-shadow: var(--tr-shadow-progress);
-      }
-      .tr-day--today .tr-now-indicator {
-        opacity: 0.95;
-      }
-
-      /* ==========================================================================
-         4. TOOLTIP SYSTEM (GPU OPTIMIZED)
-         ========================================================================== */
-      #tr-tooltip {
-        position: fixed;
-        inset: 0 auto auto 0;
-        z-index: 10000;
-        pointer-events: none;
-        background: var(--tr-tooltip-bg);
-        backdrop-filter: blur(16px);
-        padding: 10px 16px;
-        border-radius: 8px;
-        color: var(--tr-tooltip-text);
-        opacity: 0;
-        box-shadow: var(--tr-shadow-tooltip);
-        border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
-        display: flex;
-        flex-direction: column;
-        contain: layout style paint;
-        translate: 0 0;
-        will-change: translate, opacity;
-        transition: opacity 150ms ease-out, translate 100ms cubic-bezier(0.22, 1, 0.36, 1);
-      }
-
-      /* Mobile Adjustment for Tooltip */
-      @media (max-width: 600px) {
-        #tr-tooltip {
-          padding: 8px 12px;
-          font-size: 13px;
-        }
-      }
-
-      #tr-tooltip .tr-tip-line {
-        display: block;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      #tr-tooltip b.tr-tip-line {
-        color: var(--tr-tooltip-accent);
-        font-size: 85%;
-        margin-top: 4px;
-        text-transform: uppercase;
-      }
-
-      /* ==========================================================================
-         5. BACKGROUND WATERMARK
-         ========================================================================== */
-      #tr-year-watermark {
-        position: absolute;
-        z-index: 1;
+        transform: translate(-50%, -50%);
+        font-size: 40vw;
         font-weight: 900;
-        font-size: clamp(100px, 25vw, 450px);
-        color: transparent;
-        -webkit-text-fill-color: transparent;
-        -webkit-text-stroke: var(--tr-year-stroke-width) var(--tr-color-year-stroke);
-        text-shadow: 0 10px 36px oklch(from var(--tr-base-hex) 0.2 0.06 h / 0.22);
-        mix-blend-mode: multiply;
-        opacity: var(--tr-watermark-base-opacity, 0.28);
+        color: var(--watermark);
         pointer-events: none;
         user-select: none;
+        z-index: 1;
+        letter-spacing: -3vw;
+        transition: color 2s ease;
+      }
+
+      #seasonal-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 5;
+        opacity: 0.3; /* Subtle seasonal presence */
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100vh;
         display: flex;
         justify-content: center;
         align-items: center;
-        transform: translateZ(0);
-        transition: opacity var(--tr-transition-smooth);
-        -webkit-mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.25) 100%);
-        mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.25) 100%);
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 3s ease;
       }
 
-      #tr-year-watermark::after {
-        content: attr(data-tr-year);
+      #grid-container {
+        position: relative;
+        will-change: transform;
+      }
+
+      .day-cell {
         position: absolute;
-        inset: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font: inherit;
-        color: transparent;
-        -webkit-text-fill-color: transparent;
-        -webkit-text-stroke: calc(var(--tr-year-stroke-width) * 0.55) var(--tr-color-year-subliminal);
-        mix-blend-mode: multiply;
-        opacity: 0.22;
+        border-radius: 0px; /* Honest Feedback: Pure Geometry */
+        box-sizing: border-box;
+        transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), background 1.5s ease, opacity 1.5s ease;
       }
 
-      html[data-tr-tone='dark'] #tr-year-watermark,
-      html[data-tr-tone='dark'] #tr-year-watermark::after {
-        mix-blend-mode: screen;
+      /* Tactile Satisfaction: Hover effect feels heavy and physical */
+      .day-cell:hover {
+        transform: scale(1.4) !important;
+        z-index: 100;
+        background: var(--accent) !important;
+        opacity: 1 !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       }
 
-      #tr-container:has(#tr-viewport:hover) #tr-year-watermark,
-      #tr-container:has(#tr-viewport:focus-within) #tr-year-watermark {
-        opacity: 0.21;
+      .day-cell.today {
+        background: var(--accent) !important;
+        box-shadow: 0 0 40px var(--accent);
+        z-index: 10;
       }
 
-      @keyframes tr-theme-pulse-anim {
-        0% {
-          transform: scale(1);
-          filter: brightness(1);
-        }
-        50% {
-          transform: scale(0.99);
-          filter: brightness(1.1);
-        }
-        100% {
-          transform: scale(1);
-          filter: brightness(1);
-        }
+      .day-cell.filler {
+        border: 0.5px solid var(--watermark);
+        background: transparent;
       }
-      .tr-theme-pulse {
-        animation: tr-theme-pulse-anim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-      }
-      .tr-sr-only {
+
+      /* Accessibility: Screen Reader Only */
+      .sr-only {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -350,30 +117,176 @@
         clip: rect(0, 0, 0, 0);
         border: 0;
       }
-
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        .tr-day,
-        #tr-tooltip,
-        .tr-theme-pulse {
-          transition: none !important;
-          animation: none !important;
-          transform: none !important;
-        }
-      }
     </style>
   </head>
-  <body>
-    <div id="tr-a11y-announcer" class="tr-sr-only" aria-live="polite"></div>
-    <div id="tr-sr-status" class="tr-sr-only" aria-live="polite" aria-atomic="true"></div>
+  <body aria-label="Lanskap Waktu TRACE">
+    <div id="year-watermark" aria-hidden="true">2026</div>
+    <canvas id="seasonal-canvas"></canvas>
 
-    <div id="tr-container" role="application" aria-label="Annual Time Landscape Visualization">
-      <div id="tr-year-watermark" aria-hidden="true"></div>
-      <div id="tr-viewport" role="grid" aria-readonly="true"></div>
-    </div>
+    <main id="viewport">
+      <div id="grid-container" role="grid" aria-label="Kalender Tahunan"></div>
+    </main>
 
-    <div id="tr-tooltip" aria-hidden="true"></div>
+    <div class="sr-only" id="announcer" aria-live="polite"></div>
 
-    <script type="module" src="./js/app.js"></script>
+    <script>
+      /**
+       * TRACE Core Engine - Manifesto Version
+       * Sovereignty: No external dependencies. Pure Logic.
+       */
+      const container = document.getElementById('grid-container');
+      const canvas = document.getElementById('seasonal-canvas');
+      const watermark = document.getElementById('year-watermark');
+      const viewport = document.getElementById('viewport');
+      const announcer = document.getElementById('announcer');
+      const ctx = canvas.getContext('2d');
+
+      let state = {
+        now: new Date(),
+        isLightMode: false,
+        particles: [],
+      };
+
+      const SEASONS = {
+        WINTER: { color: '#E0F7FA', bgDark: '#010409', bgLight: '#F0F4F8' },
+        SPRING: { color: '#FFB7C5', bgDark: '#080104', bgLight: '#FFF0F3' },
+        SUMMER: { color: '#FFD700', bgDark: '#0A0800', bgLight: '#FFFBEB' },
+        AUTUMN: { color: '#E67E22', bgDark: '#0A0502', bgLight: '#FFF5F0' },
+      };
+
+      function getSeasonConfig(date) {
+        const m = date.getMonth();
+        if (m >= 2 && m <= 4) return SEASONS.SPRING;
+        if (m >= 5 && m <= 7) return SEASONS.SUMMER;
+        if (m >= 8 && m <= 10) return SEASONS.AUTUMN;
+        return SEASONS.WINTER;
+      }
+
+      function buildLanscape() {
+        const year = state.now.getFullYear();
+        const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+        const actualDays = isLeap ? 366 : 365;
+        const todayTime = new Date(year, state.now.getMonth(), state.now.getDate()).getTime();
+
+        watermark.innerText = year;
+
+        // Fluid Geometry: Adaptive to any vessel (screen)
+        const vw = window.innerWidth * 0.95;
+        const vh = window.innerHeight * 0.95;
+        const ratio = vw / vh;
+        const cols = Math.ceil(Math.sqrt(actualDays * ratio));
+        const rows = Math.ceil(actualDays / cols);
+        const totalSlots = cols * rows;
+        const startFillerCount = Math.floor((totalSlots - actualDays) / 2);
+
+        const gap = 2; // Minimalist spacing
+        const cellSize = Math.min((vw - (cols - 1) * gap) / cols, (vh - (rows - 1) * gap) / rows);
+
+        container.style.width = `${cols * (cellSize + gap) - gap}px`;
+        container.style.height = `${rows * (cellSize + gap) - gap}px`;
+        container.innerHTML = '';
+
+        const fragment = document.createDocumentFragment();
+
+        for (let i = 0; i < totalSlots; i++) {
+          const cell = document.createElement('div');
+          const r = Math.floor(i / cols);
+          const c = i % cols;
+
+          cell.className = 'day-cell';
+          cell.style.width = `${cellSize}px`;
+          cell.style.height = `${cellSize}px`;
+          cell.style.transform = `translate3d(${c * (cellSize + gap)}px, ${r * (cellSize + gap)}px, 0)`;
+
+          if (i >= startFillerCount && i < startFillerCount + actualDays) {
+            const dayIdx = i - startFillerCount;
+            const date = new Date(year, 0, 1 + dayIdx);
+            const time = date.getTime();
+
+            // Inclusivity: Metadata for Screen Readers
+            cell.setAttribute('role', 'gridcell');
+            const dateLabel = date.toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            });
+            cell.setAttribute('aria-label', dateLabel);
+
+            if (time === todayTime) {
+              cell.classList.add('today');
+              announcer.innerText = 'Anda berada di hari ini: ' + dateLabel;
+            } else if (time < todayTime) {
+              const diff = (todayTime - time) / 86400000;
+              cell.style.background = 'var(--cell-past)';
+              cell.style.opacity = Math.max(0.08, 1 - diff * 0.0038);
+            } else {
+              cell.style.background = 'var(--cell-future)';
+              cell.style.opacity = '0.12';
+            }
+          } else {
+            cell.classList.add('filler');
+            cell.setAttribute('aria-hidden', 'true');
+          }
+          fragment.appendChild(cell);
+        }
+        container.appendChild(fragment);
+        setTimeout(() => (viewport.style.opacity = '1'), 500);
+      }
+
+      // Seasonal Particles: "Digital Furniture" Aesthetics
+      function initParticles() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        state.particles = Array.from({ length: 60 }, () => ({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 1,
+          speed: Math.random() * 0.3 + 0.1,
+        }));
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const season = getSeasonConfig(state.now);
+        ctx.fillStyle = season.color;
+        state.particles.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          p.y += p.speed;
+          if (p.y > canvas.height) p.y = -10;
+        });
+        requestAnimationFrame(draw);
+      }
+
+      // Invisible until Necessary: Logic for Simulation & Toggle
+      window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (e.altKey && key === 'r') {
+          // Randomize (Simulate Journey)
+          state.now = new Date(2026, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28));
+          buildLanscape();
+        }
+        if (e.altKey && key === 'm') {
+          // Toggle Mode
+          state.isLightMode = !state.isLightMode;
+          document.body.classList.toggle('light-mode');
+          buildLanscape();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        initParticles();
+        buildLanscape();
+      });
+
+      // Initialize Existential State
+      initParticles();
+      draw();
+      buildLanscape();
+
+      console.log('TRACE: Time as a landscape. Exist. Be here now.');
+    </script>
   </body>
 </html>
