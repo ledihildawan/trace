@@ -1,6 +1,5 @@
 // TRACE Tooltip Plugin
-// Manages tooltip display and positioning
-// Optimized for "Fixed" positioning to guarantee accuracy
+// UX UPDATE: Snap-to-Element for stable mobile reading
 
 import { TOOLTIP_LINGER_MS } from '../core/constants.js';
 import { TracePlugin } from '../core/plugin-manager.js';
@@ -9,189 +8,178 @@ import { clamp, pxVar } from '../core/utils.js';
 export class TooltipPlugin extends TracePlugin {
   constructor() {
     super('TooltipPlugin');
-    this.tooltipHideTimer = null;
-
-    // Cache dimensions
-    this.tooltipWidth = 0;
-    this.tooltipHeight = 0;
-
-    // RAF State
+    this._hideTimer = null;
     this._rafId = null;
-    this._pending = { x: 0, y: 0, isTouch: false, active: false };
+
+    // Position state
+    this._targetEl = null;
+    this._isTouch = false;
   }
 
   init(engine) {
     super.init(engine);
 
-    // ACCESSIBILITY & STYLING
-    engine.tooltip.setAttribute('role', 'tooltip');
-    engine.tooltip.setAttribute('aria-hidden', 'true');
+    // Semantic & Style
+    const el = engine.tooltip;
+    el.setAttribute('role', 'tooltip');
+    el.setAttribute('aria-hidden', 'true');
 
-    // FORCE FIXED POSITIONING (The fix for "wrong position")
-    // This ensures clientX/clientY matches the visual position 1:1
-    Object.assign(engine.tooltip.style, {
+    // Force Fixed positioning for stability
+    Object.assign(el.style, {
       position: 'fixed',
       top: '0',
       left: '0',
-      margin: '0',
-      pointerEvents: 'none', // Allow clicking through the tooltip
-      zIndex: '9999', // Ensure it sits on top of everything
+      zIndex: '10000',
+      pointerEvents: 'none',
       willChange: 'transform, opacity',
+      margin: '0', // Reset any default
     });
 
-    // Motion preferences
-    const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduce) {
-      engine.tooltip.style.transition = 'opacity 0ms linear';
-    } else {
-      engine.tooltip.style.transition = 'opacity 150ms ease-out';
-    }
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.style.transition = reduceMotion ? 'opacity 0ms' : 'opacity 150ms ease-out';
   }
 
-  showTooltipAt(clientX, clientY, isTouch, dateText, infoText) {
-    if (!dateText || !infoText) return;
+  /**
+   * NEW METHOD: Show tooltip anchored to a DOM element.
+   * This is the magic for the "Snap" effect.
+   */
+  showTooltipForElement(element, isTouch = false) {
+    if (!element) return;
 
     this.cancelHide();
-    this.updateTooltipContent(dateText, infoText);
 
+    // Update content
+    const date = element.dataset.trDate;
+    const info = element.dataset.trInfo;
+    if (!date || !info) return;
+
+    this._updateContent(date, info);
+
+    // Show
     this.engine.tooltip.setAttribute('aria-hidden', 'false');
     this.engine.tooltip.style.opacity = '1';
 
-    this.positionTooltip(clientX, clientY, isTouch);
-  }
+    // Schedule position update
+    this._targetEl = element;
+    this._isTouch = isTouch;
 
-  updateTooltipContent(dateText, infoText) {
-    const cacheKey = `${dateText}|${infoText}`;
-    if (this.engine.tooltip.dataset.cache !== cacheKey) {
-      this.engine.tooltip.textContent = '';
-
-      const line1 = document.createElement('span');
-      line1.className = 'tr-tip-line';
-      line1.textContent = dateText;
-
-      const line2 = document.createElement('b');
-      line2.className = 'tr-tip-line';
-      line2.textContent = infoText;
-
-      this.engine.tooltip.append(line1, line2);
-      this.engine.tooltip.dataset.cache = cacheKey;
-
-      // Reset width cache to force remeasure
-      this.tooltipWidth = 0;
-      this.tooltipHeight = 0;
+    if (!this._rafId) {
+      this._rafId = requestAnimationFrame(this._updatePosition.bind(this));
     }
   }
 
-  positionTooltip(clientX, clientY, isTouch = false) {
-    this._pending.x = clientX;
-    this._pending.y = clientY;
-    this._pending.isTouch = isTouch;
-    this._pending.active = true;
+  /**
+   * Internal loop to update position based on target element
+   */
+  _updatePosition() {
+    this._rafId = null;
+    if (!this._targetEl) return;
 
-    if (this._rafId) return;
+    const rect = this._targetEl.getBoundingClientRect();
+    const toolRect = this.engine.tooltip.getBoundingClientRect();
 
-    this._rafId = requestAnimationFrame(() => {
-      this._rafId = null;
-      if (!this._pending.active) return;
+    const pad = 14;
+    const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
+    const safeBottom = (pxVar('--tr-safe-bottom') || 0) + pad;
 
-      const { x: cx, y: cy, isTouch: touch } = this._pending;
+    // --- HORIZONTAL: CENTER ON CELL ---
+    // Calculate center of the cell
+    let centerX = rect.left + rect.width / 2;
 
-      // Safety padding from screen edges
-      const pad = 12;
-      const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
-      const safeBottom = (pxVar('--tr-safe-bottom') || 0) + pad;
+    // Clamp to viewport edges
+    centerX = clamp(centerX, pad + toolRect.width / 2, window.innerWidth - pad - toolRect.width / 2);
 
-      // Measure if not cached
-      if (!this.tooltipWidth || !this.tooltipHeight) {
-        const rect = this.engine.tooltip.getBoundingClientRect();
-        this.tooltipWidth = rect.width;
-        this.tooltipHeight = rect.height;
-      }
+    // --- VERTICAL: SNAP ABOVE CELL ---
+    // UX Rule: For touch, we want it significantly above the finger/cell.
+    const touchOffset = 45; // Pixel gap for touch
+    const mouseOffset = 12; // Pixel gap for mouse
+    const offset = this._isTouch ? touchOffset : mouseOffset;
 
-      const w = this.tooltipWidth;
-      const h = this.tooltipHeight;
+    const topAnchor = rect.top - offset; // Position above cell
+    const bottomAnchor = rect.bottom + offset; // Position below cell
 
-      // 1. HORIZONTAL CLAMPING
-      // Keep tooltip fully inside the viewport width
-      let finalX = clamp(cx, pad + w / 2, window.innerWidth - pad - w / 2);
+    const spaceAbove = topAnchor - safeTop;
+    const spaceBelow = window.innerHeight - safeBottom - bottomAnchor;
 
-      // 2. VERTICAL POSITIONING STRATEGY
-      const baseOffset = pxVar('--tr-tooltip-vertical-offset') || 20;
+    let finalY = 0;
+    let isAbove = true;
 
-      // For Touch: Give more space (finger radius ~40px + buffer)
-      // For Mouse: Standard small offset
-      const vOffset = touch ? 60 : baseOffset;
-
-      const topAnchor = cy - vOffset; // Point above the cursor
-      const bottomAnchor = cy + vOffset; // Point below the cursor
-
-      // Check available space
-      const spaceAbove = topAnchor - safeTop;
-      const spaceBelow = window.innerHeight - safeBottom - bottomAnchor;
-
-      // Decision Logic:
-      // Default to TOP (Above finger) for better visibility.
-      // Move to BOTTOM if:
-      // a) Not enough space above AND enough space below.
-      // b) Touch specific: Unless strictly necessary, keep above to avoid occlusion.
-
-      let placeOnTop = true;
-
-      if (spaceAbove < h) {
-        // Not enough space on top. Can we fit below?
-        if (spaceBelow >= h) {
-          placeOnTop = false;
-        } else {
-          // Fits nowhere? Pick the side with MORE space.
-          placeOnTop = spaceAbove > spaceBelow;
-        }
-      }
-
-      let finalY = 0;
-      let transformString = '';
-
-      if (placeOnTop) {
-        // Anchor: Bottom-Center of tooltip to [finalX, topAnchor]
-        finalY = topAnchor;
-        transformString = `translate3d(${Math.round(finalX)}px, ${Math.round(finalY)}px, 0) translate(-50%, -100%)`;
+    // Preference logic
+    if (this._isTouch) {
+      // Strongly prefer TOP for touch to avoid finger occlusion
+      if (spaceAbove > toolRect.height) {
+        isAbove = true;
+      } else if (spaceBelow > toolRect.height) {
+        isAbove = false;
       } else {
-        // Anchor: Top-Center of tooltip to [finalX, bottomAnchor]
-        finalY = bottomAnchor;
-        transformString = `translate3d(${Math.round(finalX)}px, ${Math.round(finalY)}px, 0) translate(-50%, 0)`;
+        // If tight, pick side with more space
+        isAbove = spaceAbove > spaceBelow;
       }
+    } else {
+      // Standard mouse logic
+      isAbove = spaceAbove > toolRect.height || spaceAbove > spaceBelow;
+    }
 
-      this.engine.tooltip.style.transform = transformString;
-    });
+    if (isAbove) {
+      finalY = topAnchor;
+      this.engine.tooltip.style.transform = `translate3d(${Math.round(centerX)}px, ${Math.round(
+        finalY
+      )}px, 0) translate(-50%, -100%)`;
+    } else {
+      finalY = bottomAnchor;
+      this.engine.tooltip.style.transform = `translate3d(${Math.round(centerX)}px, ${Math.round(
+        finalY
+      )}px, 0) translate(-50%, 0)`;
+    }
+  }
+
+  // Deprecated/Legacy support if needed, but redirects to element logic if possible
+  showTooltipAt(x, y, isTouch, date, info) {
+    // Fallback only if strictly coordinate based is needed (rare in this new UX)
+    // For this Grid implementation, we prefer Element-based.
+    // But for compatibility with interaction.plugin calling, we update content here
+    // and might assume interaction plugin passed element.
+  }
+
+  _updateContent(date, info) {
+    const key = date + info;
+    if (this.engine.tooltip.dataset.cache === key) return;
+
+    this.engine.tooltip.textContent = '';
+    const dSpan = document.createElement('span');
+    dSpan.className = 'tr-tip-line';
+    dSpan.textContent = date;
+
+    const iSpan = document.createElement('b');
+    iSpan.className = 'tr-tip-line';
+    iSpan.textContent = info;
+
+    this.engine.tooltip.append(dSpan, iSpan);
+    this.engine.tooltip.dataset.cache = key;
   }
 
   hideTooltip() {
     this.cancelHide();
-    this._pending.active = false;
-    if (this._rafId) {
-      cancelAnimationFrame(this._rafId);
-      this._rafId = null;
-    }
+    this._targetEl = null; // Stop tracking
+    if (this._rafId) cancelAnimationFrame(this._rafId);
+    this._rafId = null;
+
     this.engine.tooltip.style.opacity = '0';
     this.engine.tooltip.setAttribute('aria-hidden', 'true');
   }
 
-  scheduleHide(delay = TOOLTIP_LINGER_MS) {
+  scheduleHide(ms = TOOLTIP_LINGER_MS) {
     this.cancelHide();
-    this.tooltipHideTimer = setTimeout(() => {
-      this.hideTooltip();
-    }, delay);
+    this._hideTimer = setTimeout(() => this.hideTooltip(), ms);
   }
 
   cancelHide() {
-    if (this.tooltipHideTimer) {
-      clearTimeout(this.tooltipHideTimer);
-      this.tooltipHideTimer = null;
-    }
+    if (this._hideTimer) clearTimeout(this._hideTimer);
+    this._hideTimer = null;
   }
 
   destroy() {
-    this.cancelHide();
-    if (this._rafId) cancelAnimationFrame(this._rafId);
+    this.hideTooltip();
     super.destroy();
   }
 }
