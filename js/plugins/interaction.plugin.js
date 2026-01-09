@@ -55,6 +55,13 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   /**
+   * Check if element is a valid (non-filler) day cell
+   */
+  isValidDay(element) {
+    return element?.classList.contains('tr-day') && !element.classList.contains('tr-day--filler');
+  }
+
+  /**
    * Setup keyboard controls
    */
   setupKeyboardControls() {
@@ -119,7 +126,7 @@ export class InteractionPlugin extends TracePlugin {
       this._rafPending = false;
       if (this.ignoreHover || isDragging) return;
       const target = document.elementFromPoint(this._pendingX, this._pendingY);
-      if (target?.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+      if (this.isValidDay(target)) {
         if (this._lastHoveredElement !== target) {
           if (this._lastHoveredElement) {
             this._lastHoveredElement.classList.remove('tr-is-touch-active');
@@ -209,7 +216,7 @@ export class InteractionPlugin extends TracePlugin {
         this._pressedElement = null;
       }
       const pressed = document.elementFromPoint(e.clientX, e.clientY);
-      if (pressed?.classList?.contains('tr-day') && !pressed.classList.contains('tr-day--filler')) {
+      if (this.isValidDay(pressed)) {
         this._pressedElement = pressed;
         pressed.classList.add('tr-is-pressing');
       }
@@ -260,7 +267,7 @@ export class InteractionPlugin extends TracePlugin {
         touchActiveElements.clear();
         // While dragging, ensure the currently dragged day becomes active
         const dragTarget = document.elementFromPoint(e.clientX, e.clientY);
-        if (dragTarget?.classList?.contains('tr-day') && !dragTarget.classList.contains('tr-day--filler')) {
+        if (this.isValidDay(dragTarget)) {
           // Remove previous dragging marker if present and different
           if (this._draggingElement && this._draggingElement !== dragTarget && this._draggingElement.classList) {
             this._draggingElement.classList.remove('tr-is-dragging');
@@ -417,55 +424,68 @@ export class InteractionPlugin extends TracePlugin {
    * Setup event delegation for hover and keyboard navigation
    */
   setupEventDelegation() {
+    // Device-specific adaptive parameters
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const speedSeed = dpr < 1.25 ? 350 : dpr < 2 ? 600 : 800;
+    const dwellSeed = dpr < 1.25 ? 110 : 90;
+
+    // Mouse position and RAF state
     let mouseRafPending = false;
     let pendingMouseX = 0;
     let pendingMouseY = 0;
+
+    // Tooltip state
     let hoveredDayEl = null;
     let tooltipVisible = false;
     let lastMouseOverTargetId = null;
+
+    // Gap crossing behavior
     let gapHideTimer = null;
-    let gapHideDelay = 100; // Default fallback
-    let gapEnterTime = 0; // Track when mouse enters gap
-    // Pointer speed tracking (EWMA)
+    let gapEnterTime = 0;
+
+    // Adaptive speed tracking (EWMA)
     let lastMouseX = 0;
     let lastMouseY = 0;
     let lastMouseTs = 0;
-    // Adaptive seeds based on devicePixelRatio: lower DPR → slower default speeds
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    let speedEwma = dpr < 1.25 ? 350 : dpr < 2 ? 600 : 800; // px/s starting assumption
-    // Track observed gap dwell via EWMA to adapt to real user speed
-    let dwellEwma = dpr < 1.25 ? 110 : 90; // ms starting assumption
+    let speedEwma = speedSeed; // px/s
+    let dwellEwma = dwellSeed; // ms
 
-    // Calculate optimal gap hide delay based on actual grid gap size
+    /**
+     * Calculate gap hide delay based on gap size and speed
+     * @returns {number} Delay in milliseconds
+     */
     const calculateGapDelay = () => {
       const style = window.getComputedStyle(this.engine.viewport);
       const gap = parseFloat(style.gap) || parseFloat(style.gridGap) || 0;
-      // Use EWMA mouse speed to adapt for DPI and user pace
-      const speed = Math.max(100, Math.min(1800, speedEwma)); // clamp px/s
+      const speed = Math.max(100, Math.min(1800, speedEwma));
       const traversalMs = (gap / speed) * 1000;
-      // Buffer scales with DPR; higher DPR → slightly smaller buffer
       const baseBuffer = dpr < 1.25 ? 80 : dpr < 2 ? 65 : 55;
       const delay = Math.max(100, Math.min(240, traversalMs + baseBuffer));
       return Math.round(delay);
     };
 
-    // Compute dynamic delay factoring cell size as a small hysteresis
+    /**
+     * Calculate dynamic gap hide delay with cell size hysteresis
+     * Factors: gap size, cell width (12%), pointer speed, DPR, and observed dwell
+     * @returns {number} Delay in milliseconds
+     */
     const calculateGapDelayDynamic = () => {
       const style = window.getComputedStyle(this.engine.viewport);
       const gap = parseFloat(style.gap) || parseFloat(style.gridGap) || 0;
+
+      // Get cell width for hysteresis calculation
       let cellW = 0;
       if (hoveredDayEl) {
-        const r = hoveredDayEl.getBoundingClientRect();
-        cellW = Math.round(r.width);
+        cellW = Math.round(hoveredDayEl.getBoundingClientRect().width);
       } else if (this.engine.gridCells?.length) {
-        const r = this.engine.gridCells[0].getBoundingClientRect();
-        cellW = Math.round(r.width);
+        cellW = Math.round(this.engine.gridCells[0].getBoundingClientRect().width);
       }
+
       const speed = Math.max(100, Math.min(1800, speedEwma));
-      // Effective crossing includes gap plus a small portion of next cell to avoid premature hide
-      const effectivePx = gap + Math.min(24, Math.round(cellW * 0.12));
+      const hysteresis = Math.min(24, Math.round(cellW * 0.12));
+      const effectivePx = gap + hysteresis;
       const traversalMs = (effectivePx / speed) * 1000;
-      // Adaptive buffer combines DPR-based base buffer + observed dwell margin
+
       const baseBuffer = dpr < 1.25 ? 85 : dpr < 2 ? 70 : 60;
       const dwellMargin = Math.min(60, Math.max(30, dwellEwma * 0.5));
       const delay = Math.max(110, Math.min(280, traversalMs + baseBuffer + dwellMargin));
@@ -488,9 +508,8 @@ export class InteractionPlugin extends TracePlugin {
         // Debounce: skip if mouseover fires on same element multiple times
         if (target === lastMouseOverTargetId) return;
         lastMouseOverTargetId = target;
-        const isDay = target.classList.contains('tr-day');
-        const isFiller = target.classList.contains('tr-day--filler');
-        if (isDay && !isFiller) {
+
+        if (this.isValidDay(target)) {
           // Cancel any pending gap hide timer
           if (gapHideTimer) {
             clearTimeout(gapHideTimer);
@@ -532,17 +551,16 @@ export class InteractionPlugin extends TracePlugin {
       'mousemove',
       (e) => {
         if (!this.hasHover) return;
-        // Update mouse speed EWMA for adaptive delay
+        // Update adaptive speed tracking (EWMA with alpha = 0.25)
         const now = performance.now();
         if (lastMouseTs) {
-          const dt = now - lastMouseTs; // ms
-          if (dt > 0) {
-            const dx = e.clientX - lastMouseX;
-            const dy = e.clientY - lastMouseY;
-            const dist = Math.hypot(dx, dy);
-            const instSpeed = (dist / dt) * 1000; // px/s
-            // EWMA with alpha = 0.25
-            speedEwma = speedEwma * 0.75 + instSpeed * 0.25;
+          const deltaTime = now - lastMouseTs;
+          if (deltaTime > 0) {
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+            const distance = Math.hypot(deltaX, deltaY);
+            const instantSpeed = (distance / deltaTime) * 1000; // px/s
+            speedEwma = speedEwma * 0.75 + instantSpeed * 0.25;
           }
         }
         lastMouseTs = now;
@@ -564,17 +582,12 @@ export class InteractionPlugin extends TracePlugin {
       { passive: true, signal: this.signal }
     );
 
-    // Calculate gap delay once after first render
-    requestAnimationFrame(() => {
-      gapHideDelay = calculateGapDelay();
-    });
-
     this.engine.viewport.addEventListener(
       'mouseout',
       (e) => {
         if (!this.hasHover) return;
         if (!this.engine.viewport.contains(e.relatedTarget)) {
-          // Clear gap timer and hide immediately when leaving viewport
+          // Mouse left viewport: clear timer and hide immediately
           if (gapHideTimer) {
             clearTimeout(gapHideTimer);
             gapHideTimer = null;
@@ -644,7 +657,7 @@ export class InteractionPlugin extends TracePlugin {
       'focusin',
       (e) => {
         const target = e.target;
-        if (target.classList.contains('tr-day') && !target.classList.contains('tr-day--filler')) {
+        if (this.isValidDay(target)) {
           const rect = target.getBoundingClientRect();
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
