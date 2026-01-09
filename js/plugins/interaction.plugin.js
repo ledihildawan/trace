@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// UX UPDATE: Horizontal Scrubbing Lock, Scroll Passthrough, and Magnetic Snap
+// UX UPDATE: Synchronized Visual & Tooltip Linger Duration
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -15,9 +15,9 @@ export class InteractionPlugin extends TracePlugin {
 
     // State Flags
     this._rafPending = false;
-    this._isTouchActive = false; // Master flag: true if user is currently touching
-    this._isScrubbing = false; // True ONLY if moving horizontally (locked)
-    this._scrollLocked = false; // True if native scroll took over (aborted custom logic)
+    this._isTouchActive = false;
+    this._isScrubbing = false;
+    this._scrollLocked = false;
 
     // Coordinates
     this._pendingX = 0;
@@ -26,7 +26,7 @@ export class InteractionPlugin extends TracePlugin {
     this.startY = 0;
 
     // Element References
-    this._activeDayEl = null; // The day cell currently highlighted/snapped
+    this._activeDayEl = null; // The day cell currently highlighted
     this._pressedEl = null; // The cell initially pressed
 
     // Timers
@@ -43,7 +43,6 @@ export class InteractionPlugin extends TracePlugin {
   init(engine) {
     super.init(engine);
 
-    // Detect hover capability
     this._hoverMql = window.matchMedia('(hover: hover)');
     this.hasHover = this._hoverMql.matches;
     this._hoverMql.addEventListener(
@@ -55,9 +54,6 @@ export class InteractionPlugin extends TracePlugin {
     );
 
     this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-
-    // CRITICAL: Allow browser to handle vertical scrolling (pan-y),
-    // but we might capture horizontal gestures.
     this.engine.viewport.style.touchAction = 'pan-y';
 
     this.setupTouchGestures();
@@ -83,7 +79,7 @@ export class InteractionPlugin extends TracePlugin {
     this._scrollLocked = false;
     this._clearTimers();
 
-    // Clear visuals
+    // Clear visuals immediately
     if (this._activeDayEl) {
       this._activeDayEl.classList.remove('tr-is-touch-active');
       this._activeDayEl.classList.remove('tr-is-dragging');
@@ -101,7 +97,6 @@ export class InteractionPlugin extends TracePlugin {
     // --- RAF LOOP (Only for scrubbing) ---
     const updateScrub = () => {
       this._rafPending = false;
-      // If we aren't explicitly scrubbing or if scroll took over, stop.
       if (!this._isScrubbing || this._scrollLocked) return;
 
       const target = document.elementFromPoint(this._pendingX, this._pendingY);
@@ -121,7 +116,6 @@ export class InteractionPlugin extends TracePlugin {
           this.triggerHaptic('scrub');
         }
 
-        // UX KEY: Pass the ELEMENT to tooltip for Snap-to-Grid
         if (this.tooltipPlugin) {
           this.tooltipPlugin.showTooltipForElement(target, true);
         }
@@ -142,33 +136,30 @@ export class InteractionPlugin extends TracePlugin {
     const onPointerDown = (e) => {
       if (e.pointerType === 'mouse') return;
 
-      this._resetState(); // Hard reset
+      this._resetState(); // Hard reset previous state
       this._isTouchActive = true;
       this.startX = e.clientX;
       this.startY = e.clientY;
 
-      // DO NOT CAPTURE POINTER YET.
-      // We wait to see if the user moves horizontally (scrub) or vertically (scroll).
-
-      // Visual feedback for immediate press (responsiveness)
       const target = document.elementFromPoint(e.clientX, e.clientY);
+
+      // Visual Feedback Instan
       if (this.isValidDay(target)) {
         this._pressedEl = target;
+        this._activeDayEl = target;
+
         target.classList.add('tr-is-pressing');
-        // Show tooltip immediately on tap, anchored to element
+        target.classList.add('tr-is-touch-active');
+
         if (this.tooltipPlugin) this.tooltipPlugin.showTooltipForElement(target, true);
       }
 
-      // Long Press Logic
       this._timers.longPress = setTimeout(() => {
         if (this._isScrubbing || this._scrollLocked) return;
 
-        // Trigger Long Press
         this.triggerHaptic('success');
         this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
         if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
-
-        // End interaction after long press action
         this._resetState();
       }, LONG_PRESS_DURATION_MS);
     };
@@ -179,39 +170,34 @@ export class InteractionPlugin extends TracePlugin {
       const dx = e.clientX - this.startX;
       const dy = e.clientY - this.startY;
 
-      // If already locked into scrubbing, just update
       if (this._isScrubbing) {
         requestUpdate(e.clientX, e.clientY);
         return;
       }
 
-      // --- INTENT CHECK ---
       const moveDist = Math.hypot(dx, dy);
-      const threshold = 6; // Sensitivity threshold pixels
+      const threshold = 6;
 
       if (moveDist > threshold) {
-        // Movement detected, cancel long press
         if (this._timers.longPress) clearTimeout(this._timers.longPress);
 
         const isHorizontal = Math.abs(dx) > Math.abs(dy);
 
         if (isHorizontal) {
-          // INTENT: SCRUBBING
+          // SCRUBBING
           this._isScrubbing = true;
-          this.engine.viewport.setPointerCapture(e.pointerId); // Trap pointer now
+          this.engine.viewport.setPointerCapture(e.pointerId);
 
-          // Clear "Press" state, move to "Drag" state
           if (this._pressedEl) {
             this._pressedEl.classList.remove('tr-is-pressing');
             this._pressedEl = null;
           }
           requestUpdate(e.clientX, e.clientY);
         } else {
-          // INTENT: SCROLLING
+          // SCROLLING
           this._scrollLocked = true;
-          this._resetState(); // Clean up highlighting immediately
+          this._resetState();
           if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
-          // We do NOT capture pointer; let browser handle native scroll.
         }
       }
     };
@@ -219,7 +205,7 @@ export class InteractionPlugin extends TracePlugin {
     const onPointerUp = (e) => {
       if (e.pointerType === 'mouse') return;
 
-      // Handle Taps (if not scrubbing and not scrolled)
+      // Tap Logic
       if (!this._isScrubbing && !this._scrollLocked && this._isTouchActive) {
         const now = performance.now();
         if (now - lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
@@ -230,27 +216,28 @@ export class InteractionPlugin extends TracePlugin {
           lastTapTime = 0;
         } else {
           lastTapTime = now;
-          // Single tap already showed tooltip on Down.
         }
       }
 
-      // Cleanup
       if (this.engine.viewport.hasPointerCapture(e.pointerId)) {
         this.engine.viewport.releasePointerCapture(e.pointerId);
       }
 
-      if (this.tooltipPlugin && this._isScrubbing) {
-        // If we were scrubbing, linger the tooltip so user can read last value
-        this.tooltipPlugin.scheduleHide(1200);
-      } else if (!this._isScrubbing) {
-        // If just a tap, linger briefly
-        this.tooltipPlugin?.scheduleHide(2000);
+      // PERBAIKAN DI SINI: Sinkronisasi waktu cleanup
+      // Samakan durasi highlight visual dengan durasi tooltip
+      const lingerDuration = this._isScrubbing ? 1200 : 2000;
+
+      if (this.tooltipPlugin) {
+        this.tooltipPlugin.scheduleHide(lingerDuration);
       }
 
-      // Visual cleanup with delay to prevent ghost mouse events
+      // Jangan hapus visual (tr-is-touch-active) terlalu cepat!
+      // Kita set waktunya sama dengan tooltip linger (1200ms/2000ms)
+      // Jika user tap tempat lain, _resetState() akan dipanggil otomatis di onPointerDown,
+      // jadi aman untuk menahannya lama.
       this._timers.cleanup = setTimeout(() => {
         this._resetState();
-      }, 500);
+      }, lingerDuration);
 
       this._isTouchActive = false;
       this._isScrubbing = false;
@@ -284,17 +271,14 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   setupHoverDelegate() {
-    // Simplified Mouse Hover for Desktop
     this.engine.viewport.addEventListener(
       'mouseover',
       (e) => {
-        if (this._isTouchActive) return; // Ignore if touching
+        if (this._isTouchActive) return;
         if (!this.hasHover) return;
 
         const target = e.target;
         if (this.isValidDay(target)) {
-          // Mouse uses Snap-to-Grid too for consistency, or standard follow
-          // Here we use Snap logic for consistency
           if (this.tooltipPlugin) this.tooltipPlugin.showTooltipForElement(target, false);
         }
       },
@@ -320,7 +304,6 @@ export class InteractionPlugin extends TracePlugin {
       (e) => {
         if (this.engine.viewport && this.engine.viewport.contains(e.target)) return;
         const key = e.key.toLowerCase();
-        // Simple Spacebar to cycle theme
         if (key === ' ' && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           this.engine.plugins.get('ThemePlugin')?.cycleTheme();
