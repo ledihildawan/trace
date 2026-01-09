@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Grid Architect V53 - Mobile DVH</title>
+    <title>Grid Architect V54 - Hyper-Responsive</title>
     <style>
       :root {
         --bg: #fdfdfe;
@@ -34,12 +34,11 @@
 
       html,
       body {
-        /* Menggunakan dvh untuk akurasi full screen di mobile */
         height: 100dvh;
         width: 100vw;
         background: var(--bg);
         color: var(--text-main);
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
       }
@@ -82,14 +81,15 @@
         background: var(--bg);
       }
 
+      /* RESPONSIVE WATERMARK */
       .watermark-embedded {
         position: absolute;
         top: 0;
-        right: 6%;
+        right: 5%;
         height: 100%;
         display: flex;
         align-items: center;
-        font-size: 32dvh;
+        font-size: clamp(150px, 30dvh, 400px);
         font-weight: 950;
         color: transparent;
         background: linear-gradient(180deg, rgba(99, 102, 241, 0.15), rgba(34, 211, 238, 0.15), transparent);
@@ -100,19 +100,16 @@
         pointer-events: none;
         z-index: 5;
         white-space: nowrap;
-
         opacity: 0;
-        letter-spacing: -3dvh;
-        transform: translateY(60px) scale(0.9) translateZ(0);
-        transition: opacity 1.4s cubic-bezier(0.2, 1, 0.3, 1), transform 1.4s cubic-bezier(0.2, 1, 0.3, 1),
-          letter-spacing 1.6s cubic-bezier(0.2, 1, 0.3, 1);
-        /* will-change diatur lewat JS hanya saat dibutuhkan untuk hemat baterai */
+        letter-spacing: -2dvh;
+        transform: translateY(40px) scale(0.9) translateZ(0);
+        transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), letter-spacing 1.4s ease;
       }
 
       .year-block.active .watermark-embedded {
         opacity: 1;
         transform: translateY(0) scale(1) translateZ(0);
-        letter-spacing: -2dvh;
+        letter-spacing: -1.5dvh;
       }
 
       .grid-layer {
@@ -124,8 +121,8 @@
         width: 100%;
         height: 100%;
         opacity: 0;
-        transform: scale(1.02) translateZ(0);
-        transition: opacity 0.8s ease-out, transform 1s cubic-bezier(0.2, 1, 0.3, 1);
+        transform: scale(1.01) translateZ(0);
+        transition: opacity 0.8s ease-out, transform 1s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       .year-block.active .grid-layer {
@@ -136,6 +133,7 @@
       .cell {
         background: var(--cell-bg);
         position: relative;
+        overflow: hidden;
       }
 
       .cell-content {
@@ -144,28 +142,29 @@
         justify-content: space-between;
         align-items: center;
         height: 100%;
-        padding: 12% 0;
+        padding: 10% 2px;
         text-align: center;
         contain: layout style;
       }
 
+      /* RESPONSIVE TYPOGRAPHY */
       .cell .info-meta {
-        font-size: clamp(5px, 0.8dvh, 7.5px);
+        font-size: clamp(6px, 0.8dvh, 10px);
         text-transform: uppercase;
         color: var(--text-muted);
         font-weight: 800;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.05em;
       }
 
       .cell .date-num {
-        font-size: clamp(14px, 2.8dvh, 22px);
+        font-size: clamp(12px, 2.5dvh, 26px);
         font-weight: 900;
         line-height: 1;
       }
 
       .cell.filler {
         background: var(--bg);
-        opacity: 0.15;
+        opacity: 0.1;
       }
       .cell.weekend {
         background: var(--weekend-bg);
@@ -176,22 +175,25 @@
       }
       .cell.month-start {
         background: var(--month-start-bg);
-        box-shadow: inset 4px 0 0 var(--cyan);
+        box-shadow: inset 3px 0 0 var(--cyan);
       }
 
       .cell.today {
         background: var(--today-bg) !important;
         z-index: 10;
-        box-shadow: 0 8px 20px -5px rgba(79, 70, 229, 0.4);
+        box-shadow: 0 4px 15px -2px rgba(79, 70, 229, 0.3);
       }
       .cell.today .date-num,
       .cell.today .info-meta {
         color: #fff !important;
       }
 
-      .cell:not(.filler):hover {
-        background: #f8fafc;
-        transition: background 0.2s ease;
+      @media (hover: hover) {
+        .cell:not(.filler):hover {
+          background: #f8fafc;
+          transition: 0.2s;
+          z-index: 5;
+        }
       }
     </style>
   </head>
@@ -210,7 +212,7 @@
       const today = new Date();
       const startVirtualYear = today.getFullYear();
 
-      const YEAR_HEIGHT = window.innerHeight;
+      let YEAR_HEIGHT = window.innerHeight;
       const TOTAL_VIRTUAL_YEARS = 1000;
       const START_Y = (TOTAL_VIRTUAL_YEARS / 2) * YEAR_HEIGHT;
 
@@ -241,7 +243,17 @@
 
         const firstDayOfYear = new Date(year, 0, 1).getDay();
         const totalDays = isLeap(year) ? 366 : 365;
-        const cols = Math.ceil(Math.sqrt(365 * (window.innerWidth / window.innerHeight)));
+
+        // LOGIKA RESPONSIVE COLS
+        // Mengatur jumlah kolom secara dinamis berdasarkan lebar layar
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        let cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
+
+        // Penyesuaian manual untuk mobile portrait agar grid tidak terlalu sempit
+        if (vw < 500) cols = Math.max(cols, 14);
+        if (vw > 1200) cols = Math.min(cols, 28);
+
         const rows = Math.ceil((totalDays + firstDayOfYear) / cols);
 
         let gridHTML = `<div class="grid-container">
@@ -326,9 +338,12 @@
       Viewport.scrollTop = START_Y;
       updateInfinite();
 
+      let resizeTimer;
       window.addEventListener('resize', () => {
-        // Re-kalkulasi hanya jika lebar layar berubah (menghindari glitch saat URL bar mobile muncul/hilang)
-        location.reload();
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          location.reload();
+        }, 250);
       });
     </script>
   </body>
