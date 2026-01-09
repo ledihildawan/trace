@@ -20,7 +20,7 @@ export class TooltipPlugin extends TracePlugin {
     el.setAttribute('role', 'tooltip');
     el.setAttribute('aria-hidden', 'true');
 
-    // Fixed position ensures stability during scroll/zoom
+    // Fixed position menjamin tooltip tidak bergetar saat scroll halaman
     Object.assign(el.style, {
       position: 'fixed',
       top: '0',
@@ -36,8 +36,7 @@ export class TooltipPlugin extends TracePlugin {
   }
 
   /**
-   * Main API: Anchors the tooltip to a specific DOM element.
-   * This creates the "Magnetic Snap" effect.
+   * API UTAMA: Menampilkan tooltip yang menempel (snap) pada elemen DOM.
    */
   showTooltipForElement(element, isTouch = false) {
     if (!element) return;
@@ -55,7 +54,7 @@ export class TooltipPlugin extends TracePlugin {
     this._targetEl = element;
     this._isTouch = isTouch;
 
-    // Start Position Loop
+    // Mulai loop update posisi
     if (!this._rafId) {
       this._rafId = requestAnimationFrame(this._updatePosition.bind(this));
     }
@@ -69,13 +68,12 @@ export class TooltipPlugin extends TracePlugin {
     const toolRect = this.engine.tooltip.getBoundingClientRect();
     const pad = 14;
 
-    // Horizontal Center
+    // Center secara horizontal terhadap elemen kotak
     let centerX = rect.left + rect.width / 2;
-    // Clamp to viewport
     centerX = clamp(centerX, pad + toolRect.width / 2, window.innerWidth - pad - toolRect.width / 2);
 
-    // Vertical Snap
-    const touchOffset = 45; // Higher offset for touch to avoid finger occlusion
+    // Offset vertikal agar tidak tertutup jari
+    const touchOffset = 45;
     const mouseOffset = 15;
     const offset = this._isTouch ? touchOffset : mouseOffset;
 
@@ -86,7 +84,7 @@ export class TooltipPlugin extends TracePlugin {
     let finalY = topAnchor;
     let anchorBottom = true;
 
-    // Logic: Try Top first. If no space, flip to Bottom.
+    // Jika tidak muat di atas, pindahkan ke bawah kotak
     if (spaceAbove < toolRect.height) {
       finalY = rect.bottom + offset;
       anchorBottom = false;
