@@ -19,7 +19,7 @@ js/
 js/
 ├── core/
 │   ├── trace-engine.js      (300 lines, core only)
-│   ├── plugin-manager.js    (hot-reload support)
+│   ├── plugin-manager.js    (plugin registration)
 │   ├── constants.js         (shared constants)
 │   └── utils.js             (utilities)
 ├── plugins/
@@ -211,7 +211,7 @@ Update all references to use the new plugin API directly.
 ### 4. Extensibility
 - Create custom plugins
 - Override default behavior
-- Hot-reload during development
+ 
 
 ### 5. Performance
 - Lazy-load plugins on demand (future)

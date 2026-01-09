@@ -10,7 +10,7 @@ TRACE now uses a modular plugin architecture that separates core functionality f
 js/
 ├── core/                    # Core engine (minimal, stable)
 │   ├── trace-engine.js      # Main engine (grid, render, time)
-│   ├── plugin-manager.js    # Plugin registration & hot-reload
+│   ├── plugin-manager.js    # Plugin registration
 │   ├── constants.js         # Shared constants
 │   └── utils.js             # Pure utility functions
 │
@@ -152,14 +152,7 @@ class PluginManager {
   // List all plugin names
   list(): string[]
   
-  // Enable hot-reload (dev only)
-  enableHotReload()
   
-  // Reload specific plugin
-  reload(name: string)
-  
-  // Reload all plugins
-  reloadAll()
   
   // Destroy all plugins
   destroyAll()
@@ -199,27 +192,7 @@ class TraceEngine {
 }
 ```
 
-## Hot-Reload (Development)
-
-Hot-reload is automatically enabled in development mode (localhost).
-
-### Using Hot-Reload
-
-```javascript
-// In browser console:
-
-// Reload specific plugin
-window.traceReloadPlugin('ThemePlugin')
-
-// Reload all plugins
-window.traceReloadAllPlugins()
-
-// List active plugins
-window.tracePlugins.list()
-
-// Get plugin instance
-window.tracePlugins.get('ThemePlugin')
-```
+ 
 
 ### Plugin Order
 
