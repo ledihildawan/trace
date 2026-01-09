@@ -3,44 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Grid Architect V73 - Final Kinetic Veil</title>
+    <title>Grid Architect V74 - Spectral Harmony</title>
     <style>
-      /* --- DYNAMIC THEME SYSTEM --- */
+      /* --- SPECTRAL COLOR SYSTEM --- */
       :root[data-theme='light'] {
-        --bg: #f8fafc;
-        --grid-bg: #e2e8f0;
-        --border: #cbd5e1;
+        --bg: #fdfdfd; /* White Lily */
+        --grid-bg: #f1f5f9; /* Slate 100 */
+        --border: #e2e8f0; /* Slate 200 */
         --cell-bg: #ffffff;
-        --text-main: #1e293b;
-        --text-muted: #64748b;
-        --accent: #4f46e5;
-        --cyan: #0891b2;
-        --weekend-bg: #f5f3ff;
-        --weekend-text: #7c3aed;
+        --text-main: #0f172a; /* Slate 900 */
+        --text-muted: #64748b; /* Slate 500 */
+        --accent: #4f46e5; /* Indigo 600 */
+        --cyan: #0891b2; /* Cyan 700 */
+        --weekend-bg: #f8f7ff; /* Soft Lavender */
+        --weekend-text: #6366f1;
         --today-bg: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
         --month-start-bg: #f0f9ff;
-        --filler-bg: #f1f5f9;
-        --filler-text: #94a3b8;
+        --filler-bg: #f8fafc;
+        --filler-text: #cbd5e1;
       }
 
       :root[data-theme='dark'] {
-        --bg: #020617;
-        --grid-bg: #0f172a;
-        --border: #1e293b;
-        --cell-bg: #020617;
-        --text-main: #f1f5f9;
-        --text-muted: #475569;
-        --accent: #818cf8;
-        --cyan: #22d3ee;
-        --weekend-bg: #0c0a21;
-        --weekend-text: #a78bfa;
-        --today-bg: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
-        --month-start-bg: #082f49;
-        --filler-bg: #010413;
-        --filler-text: #1e293b;
+        --bg: #030712; /* Deep Obsidian */
+        --grid-bg: #111827; /* Gray 900 */
+        --border: #1f2937; /* Gray 800 */
+        --cell-bg: #030712;
+        --text-main: #f9fafb; /* Gray 50 */
+        --text-muted: #6b7280; /* Gray 500 */
+        --accent: #818cf8; /* Indigo 400 */
+        --cyan: #22d3ee; /* Cyan 400 */
+        --weekend-bg: #0b0e1b; /* Deep Indigo Tint */
+        --weekend-text: #a5b4fc;
+        --today-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        --month-start-bg: #0c4a6e; /* Blue 900 */
+        --filler-bg: #02040a;
+        --filler-text: #374151;
       }
 
-      /* --- GLOBAL RESET & SMOOTHING --- */
+      /* --- GLOBAL RESET & ARCHITECTURE --- */
       *,
       *::before,
       *::after {
@@ -58,14 +58,13 @@
         width: 100vw;
         background: var(--bg);
         color: var(--text-main);
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
-        /* Kita matikan transisi global agar tidak 'bentrok' dengan sistem Veil */
-        transition: none;
+        transition: none; /* Transition handled by Veil */
       }
 
-      /* THE KINETIC VEIL: Tirai Rahasia */
+      /* THE KINETIC VEIL: Optimized for Eye Comfort */
       #theme-veil {
         position: fixed;
         inset: 0;
@@ -73,14 +72,12 @@
         background: var(--bg);
         pointer-events: none;
         opacity: 0;
-        /* Transisi keluar yang sinematik (lambat di akhir) */
-        transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: opacity 0.75s cubic-bezier(0.19, 1, 0.22, 1);
         will-change: opacity;
       }
       #theme-veil.active {
         opacity: 1;
-        /* Kecepatan masuk sangat instan (menutup cepat) */
-        transition: opacity 0.15s ease-in;
+        transition: opacity 0.2s ease-out;
       }
 
       #viewport {
@@ -121,7 +118,7 @@
         background: var(--bg);
       }
 
-      /* --- WATERMARK & KINETIC GRID --- */
+      /* --- VISUAL ELEMENTS --- */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -142,7 +139,7 @@
         white-space: nowrap;
         opacity: 0;
         transform: translate3d(0, 30px, 0);
-        transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
         .year-block.active & {
           opacity: 0.12;
           transform: translate3d(0, 0, 0);
@@ -158,7 +155,7 @@
         width: 100%;
         height: 100%;
         opacity: 0;
-        transition: opacity 0.6s ease;
+        transition: opacity 0.8s ease;
         .year-block.active & {
           opacity: 1;
         }
@@ -168,8 +165,8 @@
         background: var(--cell-bg);
         position: relative;
         opacity: 0;
-        transform: translate3d(0, 10px, 0);
-        transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        transform: translate3d(0, 15px, 0);
+        transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         .year-block.active & {
           opacity: 1;
           transform: translate3d(0, 0, 0);
@@ -180,18 +177,27 @@
 
         &.filler {
           background: var(--filler-bg);
+          .date-num,
+          .info-meta {
+            color: var(--filler-text);
+            opacity: 0.4;
+          }
         }
         &.weekend {
           background: var(--weekend-bg);
+          .date-num,
+          .info-meta {
+            color: var(--weekend-text);
+          }
         }
         &.month-start {
           background: var(--month-start-bg);
-          box-shadow: inset 3px 0 0 var(--cyan);
+          box-shadow: inset 4px 0 0 var(--cyan);
         }
         &.today {
           background: var(--today-bg) !important;
           z-index: 10;
-          box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+          box-shadow: 0 12px 30px -5px rgba(79, 70, 229, 0.5);
           .date-num,
           .info-meta {
             color: #fff !important;
@@ -214,9 +220,10 @@
         text-transform: uppercase;
         font-weight: 800;
         color: var(--text-muted);
+        letter-spacing: 0.1em;
       }
       .date-num {
-        font-size: clamp(12px, 2.6dvh, 28px);
+        font-size: clamp(14px, 2.8dvh, 32px);
         font-weight: 900;
         line-height: 1;
       }
@@ -230,10 +237,6 @@
     </main>
 
     <script type="module">
-      /**
-       * GridArchitect V73 - Kinetic Veil Edition
-       * Definisi akhir untuk performa tinggi dan transisi sinematik.
-       */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
@@ -262,24 +265,17 @@
         }
 
         #toggleTheme() {
-          // Tahap 1: Kedipan Menutup (Fast In)
           this.#veil.classList.add('active');
-
-          // Tahap 2: Ganti Realitas (Di balik layar)
           setTimeout(() => {
             const current = document.documentElement.getAttribute('data-theme');
             const next = current === 'light' ? 'dark' : 'light';
             document.documentElement.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
-
-            // Feedback taktil singkat
-            if (navigator.vibrate) navigator.vibrate(15);
-
-            // Tahap 3: Kedipan Terbuka (Slow Out - Cinematic)
+            if (navigator.vibrate) navigator.vibrate(20);
             setTimeout(() => {
               this.#veil.classList.remove('active');
-            }, 100);
-          }, 200);
+            }, 150);
+          }, 250);
         }
 
         #setupCore() {
@@ -312,7 +308,6 @@
             { passive: true }
           );
 
-          // Keyboard: T atau D untuk Theme
           window.addEventListener('keydown', (e) => {
             if (['t', 'd'].includes(e.key.toLowerCase())) this.#toggleTheme();
             if (e.key === ' ') {
@@ -321,7 +316,6 @@
             }
           });
 
-          // Mobile: Triple Tap untuk Theme
           this.#viewport.addEventListener(
             'touchstart',
             () => {
@@ -395,7 +389,6 @@
           setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
         }
       }
-
       new GridArchitect();
     </script>
   </body>
