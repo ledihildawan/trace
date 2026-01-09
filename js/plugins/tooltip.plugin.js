@@ -20,6 +20,19 @@ export class TooltipPlugin extends TracePlugin {
 
   init(engine) {
     super.init(engine);
+    // Set semantic role and initial accessibility state
+    engine.tooltip.setAttribute('role', 'tooltip');
+    engine.tooltip.setAttribute('aria-hidden', 'true');
+
+    // Respect prefers-reduced-motion by shortening/removing opacity transitions
+    const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const style = window.getComputedStyle(engine.tooltip);
+    const hasOpacityTransition = style.transition.includes('opacity');
+    if (prefersReduce) {
+      engine.tooltip.style.transition = 'opacity 0ms linear, transform 0s';
+    } else if (!hasOpacityTransition) {
+      engine.tooltip.style.transition = 'opacity 150ms ease-out, transform 0s';
+    }
   }
 
   /**
@@ -96,8 +109,9 @@ export class TooltipPlugin extends TracePlugin {
       let x = clientX + (isTouch ? 10 : 0);
       let y = clientY;
 
-      const minX = safeLeft + pad + w / 2;
-      const maxX = window.innerWidth - safeRight - pad - w / 2;
+      const touchMargin = isTouch ? 10 : 0;
+      const minX = safeLeft + pad + w / 2 + touchMargin;
+      const maxX = window.innerWidth - safeRight - pad - w / 2 - touchMargin;
       x = clamp(x, minX, maxX);
 
       // Touch needs more offset to avoid finger covering tooltip

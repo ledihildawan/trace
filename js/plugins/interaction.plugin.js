@@ -121,6 +121,7 @@ export class InteractionPlugin extends TracePlugin {
 
     // Cache touch-active elements to avoid querySelectorAll on pointerEnd
     let touchActiveElements = new Set();
+    let touchCleanupTimer = null;
 
     const processPointerMove = () => {
       this._rafPending = false;
@@ -164,6 +165,12 @@ export class InteractionPlugin extends TracePlugin {
       if (e.pointerType === 'mouse') return;
       if (e.pointerType === 'touch') {
         touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        // Clear any pending cleanup from previous touch
+        if (touchCleanupTimer) {
+          clearTimeout(touchCleanupTimer);
+          touchCleanupTimer = null;
+        }
 
         // If second touch begins, initialise pinch tracking
         if (touches.size === 2) {
@@ -339,6 +346,10 @@ export class InteractionPlugin extends TracePlugin {
           lastTapTime = 0;
           lastTapX = 0;
           lastTapY = 0;
+          touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+          touchActiveElements.clear();
+          this._lastHoveredElement = null;
+          this.ignoreHover = false;
         } else {
           lastTapTime = now;
           lastTapX = e.clientX;
@@ -370,6 +381,10 @@ export class InteractionPlugin extends TracePlugin {
                 if (devTools) devTools.randomizeThemeNowAndLocale();
                 this.triggerHaptic('success');
               }
+              touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+              touchActiveElements.clear();
+              this._lastHoveredElement = null;
+              this.ignoreHover = false;
             }
           }
         }
@@ -383,14 +398,20 @@ export class InteractionPlugin extends TracePlugin {
       if (this.tooltipPlugin) {
         // Only schedule hide if no gesture was triggered
         if (!longPressTriggered && !pinchTriggered) {
-          const duration = isDragging ? 1250 : 2500;
+          const duration = isDragging ? 900 : 1400;
           this.tooltipPlugin.scheduleHide(duration);
+          // Keep touch-active highlight until hide executes
+          if (touchCleanupTimer) {
+            clearTimeout(touchCleanupTimer);
+          }
+          touchCleanupTimer = setTimeout(() => {
+            touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+            touchActiveElements.clear();
+            this._lastHoveredElement = null;
+            this.ignoreHover = false;
+            touchCleanupTimer = null;
+          }, duration);
         }
-        // Clear cached touch-active elements
-        touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
-        touchActiveElements.clear();
-        this._lastHoveredElement = null;
-        this.ignoreHover = false;
       }
       // remove dragging visual class for touch
       if (this._draggingElement?.classList) this._draggingElement.classList.remove('tr-is-dragging');
@@ -694,6 +715,12 @@ export class InteractionPlugin extends TracePlugin {
     this.engine.viewport.addEventListener(
       'focusout',
       () => {
+        if (this.engine.tooltip) {
+          this.engine.tooltip.setAttribute('aria-live', 'off');
+          if (this.engine.tooltip) {
+            this.engine.tooltip.setAttribute('aria-live', 'polite');
+          }
+        }
         if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
       },
       { signal: this.signal }
@@ -706,8 +733,8 @@ export class InteractionPlugin extends TracePlugin {
   triggerHaptic(type) {
     if (!navigator.vibrate) return;
     const now = performance.now();
-    // Refined timing: scrub slightly more frequent for better tactile feedback
-    const minGap = type === 'scrub' ? 75 : 350;
+    // Tuned intervals: slightly tighter scrub, faster success response
+    const minGap = type === 'scrub' ? 70 : 320;
     if (now - (this._lastHapticAt[type] ?? 0) < minGap) return;
     this._lastHapticAt[type] = now;
     navigator.vibrate(type === 'scrub' ? HAPTIC_SCRUB_MS : HAPTIC_SUCCESS_MS);
