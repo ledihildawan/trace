@@ -121,7 +121,17 @@ export class InteractionPlugin extends TracePlugin {
 
     // Cache touch-active elements to avoid querySelectorAll on pointerEnd
     let touchActiveElements = new Set();
-    let touchCleanupTimer = null;
+    let touchClearTimer = null;
+
+    const clearTouchState = () => {
+      if (this._lastHoveredElement?.classList) {
+        this._lastHoveredElement.classList.remove('tr-is-touch-active');
+      }
+      this._lastHoveredElement = null;
+      touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
+      touchActiveElements.clear();
+      this.ignoreHover = false;
+    };
 
     const processPointerMove = () => {
       this._rafPending = false;
@@ -166,12 +176,6 @@ export class InteractionPlugin extends TracePlugin {
       if (e.pointerType === 'touch') {
         touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-        // Clear any pending cleanup from previous touch
-        if (touchCleanupTimer) {
-          clearTimeout(touchCleanupTimer);
-          touchCleanupTimer = null;
-        }
-
         // If second touch begins, initialise pinch tracking
         if (touches.size === 2) {
           const pts = Array.from(touches.values());
@@ -194,6 +198,10 @@ export class InteractionPlugin extends TracePlugin {
 
       // Defensive cleanup: clear any stale hover/drag markers left from
       // previous interactions so a new press doesn't inherit them.
+      if (touchClearTimer) {
+        clearTimeout(touchClearTimer);
+        touchClearTimer = null;
+      }
       if (this._lastHoveredElement?.classList) {
         this._lastHoveredElement.classList.remove('tr-is-touch-active');
         touchActiveElements.delete(this._lastHoveredElement);
@@ -346,10 +354,6 @@ export class InteractionPlugin extends TracePlugin {
           lastTapTime = 0;
           lastTapX = 0;
           lastTapY = 0;
-          touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
-          touchActiveElements.clear();
-          this._lastHoveredElement = null;
-          this.ignoreHover = false;
         } else {
           lastTapTime = now;
           lastTapX = e.clientX;
@@ -381,10 +385,6 @@ export class InteractionPlugin extends TracePlugin {
                 if (devTools) devTools.randomizeThemeNowAndLocale();
                 this.triggerHaptic('success');
               }
-              touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
-              touchActiveElements.clear();
-              this._lastHoveredElement = null;
-              this.ignoreHover = false;
             }
           }
         }
@@ -398,24 +398,22 @@ export class InteractionPlugin extends TracePlugin {
       if (this.tooltipPlugin) {
         // Only schedule hide if no gesture was triggered
         if (!longPressTriggered && !pinchTriggered) {
-          const duration = isDragging ? 900 : 1400;
+          const duration = isDragging ? 1250 : 2500;
           this.tooltipPlugin.scheduleHide(duration);
-          // Keep touch-active highlight until hide executes
-          if (touchCleanupTimer) {
-            clearTimeout(touchCleanupTimer);
+          if (touchClearTimer) {
+            clearTimeout(touchClearTimer);
           }
-          touchCleanupTimer = setTimeout(() => {
-            touchActiveElements.forEach((el) => el.classList.remove('tr-is-touch-active'));
-            touchActiveElements.clear();
-            this._lastHoveredElement = null;
-            this.ignoreHover = false;
-            touchCleanupTimer = null;
+          touchClearTimer = setTimeout(() => {
+            clearTouchState();
+            if (this._draggingElement?.classList) this._draggingElement.classList.remove('tr-is-dragging');
+            this._draggingElement = null;
           }, duration);
         }
       }
-      // remove dragging visual class for touch
-      if (this._draggingElement?.classList) this._draggingElement.classList.remove('tr-is-dragging');
-      this._draggingElement = null;
+      // remove dragging visual class immediately only if not waiting for deferred clear
+      if (!touchClearTimer && this._draggingElement?.classList)
+        this._draggingElement.classList.remove('tr-is-dragging');
+      if (!touchClearTimer) this._draggingElement = null;
       isDragging = false;
     };
 
