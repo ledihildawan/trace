@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// UX UPDATE: Horizontal Scrubbing Lock & Scroll Passthrough
+// UX UPDATE: Horizontal Scrubbing Lock, Scroll Passthrough, and Magnetic Snap
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -13,11 +13,11 @@ export class InteractionPlugin extends TracePlugin {
   constructor() {
     super('InteractionPlugin');
 
-    // State
+    // State Flags
     this._rafPending = false;
-    this._isTouchActive = false; // True if user is touching
-    this._isScrubbing = false; // True ONLY if moving horizontally
-    this._scrollLocked = false; // True if native scroll took over
+    this._isTouchActive = false; // Master flag: true if user is currently touching
+    this._isScrubbing = false; // True ONLY if moving horizontally (locked)
+    this._scrollLocked = false; // True if native scroll took over (aborted custom logic)
 
     // Coordinates
     this._pendingX = 0;
@@ -25,8 +25,8 @@ export class InteractionPlugin extends TracePlugin {
     this.startX = 0;
     this.startY = 0;
 
-    // Elements
-    this._activeDayEl = null; // The day cell currently highlighted
+    // Element References
+    this._activeDayEl = null; // The day cell currently highlighted/snapped
     this._pressedEl = null; // The cell initially pressed
 
     // Timers
@@ -43,7 +43,7 @@ export class InteractionPlugin extends TracePlugin {
   init(engine) {
     super.init(engine);
 
-    // Hover detection
+    // Detect hover capability
     this._hoverMql = window.matchMedia('(hover: hover)');
     this.hasHover = this._hoverMql.matches;
     this._hoverMql.addEventListener(
@@ -56,13 +56,13 @@ export class InteractionPlugin extends TracePlugin {
 
     this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
 
-    // Set CSS touch-action to allow vertical scroll but handle horizontal via JS if needed
-    // Ideally this should be in CSS: .trace-grid { touch-action: pan-y; }
+    // CRITICAL: Allow browser to handle vertical scrolling (pan-y),
+    // but we might capture horizontal gestures.
     this.engine.viewport.style.touchAction = 'pan-y';
 
     this.setupTouchGestures();
     this.setupMouseControls();
-    this.setupKeyboardControls(); // Assuming standard keyboard controls
+    this.setupKeyboardControls();
     this.setupHoverDelegate();
   }
 
@@ -101,6 +101,7 @@ export class InteractionPlugin extends TracePlugin {
     // --- RAF LOOP (Only for scrubbing) ---
     const updateScrub = () => {
       this._rafPending = false;
+      // If we aren't explicitly scrubbing or if scroll took over, stop.
       if (!this._isScrubbing || this._scrollLocked) return;
 
       const target = document.elementFromPoint(this._pendingX, this._pendingY);
@@ -114,14 +115,13 @@ export class InteractionPlugin extends TracePlugin {
           }
 
           target.classList.add('tr-is-dragging');
-          target.classList.add('tr-is-touch-active'); // Add both for styling flexibility
+          target.classList.add('tr-is-touch-active');
           this._activeDayEl = target;
 
           this.triggerHaptic('scrub');
         }
 
-        // UX KEY: Pass the ELEMENT to tooltip, not just coordinates
-        // This enables "Snap-to-Grid" positioning
+        // UX KEY: Pass the ELEMENT to tooltip for Snap-to-Grid
         if (this.tooltipPlugin) {
           this.tooltipPlugin.showTooltipForElement(target, true);
         }
@@ -147,9 +147,10 @@ export class InteractionPlugin extends TracePlugin {
       this.startX = e.clientX;
       this.startY = e.clientY;
 
-      // DO NOT CAPTURE POINTER YET. Wait for movement direction.
+      // DO NOT CAPTURE POINTER YET.
+      // We wait to see if the user moves horizontally (scrub) or vertically (scroll).
 
-      // Visual feedback for immediate press
+      // Visual feedback for immediate press (responsiveness)
       const target = document.elementFromPoint(e.clientX, e.clientY);
       if (this.isValidDay(target)) {
         this._pressedEl = target;
@@ -161,11 +162,14 @@ export class InteractionPlugin extends TracePlugin {
       // Long Press Logic
       this._timers.longPress = setTimeout(() => {
         if (this._isScrubbing || this._scrollLocked) return;
+
         // Trigger Long Press
         this.triggerHaptic('success');
         this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
         if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
-        this._resetState(); // End interaction
+
+        // End interaction after long press action
+        this._resetState();
       }, LONG_PRESS_DURATION_MS);
     };
 
@@ -175,7 +179,7 @@ export class InteractionPlugin extends TracePlugin {
       const dx = e.clientX - this.startX;
       const dy = e.clientY - this.startY;
 
-      // If already scrubbing, just update
+      // If already locked into scrubbing, just update
       if (this._isScrubbing) {
         requestUpdate(e.clientX, e.clientY);
         return;
@@ -183,17 +187,18 @@ export class InteractionPlugin extends TracePlugin {
 
       // --- INTENT CHECK ---
       const moveDist = Math.hypot(dx, dy);
-      if (moveDist > 6) {
-        // Sensitivity threshold
+      const threshold = 6; // Sensitivity threshold pixels
+
+      if (moveDist > threshold) {
         // Movement detected, cancel long press
         if (this._timers.longPress) clearTimeout(this._timers.longPress);
 
         const isHorizontal = Math.abs(dx) > Math.abs(dy);
 
         if (isHorizontal) {
-          // SCRUBBING! Lock interactions.
+          // INTENT: SCRUBBING
           this._isScrubbing = true;
-          this.engine.viewport.setPointerCapture(e.pointerId); // Trap pointer
+          this.engine.viewport.setPointerCapture(e.pointerId); // Trap pointer now
 
           // Clear "Press" state, move to "Drag" state
           if (this._pressedEl) {
@@ -202,10 +207,11 @@ export class InteractionPlugin extends TracePlugin {
           }
           requestUpdate(e.clientX, e.clientY);
         } else {
-          // SCROLLING! Abort our logic.
+          // INTENT: SCROLLING
           this._scrollLocked = true;
           this._resetState(); // Clean up highlighting immediately
           if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
+          // We do NOT capture pointer; let browser handle native scroll.
         }
       }
     };
@@ -225,25 +231,26 @@ export class InteractionPlugin extends TracePlugin {
         } else {
           lastTapTime = now;
           // Single tap already showed tooltip on Down.
-          // We just schedule a cleanup.
         }
       }
 
       // Cleanup
-      this.engine.viewport.releasePointerCapture(e.pointerId);
+      if (this.engine.viewport.hasPointerCapture(e.pointerId)) {
+        this.engine.viewport.releasePointerCapture(e.pointerId);
+      }
 
       if (this.tooltipPlugin && this._isScrubbing) {
-        // If we were scrubbing, linger the tooltip
+        // If we were scrubbing, linger the tooltip so user can read last value
         this.tooltipPlugin.scheduleHide(1200);
       } else if (!this._isScrubbing) {
         // If just a tap, linger briefly
         this.tooltipPlugin?.scheduleHide(2000);
       }
 
-      // Visual cleanup delay
+      // Visual cleanup with delay to prevent ghost mouse events
       this._timers.cleanup = setTimeout(() => {
         this._resetState();
-      }, 500); // 500ms cooldown prevent mouse ghosts
+      }, 500);
 
       this._isTouchActive = false;
       this._isScrubbing = false;
@@ -263,7 +270,6 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   setupMouseControls() {
-    // Standard mouse wheel
     this.engine.viewport.addEventListener(
       'wheel',
       (e) => {
@@ -278,7 +284,7 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   setupHoverDelegate() {
-    // Simplified Mouse Hover
+    // Simplified Mouse Hover for Desktop
     this.engine.viewport.addEventListener(
       'mouseover',
       (e) => {
@@ -287,6 +293,8 @@ export class InteractionPlugin extends TracePlugin {
 
         const target = e.target;
         if (this.isValidDay(target)) {
+          // Mouse uses Snap-to-Grid too for consistency, or standard follow
+          // Here we use Snap logic for consistency
           if (this.tooltipPlugin) this.tooltipPlugin.showTooltipForElement(target, false);
         }
       },
@@ -307,12 +315,13 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   setupKeyboardControls() {
-    // Standard keyboard implementation...
     window.addEventListener(
       'keydown',
       (e) => {
-        if (this.engine.viewport?.contains(e.target)) return;
-        if (e.key === ' ' && !e.ctrlKey) {
+        if (this.engine.viewport && this.engine.viewport.contains(e.target)) return;
+        const key = e.key.toLowerCase();
+        // Simple Spacebar to cycle theme
+        if (key === ' ' && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           this.engine.plugins.get('ThemePlugin')?.cycleTheme();
         }
@@ -328,5 +337,10 @@ export class InteractionPlugin extends TracePlugin {
     if (now - this._lastHaptic < minGap) return;
     this._lastHaptic = now;
     navigator.vibrate(type === 'scrub' ? HAPTIC_SCRUB_MS : HAPTIC_SUCCESS_MS);
+  }
+
+  destroy() {
+    this._resetState();
+    super.destroy();
   }
 }
