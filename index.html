@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Grid Architect V70 - Kinetic Veil</title>
+    <title>Grid Architect V73 - Final Kinetic Veil</title>
     <style>
+      /* --- DYNAMIC THEME SYSTEM --- */
       :root[data-theme='light'] {
         --bg: #f8fafc;
         --grid-bg: #e2e8f0;
@@ -39,6 +40,7 @@
         --filler-text: #1e293b;
       }
 
+      /* --- GLOBAL RESET & SMOOTHING --- */
       *,
       *::before,
       *::after {
@@ -59,9 +61,11 @@
         font-family: 'Inter', system-ui, sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
+        /* Kita matikan transisi global agar tidak 'bentrok' dengan sistem Veil */
+        transition: none;
       }
 
-      /* THEME VEIL: Lapisan transisi rahasia */
+      /* THE KINETIC VEIL: Tirai Rahasia */
       #theme-veil {
         position: fixed;
         inset: 0;
@@ -69,10 +73,14 @@
         background: var(--bg);
         pointer-events: none;
         opacity: 0;
-        transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Transisi keluar yang sinematik (lambat di akhir) */
+        transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: opacity;
       }
       #theme-veil.active {
         opacity: 1;
+        /* Kecepatan masuk sangat instan (menutup cepat) */
+        transition: opacity 0.15s ease-in;
       }
 
       #viewport {
@@ -113,6 +121,7 @@
         background: var(--bg);
       }
 
+      /* --- WATERMARK & KINETIC GRID --- */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -221,6 +230,10 @@
     </main>
 
     <script type="module">
+      /**
+       * GridArchitect V73 - Kinetic Veil Edition
+       * Definisi akhir untuk performa tinggi dan transisi sinematik.
+       */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
@@ -249,21 +262,24 @@
         }
 
         #toggleTheme() {
-          // Efek Transisi Kinetic: Munculkan Veil -> Ganti Warna -> Hilangkan Veil
+          // Tahap 1: Kedipan Menutup (Fast In)
           this.#veil.classList.add('active');
 
+          // Tahap 2: Ganti Realitas (Di balik layar)
           setTimeout(() => {
             const current = document.documentElement.getAttribute('data-theme');
             const next = current === 'light' ? 'dark' : 'light';
             document.documentElement.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
 
-            if (navigator.vibrate) navigator.vibrate(20);
+            // Feedback taktil singkat
+            if (navigator.vibrate) navigator.vibrate(15);
 
+            // Tahap 3: Kedipan Terbuka (Slow Out - Cinematic)
             setTimeout(() => {
               this.#veil.classList.remove('active');
-            }, 100); // Durasi penahanan warna baru
-          }, 300); // Waktu veil menutupi layar
+            }, 100);
+          }, 200);
         }
 
         #setupCore() {
@@ -296,10 +312,16 @@
             { passive: true }
           );
 
+          // Keyboard: T atau D untuk Theme
           window.addEventListener('keydown', (e) => {
             if (['t', 'd'].includes(e.key.toLowerCase())) this.#toggleTheme();
+            if (e.key === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
           });
 
+          // Mobile: Triple Tap untuk Theme
           this.#viewport.addEventListener(
             'touchstart',
             () => {
@@ -366,7 +388,14 @@
           this.#activeYears.set(year, block);
           this.observer.observe(block);
         }
+
+        jumpToToday() {
+          this.#viewport.style.scrollBehavior = 'auto';
+          this.#viewport.scrollTop = this.startY;
+          setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
+        }
       }
+
       new GridArchitect();
     </script>
   </body>
