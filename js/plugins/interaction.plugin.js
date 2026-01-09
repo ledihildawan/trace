@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// Optimized with: Adaptive Haptics, Dynamic Linger, and Anti-Collision Logic
+// Optimized: DRY State Management, Performance-First, Modern Browser APIs
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -12,256 +12,217 @@ import { TracePlugin } from '../core/plugin-manager.js';
 export class InteractionPlugin extends TracePlugin {
   constructor() {
     super('InteractionPlugin');
-
     this._activeElement = null;
     this._isTouching = false;
-    this._timerLinger = null;
-    this._timerLongPress = null;
-
-    // Tracking for Velocity & Gestures
-    this._startX = 0;
-    this._startY = 0;
-    this._startTime = 0;
-    this._lastMoveTime = 0;
-    this._velocity = 0;
+    this._timers = new Map(); // Centralized timer management
+    this._tracking = { startX: 0, startY: 0, startTime: 0, velocity: 0, lastMoveTime: 0 };
     this._lastTapTime = 0;
-
-    this.hasHover = false;
+    this.hasHover = window.matchMedia('(hover: hover)').matches;
   }
 
   init(engine) {
     super.init(engine);
+    this.tooltip = this.engine.plugins.get('TooltipPlugin');
+    const options = { passive: true, signal: this.signal };
 
-    this._hoverMql = window.matchMedia('(hover: hover)');
-    this.hasHover = this._hoverMql.matches;
-    this._hoverMql.addEventListener(
-      'change',
-      (e) => {
-        this.hasHover = e.matches;
-      },
-      { signal: this.signal }
-    );
-
-    this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
-
-    this.engine.viewport.style.touchAction = 'pan-y';
-    this.engine.viewport.style.userSelect = 'none';
-    this.engine.viewport.style.webkitUserSelect = 'none';
-
-    this.setupPointerEvents();
-    this.setupKeyboardControls();
+    this._setupStyles();
+    this._bindEvents(options);
   }
 
-  isValidDay(el) {
-    return el?.classList.contains('tr-day') && !el.classList.contains('tr-day--filler');
+  _setupStyles() {
+    Object.assign(this.engine.viewport.style, {
+      touchAction: 'pan-y',
+      userSelect: 'none',
+      webkitUserSelect: 'none',
+    });
   }
 
-  setupPointerEvents() {
+  _bindEvents(options) {
     const vp = this.engine.viewport;
+    vp.addEventListener('pointerdown', (e) => this._onDown(e), options);
+    vp.addEventListener('pointermove', (e) => this._onMove(e), options);
+    vp.addEventListener('pointerup', (e) => this._onUp(e), options);
+    vp.addEventListener('pointercancel', () => this._reset(true), options);
+    vp.addEventListener('mouseover', (e) => this._onHover(e), options);
+    window.addEventListener('keydown', (e) => this._onKey(e), options);
 
-    vp.addEventListener(
-      'pointerdown',
-      (e) => {
-        if (e.pointerType === 'mouse') return;
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener(
+        'resize',
+        () => {
+          if (this._activeElement) this.tooltip?.updatePosition();
+        },
+        options
+      );
+    }
+  }
 
-        this._isTouching = true;
-        this._startX = e.clientX;
-        this._startY = e.clientY;
-        this._startTime = performance.now();
-        this._lastMoveTime = this._startTime;
-        this._velocity = 0;
+  // --- Unified State & Timer Management (DRY) ---
 
-        this._clearLinger();
+  _setTimer(key, fn, ms) {
+    this._clearTimer(key);
+    this._timers.set(key, setTimeout(fn, ms));
+  }
 
-        const target = document.elementFromPoint(e.clientX, e.clientY);
-        this._handleTouchUpdate(target, true);
+  _clearTimer(key) {
+    if (this._timers.has(key)) {
+      clearTimeout(this._timers.get(key));
+      this._timers.delete(key);
+    }
+  }
 
-        if (this._timerLongPress) clearTimeout(this._timerLongPress);
-        this._timerLongPress = setTimeout(() => {
-          if (this._isTouching) {
-            this.triggerHaptic('success');
-            this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
-            this._resetInteraction(true);
-          }
-        }, LONG_PRESS_DURATION_MS);
-      },
-      { passive: true, signal: this.signal }
-    );
+  _reset(immediate = false) {
+    this._clearTimer('longPress');
+    if (immediate) {
+      this._clearTimer('linger');
+      if (this._activeElement) {
+        this._activeElement.classList.remove('tr-is-touch-active', 'tr-is-pressing');
+        this._activeElement = null;
+      }
+      this.tooltip?.hideTooltip();
+    }
+  }
 
-    vp.addEventListener(
-      'pointermove',
-      (e) => {
-        if (e.pointerType === 'mouse' || !this._isTouching) return;
+  // --- Event Handlers ---
 
-        // 1. Velocity Tracking for Dynamic Linger
-        const now = performance.now();
-        const dt = now - this._lastMoveTime;
-        if (dt > 0) {
-          const dist = Math.hypot(e.clientX - this._pendingX || 0, e.clientY - this._pendingY || 0);
-          this._velocity = dist / dt;
-        }
-        this._lastMoveTime = now;
-        this._pendingX = e.clientX;
-        this._pendingY = e.clientY;
+  _onDown(e) {
+    if (e.pointerType === 'mouse') return;
+    this._reset(true);
+    this._isTouching = true;
+    Object.assign(this._tracking, {
+      startX: e.clientX,
+      startY: e.clientY,
+      startTime: performance.now(),
+      lastMoveTime: performance.now(),
+      velocity: 0,
+    });
 
-        // 2. Anti-Reset logic: Cancel long press if finger moves > 10px
-        const dx = Math.abs(e.clientX - this._startX);
-        const dy = Math.abs(e.clientY - this._startY);
-        if (dx > 10 || dy > 10) {
-          if (this._timerLongPress) {
-            clearTimeout(this._timerLongPress);
-            this._timerLongPress = null;
-          }
-        }
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    if (this._isDay(target)) this._updateActive(target, true);
 
-        const target = document.elementFromPoint(e.clientX, e.clientY);
-        this._handleTouchUpdate(target, false);
-      },
-      { passive: true, signal: this.signal }
-    );
-
-    vp.addEventListener(
-      'pointerup',
-      (e) => {
-        if (e.pointerType === 'mouse') return;
-
-        const deltaY = e.clientY - this._startY;
-        const duration = performance.now() - this._startTime;
-
-        if (Math.abs(deltaY) > 100 && duration < 300) {
-          this._triggerRandomize();
-        } else {
-          const now = performance.now();
-          if (now - this._lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
-            this.engine.plugins.get('ThemePlugin')?.cycleTheme();
-            this.triggerHaptic('success');
-            this._resetInteraction(true);
-            this._lastTapTime = 0;
-          } else {
-            this._lastTapTime = now;
-            this._scheduleLinger();
-          }
-        }
-
-        this._isTouching = false;
-        if (this._timerLongPress) clearTimeout(this._timerLongPress);
-      },
-      { passive: true, signal: this.signal }
-    );
-
-    vp.addEventListener(
-      'pointercancel',
+    this._setTimer(
+      'longPress',
       () => {
-        this._isTouching = false;
-        this._resetInteraction(true);
-      },
-      { passive: true, signal: this.signal }
-    );
-
-    vp.addEventListener(
-      'mouseover',
-      (e) => {
-        if (this._isTouching || !this.hasHover) return;
-        if (this.isValidDay(e.target)) {
-          this.tooltipPlugin?.showTooltipForElement(e.target, false);
+        if (this._isTouching && !this._hasMoved(e.clientX, e.clientY)) {
+          this._trigger('reset');
         }
       },
-      { passive: true, signal: this.signal }
+      LONG_PRESS_DURATION_MS
     );
   }
 
-  _handleTouchUpdate(target, isPressing) {
-    if (!this.isValidDay(target)) return;
-    if (this._activeElement !== target) {
-      this._resetVisuals();
-      this._activeElement = target;
-      target.classList.add('tr-is-touch-active');
-      if (isPressing) target.classList.add('tr-is-pressing');
+  _onMove(e) {
+    if (!this._isTouching || e.pointerType === 'mouse') return;
 
-      this.tooltipPlugin?.showTooltipForElement(target, true);
+    const now = performance.now();
+    const dt = now - this._tracking.lastMoveTime;
+    if (dt > 16) {
+      const dist = Math.hypot(
+        e.clientX - (this._tracking.lastX || e.clientX),
+        e.clientY - (this._tracking.lastY || e.clientY)
+      );
+      this._tracking.velocity = dist / dt;
+      this._tracking.lastMoveTime = now;
+      this._tracking.lastX = e.clientX;
+      this._tracking.lastY = e.clientY;
+    }
 
-      // 3. Adaptive Haptics: Stronger vibration for start of month/Monday
-      const isBoundary = target.classList.contains('tr-day--monday') || target.dataset.trDate.includes(' 1,');
-      this.triggerHaptic(isBoundary ? 'boundary' : 'scrub');
+    if (this._hasMoved(e.clientX, e.clientY)) this._clearTimer('longPress');
+
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    if (this._isDay(target)) this._updateActive(target, false);
+  }
+
+  _onUp(e) {
+    if (e.pointerType === 'mouse') return;
+    this._isTouching = false;
+
+    const duration = performance.now() - this._tracking.startTime;
+    if (Math.abs(e.clientY - this._tracking.startY) > 100 && duration < 300) {
+      this._trigger('random');
+    } else {
+      this._handleTap();
     }
   }
 
-  _triggerRandomize() {
-    const devTools = this.engine.plugins.get('DevToolsPlugin');
-    if (devTools) {
-      devTools.randomizeThemeNowAndLocale();
-      this.triggerHaptic('success');
-      this.engine.viewport.classList.add('tr-theme-pulse');
-      setTimeout(() => this.engine.viewport.classList.remove('tr-theme-pulse'), 600);
+  _handleTap() {
+    const now = performance.now();
+    if (now - this._lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
+      this._trigger('theme');
+    } else {
+      this._lastTapTime = now;
+      this._scheduleLinger();
     }
-    this._resetInteraction(true);
   }
 
-  _scheduleLinger() {
-    this._clearLinger();
-    // 4. Dynamic Linger: Longer if scrubbing was slow (reading), shorter if fast
-    const dynamicDuration = clamp(2500 - this._velocity * 500, 1000, 3000);
-
-    this._timerLinger = setTimeout(() => this._resetInteraction(true), dynamicDuration);
-    if (this.tooltipPlugin) this.tooltipPlugin.scheduleHide(dynamicDuration);
+  _onHover(e) {
+    if (this._isTouching || !this.hasHover) return;
+    if (this._isDay(e.target)) this.tooltip?.showTooltipForElement(e.target, false);
   }
 
-  _resetVisuals() {
+  _onKey(e) {
+    if (this.engine.viewport?.contains(e.target)) return;
+    const key = e.key.toLowerCase();
+    const actions = { c: 'theme', x: 'reset', r: 'random' };
+    if (actions[key]) this._trigger(actions[key]);
+  }
+
+  // --- Logic Helpers ---
+
+  _updateActive(el, pressing) {
+    if (this._activeElement === el || !this._isDay(el)) return;
+    this._resetVisualsOnly();
+    this._activeElement = el;
+    el.classList.add('tr-is-touch-active');
+    if (pressing) el.classList.add('tr-is-pressing');
+
+    this.tooltip?.showTooltipForElement(el, true);
+
+    const isBoundary = el.dataset.trDate?.includes(' 1,') || el.classList.contains('tr-day--monday');
+    this._vibrate(isBoundary ? 'boundary' : 'scrub');
+  }
+
+  _resetVisualsOnly() {
     if (this._activeElement) {
       this._activeElement.classList.remove('tr-is-touch-active', 'tr-is-pressing');
     }
   }
 
-  _resetInteraction(immediate = false) {
-    if (this._timerLongPress) clearTimeout(this._timerLongPress);
-    if (immediate) {
-      this._clearLinger();
-      this._resetVisuals();
-      this._activeElement = null;
-      this.tooltipPlugin?.hideTooltip();
+  _scheduleLinger() {
+    this._clearTimer('linger');
+    const schedule = () => {
+      const ms = Math.max(1000, Math.min(2500, 2000 - this._tracking.velocity * 400));
+      this._setTimer('linger', () => this._reset(true), ms);
+      this.tooltip?.scheduleHide(ms);
+    };
+
+    if ('requestIdleCallback' in window) window.requestIdleCallback(schedule);
+    else schedule();
+  }
+
+  _trigger(action) {
+    const p = this.engine.plugins;
+    if (action === 'theme') p.get('ThemePlugin')?.cycleTheme();
+    if (action === 'reset') p.get('DevToolsPlugin')?.resetToDefaults();
+    if (action === 'random') {
+      p.get('DevToolsPlugin')?.randomizeThemeNowAndLocale();
+      this.engine.viewport.classList.add('tr-theme-pulse');
+      setTimeout(() => this.engine.viewport.classList.remove('tr-theme-pulse'), 600);
     }
+    this._vibrate('success');
+    this._reset(true);
   }
 
-  _clearLinger() {
-    if (this._timerLinger) clearTimeout(this._timerLinger);
-    this._timerLinger = null;
+  _isDay(el) {
+    return el?.classList?.contains('tr-day') && !el.classList.contains('tr-day--filler');
+  }
+  _hasMoved(x, y) {
+    return Math.hypot(x - this._tracking.startX, y - this._tracking.startY) > 10;
   }
 
-  setupKeyboardControls() {
-    window.addEventListener(
-      'keydown',
-      (e) => {
-        if (this.engine.viewport && this.engine.viewport.contains(e.target)) return;
-        const key = e.key.toLowerCase();
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          if (key === 'c') {
-            this.engine.plugins.get('ThemePlugin')?.cycleTheme();
-            this.triggerHaptic('success');
-          } else if (key === 'x') {
-            this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
-            this.triggerHaptic('success');
-          } else if (key === 'r') {
-            this._triggerRandomize();
-          }
-        }
-      },
-      { signal: this.signal }
-    );
-  }
-
-  triggerHaptic(type) {
+  _vibrate(type) {
     if (!navigator.vibrate) return;
-    if (type === 'boundary') navigator.vibrate([15, 30, 15]);
-    else if (type === 'success') navigator.vibrate(HAPTIC_SUCCESS_MS);
-    else navigator.vibrate(HAPTIC_SCRUB_MS);
+    const patterns = { scrub: HAPTIC_SCRUB_MS, success: HAPTIC_SUCCESS_MS, boundary: [15, 30, 15] };
+    navigator.vibrate(patterns[type] || HAPTIC_SCRUB_MS);
   }
-
-  destroy() {
-    this._resetInteraction(true);
-    super.destroy();
-  }
-}
-
-function clamp(val, min, max) {
-  return Math.max(min, Math.min(max, val));
 }

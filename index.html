@@ -232,28 +232,29 @@
       @keyframes tr-theme-pulse-anim {
         0% {
           transform: scale(1);
+          filter: brightness(1);
         }
         50% {
-          transform: scale(1.006);
+          transform: scale(0.99);
+          filter: brightness(1.1);
         }
         100% {
           transform: scale(1);
+          filter: brightness(1);
         }
       }
+
       .tr-theme-pulse {
-        animation: tr-theme-pulse-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        animation: tr-theme-pulse-anim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
       }
 
       .tr-day {
         width: 100%;
         height: 100%;
         border-radius: var(--tr-radius-standard);
-        /* Animate only essential properties */
-        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth);
-        transition-delay: var(--tr-delay, 0ms);
+        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
+          transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
         position: relative;
-        overflow: visible;
-        /* Containment to isolate layout/paint */
         contain: layout style paint;
         outline: none;
 
@@ -290,15 +291,14 @@
         }
 
         /* Touch/drag transitions rely on explicit classes to avoid sticky :hover on touch */
-        &.tr-is-touch-active {
-          transform: translateY(-1px) scale(1.01);
-          will-change: transform;
+        .tr-is-touch-active,
+        .tr-is-dragging {
+          transform: translateY(-2px) scale(1.05);
           z-index: 20;
           opacity: 1 !important;
           background-color: var(--tr-color-hover-adaptive);
           box-shadow: var(--tr-shadow-lift);
-          transition: transform 0.15s ease-out, background-color 0.15s ease-out, opacity 0.15s ease-out;
-          transition-delay: 0ms !important;
+          transition-duration: 150ms;
         }
 
         &.tr-is-dragging {
@@ -313,9 +313,9 @@
         }
 
         /* Press feedback */
-        &.tr-is-pressing {
-          transform: translateY(0) scale(0.995) !important;
-          transition: transform 0.08s ease-out !important;
+        .tr-day.tr-is-pressing {
+          transform: translateY(0) scale(0.96) !important;
+          transition-duration: 80ms !important;
         }
 
         &.tr-day--monday::after {
@@ -399,6 +399,7 @@
 
       #tr-tooltip {
         position: fixed;
+        inset: 0 auto auto 0; /* Mengunci anchor di pojok kiri atas untuk kalkulasi translate JS */
         pointer-events: none;
         background: var(--tr-tooltip-bg);
         backdrop-filter: blur(16px);
@@ -408,20 +409,23 @@
         font-weight: 600;
         color: var(--tr-tooltip-text);
         opacity: 0;
-        transition: opacity 0.3s ease-out;
-        z-index: 100;
+        z-index: 10000;
         max-width: min(420px, calc(100dvw - 24px - var(--tr-safe-left) - var(--tr-safe-right)));
-        max-height: calc(100dvh - 24px - var(--tr-safe-top) - var(--tr-safe-bottom));
         overflow: hidden;
         white-space: nowrap;
-        text-overflow: ellipsis;
-        /* Always enable GPU acceleration to prevent jank/flicker */
-        will-change: transform, opacity;
-        transform: translateZ(0);
+
+        /* Performa: Individual Transform Properties */
+        translate: 0 0;
+        will-change: translate, opacity;
+
+        /* Transisi halus untuk pergerakan magnetic snap */
+        transition: opacity 150ms ease-out, translate 100ms cubic-bezier(0.22, 1, 0.36, 1);
+
         box-shadow: var(--tr-shadow-tooltip);
         border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
-        /* Isolate for paint containment */
         contain: layout style paint;
+        display: flex;
+        flex-direction: column;
       }
 
       #tr-tooltip .tr-tip-line {
@@ -489,9 +493,13 @@
 
         /* Keep today emphasis tidy on small screens */
         .tr-day.tr-day--today {
+          background-color: var(--tr-color-today) !important;
+          opacity: 1 !important;
           box-shadow: 0 0 0 2px var(--tr-bg-system),
-            0 0 0 4px color-mix(in oklch, var(--tr-color-bar-adaptive) var(--tr-today-ring-mix, 55%), transparent),
-            0 10px 22px oklch(from var(--tr-base-hex) 0.2 0.1 h / calc(var(--tr-today-shadow-alpha, 0.28) * 0.85));
+            0 0 0 5px color-mix(in oklch, var(--tr-color-bar-adaptive) var(--tr-today-ring-mix, 55%), transparent),
+            0 14px 34px oklch(from var(--tr-base-hex) 0.2 0.1 h / var(--tr-today-shadow-alpha, 0.28));
+          z-index: 10;
+          border-radius: 3px;
         }
 
         .tr-now-indicator {
