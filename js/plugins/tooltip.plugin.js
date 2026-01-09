@@ -74,7 +74,7 @@ export class TooltipPlugin extends TracePlugin {
       const clientY = this._pendingY;
       const isTouch = this._pendingIsTouch;
 
-      const pad = 12;
+      const pad = 16;
       const safeTop = pxVar('--tr-safe-top');
       const safeRight = pxVar('--tr-safe-right');
       const safeBottom = pxVar('--tr-safe-bottom');
@@ -92,7 +92,9 @@ export class TooltipPlugin extends TracePlugin {
       const maxX = window.innerWidth - safeRight - pad - w / 2;
       x = clamp(x, minX, maxX);
 
-      const vOffset = pxVar('--tr-tooltip-vertical-offset') || 40;
+      // Touch needs more offset to avoid finger covering tooltip
+      const baseOffset = pxVar('--tr-tooltip-vertical-offset') || 40;
+      const vOffset = isTouch ? baseOffset + 20 : baseOffset;
       const topBound = safeTop + pad;
       const bottomBound = window.innerHeight - safeBottom - pad;
 
@@ -105,10 +107,14 @@ export class TooltipPlugin extends TracePlugin {
       const spaceAbove = aboveAnchorY - topBound;
       const spaceBelow = bottomBound - belowAnchorY;
 
+      // For touch, prefer showing above to avoid covering the tapped element
+      // For mouse, use space-based logic
       let placeBelow;
-      if (aboveFits) placeBelow = false;
-      else if (belowFits) placeBelow = true;
-      else placeBelow = spaceBelow > spaceAbove;
+      if (isTouch) {
+        placeBelow = aboveFits ? false : belowFits ? true : spaceBelow > spaceAbove + 20;
+      } else {
+        placeBelow = aboveFits ? false : belowFits ? true : spaceBelow > spaceAbove;
+      }
 
       if (placeBelow) {
         y = clamp(belowAnchorY, topBound, bottomBound - h);

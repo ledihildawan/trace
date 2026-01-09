@@ -247,10 +247,11 @@ export class InteractionPlugin extends TracePlugin {
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
-      // Allow a more-sensitive drag start when the press originated on a day
-      const effectiveThreshold = this._pressedElement
-        ? Math.max(8, Math.floor(DRAG_THRESHOLD_PX / 3))
-        : DRAG_THRESHOLD_PX;
+      // Adaptive drag threshold: more sensitive on day cells, account for touch accuracy
+      // High DPR devices (phones) get slightly lower threshold for better responsiveness
+      const dpr = window.devicePixelRatio || 1;
+      const baseThreshold = this._pressedElement ? Math.max(8, Math.floor(DRAG_THRESHOLD_PX / 3)) : DRAG_THRESHOLD_PX;
+      const effectiveThreshold = dpr > 2 ? Math.max(6, baseThreshold - 2) : baseThreshold;
       if (dx * dx + dy * dy > effectiveThreshold * effectiveThreshold) {
         isDragging = true;
         // No RAF cancellation here — rely on ignoreHover/isDragging guards.
@@ -323,9 +324,12 @@ export class InteractionPlugin extends TracePlugin {
         const themePlugin = this.engine.plugins.get('ThemePlugin');
 
         // Double tap → cycle theme
+        // More forgiving distance threshold for larger touch targets
         const now = performance.now();
         const tappedQuickly = now - lastTapTime < DOUBLE_TAP_MAX_DELAY_MS;
-        const tappedNearby = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < DOUBLE_TAP_MAX_DISTANCE_PX;
+        const tapDistance = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY);
+        const maxDistance = Math.max(DOUBLE_TAP_MAX_DISTANCE_PX, 60); // Minimum 60px for touch accuracy
+        const tappedNearby = tapDistance < maxDistance;
 
         if (!isDragging && !longPressTriggered && !pinchTriggered && tappedQuickly && tappedNearby) {
           // Double tap detected - hide tooltip and cycle theme
@@ -510,7 +514,7 @@ export class InteractionPlugin extends TracePlugin {
         lastMouseOverTargetId = target;
 
         if (this.isValidDay(target)) {
-          // Cancel any pending gap hide timer
+          // Cancel any pending gap hide timer - tooltip stays visible smoothly
           if (gapHideTimer) {
             clearTimeout(gapHideTimer);
             gapHideTimer = null;
@@ -518,10 +522,12 @@ export class InteractionPlugin extends TracePlugin {
           // Update observed dwell time if we just crossed a gap
           if (gapEnterTime) {
             const spent = performance.now() - gapEnterTime;
-            // EWMA update (alpha = 0.2)
+            // EWMA update (alpha = 0.2) - learn user's natural hover pace
             dwellEwma = dwellEwma * 0.8 + spent * 0.2;
             gapEnterTime = 0;
           }
+          // Cancel any previously scheduled tooltip hide for instant feedback
+          if (this.tooltipPlugin) this.tooltipPlugin.cancelHide();
           const dateText = target.dataset.trDate;
           const infoText = target.dataset.trInfo;
           if (this.tooltipPlugin) {
@@ -586,15 +592,18 @@ export class InteractionPlugin extends TracePlugin {
       'mouseout',
       (e) => {
         if (!this.hasHover) return;
-        if (!this.engine.viewport.contains(e.relatedTarget)) {
-          // Mouse left viewport: clear timer and hide immediately
+        // Only hide if truly leaving the viewport (not just to another element)
+        if (!this.engine.viewport.contains(e.relatedTarget) && e.relatedTarget !== null) {
+          // Brief delay before hiding to handle edge jitter
           if (gapHideTimer) {
             clearTimeout(gapHideTimer);
-            gapHideTimer = null;
           }
-          if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
-          tooltipVisible = false;
-          hoveredDayEl = null;
+          gapHideTimer = setTimeout(() => {
+            if (this.tooltipPlugin) this.tooltipPlugin.hideTooltip();
+            tooltipVisible = false;
+            hoveredDayEl = null;
+            gapHideTimer = null;
+          }, 50); // Short grace period for accidental edge exits
         }
       },
       { signal: this.signal }
@@ -644,8 +653,13 @@ export class InteractionPlugin extends TracePlugin {
           if (targetCell && !targetCell.classList.contains('tr-day--filler')) {
             e.preventDefault();
             targetCell.focus();
+            // Enhanced screen reader feedback with position context
             if (this.engine.srStatus) {
-              this.engine.srStatus.textContent = targetCell.getAttribute('aria-label');
+              const label = targetCell.getAttribute('aria-label');
+              const position = `${targetIndex + 1} of ${
+                this.engine.gridCells.filter((c) => !c.classList.contains('tr-day--filler')).length
+              }`;
+              this.engine.srStatus.textContent = `${label}, ${position}`;
             }
           }
         }
@@ -690,7 +704,8 @@ export class InteractionPlugin extends TracePlugin {
   triggerHaptic(type) {
     if (!navigator.vibrate) return;
     const now = performance.now();
-    const minGap = type === 'scrub' ? 90 : 350;
+    // Refined timing: scrub slightly more frequent for better tactile feedback
+    const minGap = type === 'scrub' ? 75 : 350;
     if (now - (this._lastHapticAt[type] ?? 0) < minGap) return;
     this._lastHapticAt[type] = now;
     navigator.vibrate(type === 'scrub' ? HAPTIC_SCRUB_MS : HAPTIC_SUCCESS_MS);
