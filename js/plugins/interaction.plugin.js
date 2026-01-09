@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// REWRITE: State Machine Driven Interaction (Scrub vs Scroll vs Tap)
+// FIXED: Increased Jitter Tolerance (Anti-Flicker on Quick Taps)
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -10,16 +10,15 @@ import {
 import { TracePlugin } from '../core/plugin-manager.js';
 
 // --- CONFIGURATION ---
-const LINGER_DURATION = 1500; // Waktu tooltip & highlight bertahan setelah jari diangkat
-const GESTURE_LOCK_THRESHOLD = 8; // Pixel gerakan sebelum menentukan Scroll vs Scrub
+const LINGER_DURATION = 1500;
+// UPDATE: Dinaikkan dari 8 ke 16 agar sentuhan yang sedikit goyang tidak dianggap scroll
+const GESTURE_LOCK_THRESHOLD = 16;
 
 export class InteractionPlugin extends TracePlugin {
   constructor() {
     super('InteractionPlugin');
 
-    // STATE MACHINE
-    // States: 'IDLE' | 'MEASURING' | 'SCRUBBING' | 'SCROLLING' | 'COOLDOWN'
-    this._state = 'IDLE';
+    this._state = 'IDLE'; // 'IDLE' | 'MEASURING' | 'SCRUBBING' | 'SCROLLING'
 
     // Tracking Data
     this._startX = 0;
@@ -28,7 +27,7 @@ export class InteractionPlugin extends TracePlugin {
     this._lastTapTime = 0;
 
     // Element References
-    this._activeElement = null; // Element yang sedang di-highlight
+    this._activeElement = null;
 
     // Timers
     this._timers = {
@@ -47,7 +46,6 @@ export class InteractionPlugin extends TracePlugin {
   init(engine) {
     super.init(engine);
 
-    // Detect Hover
     this._hoverMql = window.matchMedia('(hover: hover)');
     this.hasHover = this._hoverMql.matches;
     this._hoverMql.addEventListener(
@@ -60,9 +58,7 @@ export class InteractionPlugin extends TracePlugin {
 
     this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
 
-    // CSS: Izinkan browser menangani scroll vertikal, kita handle horizontal
     this.engine.viewport.style.touchAction = 'pan-y';
-    // Mencegah menu konteks klik kanan pada mobile saat tahan lama
     this.engine.viewport.style.userSelect = 'none';
     this.engine.viewport.style.webkitUserSelect = 'none';
 
@@ -78,7 +74,6 @@ export class InteractionPlugin extends TracePlugin {
   // --- STATE MANAGEMENT ---
 
   _setState(newState) {
-    // console.log(`State Change: ${this._state} -> ${newState}`);
     this._state = newState;
   }
 
@@ -90,7 +85,6 @@ export class InteractionPlugin extends TracePlugin {
   }
 
   _resetVisuals(immediate = false) {
-    // Fungsi ini menghapus semua highlight visual
     const clear = () => {
       if (this._activeElement) {
         this._activeElement.classList.remove('tr-is-touch-active');
@@ -103,43 +97,38 @@ export class InteractionPlugin extends TracePlugin {
     if (immediate) {
       clear();
     } else {
-      // Hapus nanti (saat cooldown selesai)
       this._timers.linger = setTimeout(clear, LINGER_DURATION);
     }
   }
 
-  // --- POINTER EVENTS (Core Logic) ---
+  // --- POINTER EVENTS ---
 
   setupPointerEvents() {
     const vp = this.engine.viewport;
 
-    // 1. POINTER DOWN: Mulai Mengukur
+    // 1. POINTER DOWN
     vp.addEventListener(
       'pointerdown',
       (e) => {
-        if (e.pointerType === 'mouse') return; // Mouse ditangani terpisah via hover
+        if (e.pointerType === 'mouse') return;
 
-        // Reset total
         this._clearTimers();
-        this._resetVisuals(true); // Hapus sisa highlight lama instan
-        this.tooltipPlugin?.cancelHide(); // Jangan sembunyikan tooltip jika ada
+        this._resetVisuals(true);
+        this.tooltipPlugin?.cancelHide();
 
         this._activePointerId = e.pointerId;
         this._startX = e.clientX;
         this._startY = e.clientY;
 
-        // Hit Test Awal
         const target = document.elementFromPoint(e.clientX, e.clientY);
 
         if (this.isValidDay(target)) {
-          // OPTIMISTIC UI: Langsung nyalakan highlight & tooltip
-          // Ini menjawab komplain "tidak ada perubahan saat disentuh"
+          // Visual feedback INSTAN saat disentuh
           this._setActiveElement(target, 'press');
         }
 
         this._setState('MEASURING');
 
-        // Long Press Timer
         this._timers.longPress = setTimeout(() => {
           if (this._state === 'MEASURING' || this._state === 'SCRUBBING') {
             this._handleLongPress();
@@ -149,7 +138,7 @@ export class InteractionPlugin extends TracePlugin {
       { passive: true, signal: this.signal }
     );
 
-    // 2. POINTER MOVE: Tentukan Niat (Scroll vs Scrub)
+    // 2. POINTER MOVE
     vp.addEventListener(
       'pointermove',
       (e) => {
@@ -158,31 +147,28 @@ export class InteractionPlugin extends TracePlugin {
         const x = e.clientX;
         const y = e.clientY;
 
-        // Logic 1: Mode MEASURING (Belum tahu user mau ngapain)
         if (this._state === 'MEASURING') {
           const dx = Math.abs(x - this._startX);
           const dy = Math.abs(y - this._startY);
           const dist = Math.hypot(dx, dy);
 
+          // Hanya kunci gesture jika gerakan SUDAH CUKUP BESAR (> 16px)
           if (dist > GESTURE_LOCK_THRESHOLD) {
-            // User sudah bergerak cukup jauh, tentukan arah
             if (dx > dy) {
-              // Gerak Horizontal -> SCRUBBING
+              // Gerak Horizontal -> LOCK SCRUB
               this._setState('SCRUBBING');
-              vp.setPointerCapture(e.pointerId); // Kunci pointer agar tidak scroll
+              vp.setPointerCapture(e.pointerId);
               this._updateScrub(x, y);
             } else {
-              // Gerak Vertikal -> SCROLLING
+              // Gerak Vertikal -> SCROLL
+              // Kita batalkan interaksi highlight karena user mau scroll
               this._setState('SCROLLING');
-              this._cancelInteraction(); // Matikan semua highlight
-              // Jangan capture pointer, biarkan browser scroll native
+              this._cancelInteraction();
             }
           }
-        }
-
-        // Logic 2: Mode SCRUBBING (Sudah terkunci horizontal)
-        else if (this._state === 'SCRUBBING') {
-          // Gunakan RAF untuk performa tinggi
+          // Jika dist < threshold, kita biarkan status MEASURING.
+          // Highlight TETAP NYALA (tr-is-touch-active aman).
+        } else if (this._state === 'SCRUBBING') {
           this._pendingX = x;
           this._pendingY = y;
           if (!this._rafPending) {
@@ -197,20 +183,18 @@ export class InteractionPlugin extends TracePlugin {
       { passive: true, signal: this.signal }
     );
 
-    // 3. POINTER UP: Selesai
+    // 3. POINTER UP
     vp.addEventListener(
       'pointerup',
       (e) => {
         if (e.pointerType === 'mouse' || this._activePointerId !== e.pointerId) return;
 
-        // Jika Tap Cepat (masih MEASURING)
+        // Jika masih MEASURING (artinya gerakan < threshold), anggap sebagai TAP
         if (this._state === 'MEASURING') {
           this._handleTap();
         }
 
-        // Mulai fase pendinginan (Linger)
-        // Ini menjawab "cepat sekali hilangnya"
-        this._startLinger();
+        this._startLinger(); // Mulai timer hilang perlahan
 
         if (vp.hasPointerCapture(e.pointerId)) {
           vp.releasePointerCapture(e.pointerId);
@@ -222,7 +206,7 @@ export class InteractionPlugin extends TracePlugin {
       { passive: true, signal: this.signal }
     );
 
-    // 4. POINTER CANCEL (Browser mengambil alih, misal scroll)
+    // 4. POINTER CANCEL
     vp.addEventListener(
       'pointercancel',
       () => {
@@ -232,30 +216,26 @@ export class InteractionPlugin extends TracePlugin {
       { passive: true, signal: this.signal }
     );
 
-    // --- HOVER DELEGATE (Untuk Mouse Desktop) ---
     this.setupHoverDelegate();
   }
 
-  // --- ACTIONS & LOGIC ---
+  // --- ACTIONS ---
 
   _setActiveElement(el, type = 'drag') {
-    if (this._activeElement === el) return; // Tidak ada perubahan
+    if (this._activeElement === el) return;
 
-    // Bersihkan elemen sebelumnya
     if (this._activeElement) {
       this._activeElement.classList.remove('tr-is-touch-active');
       this._activeElement.classList.remove('tr-is-dragging');
       this._activeElement.classList.remove('tr-is-pressing');
     }
 
-    // Set elemen baru
     this._activeElement = el;
-    el.classList.add('tr-is-touch-active'); // Kelas utama untuk styling
+    el.classList.add('tr-is-touch-active');
 
     if (type === 'press') el.classList.add('tr-is-pressing');
     if (type === 'drag') el.classList.add('tr-is-dragging');
 
-    // Tampilkan Tooltip (Magnetic Snap)
     if (this.tooltipPlugin) {
       this.tooltipPlugin.showTooltipForElement(el, true);
     }
@@ -273,47 +253,42 @@ export class InteractionPlugin extends TracePlugin {
 
   _handleTap() {
     const now = performance.now();
+    // Deteksi Double Tap
     if (now - this._lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
-      // DOUBLE TAP
       this.engine.plugins.get('ThemePlugin')?.cycleTheme();
       this.triggerHaptic('success');
-      this._cancelInteraction(); // Sembunyikan tooltip segera pada double tap
-    } else {
-      // SINGLE TAP
-      // Tidak perlu melakukan apa-apa karena tooltip sudah muncul saat PointerDown
+      this._cancelInteraction(); // Double tap sukses -> reset UI
     }
+    // Single tap tidak perlu aksi khusus karena highlight sudah nyala di PointerDown
     this._lastTapTime = now;
   }
 
   _handleLongPress() {
     this.triggerHaptic('success');
     this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
-    this._cancelInteraction(); // Reset UI setelah aksi sukses
+    this._cancelInteraction();
   }
 
   _startLinger() {
-    // SINKRONISASI: Tooltip dan Visual Highlight hilang bersamaan
     if (this.tooltipPlugin) {
       this.tooltipPlugin.scheduleHide(LINGER_DURATION);
     }
-    // Hapus kelas visual setelah durasi yang sama
-    this._resetVisuals(false); // false = gunakan delay
+    this._resetVisuals(false); // Delay cleanup
   }
 
   _cancelInteraction() {
     this._clearTimers();
-    this._resetVisuals(true); // true = hapus segera
+    this._resetVisuals(true); // Immediate cleanup
     this.tooltipPlugin?.hideTooltip();
   }
 
-  // --- CONTROLS LAIN (Keyboard/Mouse) ---
+  // --- DESKTOP CONTROLS ---
 
   setupHoverDelegate() {
-    // Mouse Interaction (Desktop)
     this.engine.viewport.addEventListener(
       'mouseover',
       (e) => {
-        if (!this.hasHover) return; // Abaikan di touch device
+        if (!this.hasHover) return;
         const target = e.target;
         if (this.isValidDay(target)) {
           if (this.tooltipPlugin) this.tooltipPlugin.showTooltipForElement(target, false);
