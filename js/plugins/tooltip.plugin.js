@@ -1,5 +1,5 @@
 // TRACE Tooltip Plugin
-// REWRITE: Magnetic Snap Positioning (Element-Based)
+// Optimized with: Intra-Element Transitions & Collision Avoidance
 
 import { TracePlugin } from '../core/plugin-manager.js';
 import { clamp, pxVar } from '../core/utils.js';
@@ -28,10 +28,12 @@ export class TooltipPlugin extends TracePlugin {
       pointerEvents: 'none',
       willChange: 'transform, opacity',
       margin: '0',
+      display: 'flex',
+      flexDirection: 'column',
     });
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    el.style.transition = reduceMotion ? 'opacity 0ms' : 'opacity 150ms ease-out';
+    el.style.transition = reduceMotion ? 'opacity 0ms' : 'opacity 150ms ease-out, transform 0.1s ease-out';
   }
 
   showTooltipForElement(element, isTouch = false) {
@@ -42,6 +44,7 @@ export class TooltipPlugin extends TracePlugin {
     const info = element.dataset.trInfo;
     if (!date || !info) return;
 
+    // 5. Intra-Element Transition: Subtle cross-fade for content change
     this._updateContent(date, info);
 
     this.engine.tooltip.setAttribute('aria-hidden', 'false');
@@ -63,8 +66,13 @@ export class TooltipPlugin extends TracePlugin {
     const toolRect = this.engine.tooltip.getBoundingClientRect();
     const pad = 14;
 
+    // --- COLLISION AVOIDANCE: Horizontal Shift ---
     let centerX = rect.left + rect.width / 2;
-    centerX = clamp(centerX, pad + toolRect.width / 2, window.innerWidth - pad - toolRect.width / 2);
+    const minX = pad + toolRect.width / 2;
+    const maxX = window.innerWidth - pad - toolRect.width / 2;
+
+    // If tooltip would bleed off edge, shift it horizontally while keeping anchor
+    centerX = clamp(centerX, minX, maxX);
 
     const offset = this._isTouch ? 50 : 15;
     const topAnchor = rect.top - offset;
@@ -88,17 +96,25 @@ export class TooltipPlugin extends TracePlugin {
     const key = date + info;
     if (this.engine.tooltip.dataset.cache === key) return;
 
-    this.engine.tooltip.textContent = '';
-    const dSpan = document.createElement('span');
-    dSpan.className = 'tr-tip-line';
-    dSpan.textContent = date;
+    const el = this.engine.tooltip;
 
-    const iSpan = document.createElement('b');
-    iSpan.className = 'tr-tip-line';
-    iSpan.textContent = info;
+    // Simple fade-out-in transition for text
+    el.style.opacity = '0.4';
 
-    this.engine.tooltip.append(dSpan, iSpan);
-    this.engine.tooltip.dataset.cache = key;
+    setTimeout(() => {
+      el.textContent = '';
+      const dSpan = document.createElement('span');
+      dSpan.className = 'tr-tip-line';
+      dSpan.textContent = date;
+
+      const iSpan = document.createElement('b');
+      iSpan.className = 'tr-tip-line';
+      iSpan.textContent = info;
+
+      el.append(dSpan, iSpan);
+      el.style.opacity = '1';
+      el.dataset.cache = key;
+    }, 40);
   }
 
   hideTooltip() {
