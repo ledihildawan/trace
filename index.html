@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -8,22 +8,25 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TRACE - The Shape of Time</title>
-    <meta name="description" content="A meditative time landscape designed to silence digital noise." />
+    <meta
+      name="description"
+      content="Pemandangan waktu meditatif yang dirancang untuk membungkam kebisingan digital."
+    />
 
-    <!-- Google Fonts: Poppins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet" />
 
     <style>
-      /* Animatable CSS color property (Houdini) */
+      /* ==========================================================================
+         1. CSS VARIABLES & HOUDINI PROPERTIES
+         ========================================================================== */
       @property --tr-base-hex {
         syntax: '<color>';
         initial-value: #f6f2ea;
         inherits: true;
       }
 
-      /* Animatable decorative color (subliminal watermark) */
       @property --tr-color-year-subliminal {
         syntax: '<color>';
         initial-value: #111111;
@@ -31,64 +34,55 @@
       }
 
       :root {
+        /* Core Colors */
         --tr-base-hex: #f6f2ea;
-        /* Watermark / now-area defaults to ensure predictable initial render */
-        --tr-now-x: 50%;
-        --tr-now-y: 50%;
-        --tr-now-r1: 140px;
-        --tr-now-r2: 360px;
-        /* Watermark alpha tuning */
-        --tr-watermark-inner-alpha: 0.95;
-        --tr-watermark-outer-alpha: 0.3;
-        --tr-watermark-base-opacity: 0.31;
-        --tr-full-h: 100dvh;
         --tr-bg-system: oklch(from var(--tr-base-hex) 0.97 0.01 h);
         --tr-color-today: var(--tr-base-hex);
         --tr-color-past: oklch(from var(--tr-base-hex) 0.45 0.05 h);
         --tr-color-future: oklch(from var(--tr-base-hex) 0.93 0.02 h);
         --tr-color-ghost-label: oklch(from var(--tr-base-hex) 0.22 0.04 h);
         --tr-color-ghost-label-today: var(--tr-color-ghost-label);
-        /* Decorative watermark: derived from theme hue but kept subtle */
+        --tr-color-bar-adaptive: oklch(from var(--tr-base-hex) 0.3 0.1 h / 0.6);
+        --tr-color-hover-adaptive: var(--tr-base-hex);
+
+        /* Watermark & Decorative */
         --tr-color-year-subliminal: color-mix(
           in oklch,
           oklch(from var(--tr-base-hex) 0.22 0.05 h) 72%,
           var(--tr-bg-system) 28%
         );
         --tr-color-year-stroke: color-mix(in oklch, var(--tr-color-year-subliminal) 82%, var(--tr-bg-system) 18%);
-        --tr-color-bar-adaptive: oklch(from var(--tr-base-hex) 0.3 0.1 h / 0.6);
-        --tr-color-hover-adaptive: var(--tr-base-hex);
+        --tr-watermark-base-opacity: 0.31;
+        --tr-year-stroke-width: 12px;
+        --tr-year-letter-spacing: clamp(-0.06em, calc(-0.052em + 0.15vw), -0.028em);
+
+        /* Tooltip */
         --tr-tooltip-bg: oklch(from var(--tr-bg-system) 0.99 0.01 h / 0.98);
         --tr-tooltip-text: oklch(from var(--tr-base-hex) 0.18 0.02 h);
         --tr-tooltip-accent: oklch(from var(--tr-base-hex) 0.26 0.1 h);
 
-        /* Safe-area inset variables */
+        /* Layout & Metrics */
+        --tr-full-h: 100dvh;
         --tr-safe-top: env(safe-area-inset-top, 0px);
         --tr-safe-right: env(safe-area-inset-right, 0px);
         --tr-safe-bottom: env(safe-area-inset-bottom, 0px);
         --tr-safe-left: env(safe-area-inset-left, 0px);
+        --tr-radius-standard: 2px;
 
-        /* Unified tooltip vertical offset (middle-ground between desktop/touch) */
-        --tr-tooltip-vertical-offset: 40px;
-        /* Theme strength knobs (adapted in JS) */
-        --tr-watermark-boost-opacity: 0.22;
+        /* Shadows */
         --tr-today-ring-mix: 55%;
         --tr-today-shadow-alpha: 0.28;
-
-        --tr-year-stroke-width: 12px; /* Base fallback, dynamically updated by JS */
-        /* Responsive tracking: looser on small screens, tighter on large */
-        --tr-year-letter-spacing: clamp(-0.06em, calc(-0.052em + 0.15vw), -0.028em);
-
-        /* Global shadow tokens */
         --tr-shadow-lift: 0 6px 12px -10px oklch(from var(--tr-base-hex) 0.08 0.08 h / 0.22);
-        --tr-shadow-lift-touch: var(--tr-shadow-lift);
         --tr-shadow-tooltip: 0 15px 40px rgba(0, 0, 0, 0.1);
         --tr-shadow-progress: 0 0 clamp(4px, 1vw, 8px) var(--tr-color-bar-adaptive);
-        --tr-shadow-progress-touch: 0 0 clamp(3px, 0.9vw, 6px) var(--tr-color-bar-adaptive);
 
-        --tr-radius-standard: 2px;
+        /* Transitions */
         --tr-transition-smooth: 0.8s cubic-bezier(0.22, 1, 0.36, 1);
       }
 
+      /* ==========================================================================
+         2. GLOBAL RESET & BASE STYLES
+         ========================================================================== */
       *,
       *::before,
       *::after {
@@ -107,8 +101,8 @@
         justify-content: center;
         align-items: center;
         background-color: var(--tr-bg-system);
-        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        transition: background-color 1.2s ease, --tr-base-hex 1.2s ease, --tr-color-year-subliminal 1.2s ease;
+        font-family: 'Poppins', -apple-system, sans-serif;
+        transition: background-color 1.2s ease, --tr-base-hex 1.2s ease;
         overscroll-behavior: none;
       }
 
@@ -120,115 +114,222 @@
         width: 100%;
         height: 100%;
         isolation: isolate;
-
-        & #tr-viewport {
-          display: grid;
-          /* Grid containment for layout stability */
-          contain: layout style;
-          will-change: transform;
-          z-index: 2;
-          justify-content: center;
-          align-content: center;
-          transition: opacity 0.4s ease;
-          touch-action: none;
-        }
-
-        & #tr-year-watermark {
-          position: absolute;
-          z-index: 1;
-          font-weight: 900;
-          font-size: clamp(100px, 25vw, 450px);
-          color: transparent;
-          -webkit-text-fill-color: transparent;
-          -webkit-text-stroke: var(--tr-year-stroke-width) var(--tr-color-year-stroke);
-          text-shadow: 0 10px 36px oklch(from var(--tr-base-hex) 0.2 0.06 h / 0.22);
-          /* Keep watermark behind the grid so dates visually fill the outline */
-          mix-blend-mode: multiply;
-
-          /* Localized boost near "today" */
-          &::after {
-            content: attr(data-tr-year);
-            position: absolute;
-            inset: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font: inherit;
-            letter-spacing: inherit;
-            line-height: inherit;
-            color: transparent;
-            -webkit-text-fill-color: transparent;
-            -webkit-text-stroke: calc(var(--tr-year-stroke-width) * 0.55) var(--tr-color-year-subliminal);
-            mix-blend-mode: multiply;
-            opacity: var(--tr-watermark-boost-opacity, 0.22);
-            pointer-events: none;
-            user-select: none;
-
-            -webkit-mask-image: radial-gradient(
-              circle at var(--tr-now-x, 50%) var(--tr-now-y, 50%),
-              rgba(0, 0, 0, 1) 0%,
-              rgba(0, 0, 0, 1) calc(var(--tr-now-r1, 140px) * 0.6),
-              rgba(0, 0, 0, 0) calc(var(--tr-now-r1, 140px) * 1.15),
-              rgba(0, 0, 0, 0) 100%
-            );
-            mask-image: radial-gradient(
-              circle at var(--tr-now-x, 50%) var(--tr-now-y, 50%),
-              rgba(0, 0, 0, 1) 0%,
-              rgba(0, 0, 0, 1) calc(var(--tr-now-r1, 140px) * 0.6),
-              rgba(0, 0, 0, 0) calc(var(--tr-now-r1, 140px) * 1.15),
-              rgba(0, 0, 0, 0) 100%
-            );
-          }
-
-          /* Watermark fades near "now" */
-          -webkit-mask-image: radial-gradient(
-            circle at var(--tr-now-x, 50%) var(--tr-now-y, 50%),
-            rgba(0, 0, 0, var(--tr-watermark-inner-alpha, 0.95)) 0%,
-            rgba(0, 0, 0, var(--tr-watermark-inner-alpha, 0.95)) var(--tr-now-r1, 140px),
-            rgba(0, 0, 0, var(--tr-watermark-outer-alpha, 0.25)) var(--tr-now-r2, 360px),
-            rgba(0, 0, 0, var(--tr-watermark-outer-alpha, 0.25)) 100%
-          );
-          mask-image: radial-gradient(
-            circle at var(--tr-now-x, 50%) var(--tr-now-y, 50%),
-            rgba(0, 0, 0, var(--tr-watermark-inner-alpha, 0.95)) 0%,
-            rgba(0, 0, 0, var(--tr-watermark-inner-alpha, 0.95)) var(--tr-now-r1, 140px),
-            rgba(0, 0, 0, var(--tr-watermark-outer-alpha, 0.25)) var(--tr-now-r2, 360px),
-            rgba(0, 0, 0, var(--tr-watermark-outer-alpha, 0.25)) 100%
-          );
-          opacity: var(--tr-watermark-base-opacity, 0.28);
-          letter-spacing: var(--tr-year-letter-spacing);
-          pointer-events: none;
-          user-select: none;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          line-height: 0;
-          transform: translateZ(0);
-          transition: opacity var(--tr-transition-smooth);
-        }
-
-        /* Use viewport hover/focus to avoid flicker when cursor crosses grid gaps */
-        &:has(#tr-viewport:hover) #tr-year-watermark,
-        &:has(#tr-viewport:focus-within) #tr-year-watermark {
-          opacity: 0.21;
-        }
       }
 
-      html[data-tr-tone='dark'] #tr-year-watermark {
-        mix-blend-mode: screen;
+      #tr-viewport {
+        display: grid;
+        contain: layout style;
+        will-change: transform;
+        z-index: 2;
+        justify-content: center;
+        align-content: center;
+        transition: opacity 0.4s ease;
+        touch-action: pan-y;
+        user-select: none;
+        -webkit-user-select: none;
       }
 
+      /* ==========================================================================
+         3. GRID ITEMS (DAY CELLS)
+         ========================================================================== */
+      .tr-day {
+        width: 100%;
+        height: 100%;
+        border-radius: var(--tr-radius-standard);
+        position: relative;
+        outline: none;
+        contain: layout style paint;
+        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
+          transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      /* Day Variants */
+      .tr-day--past {
+        background-color: var(--tr-color-past);
+      }
+      .tr-day--future {
+        background-color: var(--tr-color-future);
+        box-shadow: inset 0 0 0 0.5px oklch(from var(--tr-base-hex) 0.8 0.02 h / 0.15);
+      }
+      .tr-day--filler {
+        opacity: 0.06;
+        background-color: var(--tr-color-past);
+        filter: grayscale(100%);
+        pointer-events: none;
+      }
+
+      /* Today Highlight */
+      .tr-day--today {
+        background-color: var(--tr-color-today) !important;
+        opacity: 1 !important;
+        box-shadow: 0 0 0 2px var(--tr-bg-system),
+          0 0 0 5px color-mix(in oklch, var(--tr-color-bar-adaptive) var(--tr-today-ring-mix, 55%), transparent),
+          0 14px 34px oklch(from var(--tr-base-hex) 0.2 0.1 h / var(--tr-today-shadow-alpha, 0.28));
+        z-index: 10;
+        border-radius: 3px;
+      }
+
+      /* Interaction States */
+      .tr-day:hover,
+      .tr-day.tr-is-touch-active {
+        transform: translateY(-2px) scale(1.05);
+        z-index: 20;
+        opacity: 1 !important;
+        background-color: var(--tr-color-hover-adaptive);
+        box-shadow: var(--tr-shadow-lift);
+      }
+
+      .tr-day.tr-is-pressing {
+        transform: translateY(0) scale(0.96) !important;
+        transition-duration: 80ms !important;
+        box-shadow: none !important;
+      }
+
+      /* Ghost Labels & Monday Indicators */
+      .tr-day--monday::after {
+        content: '';
+        position: absolute;
+        bottom: 12%;
+        left: 50%;
+        translate: -50% 0;
+        width: 2px;
+        height: 2px;
+        border-radius: 50%;
+        background-color: var(--tr-color-ghost-label);
+        opacity: 0.15;
+        pointer-events: none;
+      }
+
+      .tr-day[data-tr-ghost-label]::before {
+        content: attr(data-tr-ghost-label);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        translate: -50% -50%;
+        font-size: clamp(6px, 0.8vw, 11px);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        color: var(--tr-color-ghost-label);
+        opacity: var(--tr-ghost-label-opacity, 0.33);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      .tr-day.tr-is-touch-active[data-tr-ghost-label]::before,
+      .tr-day:hover[data-tr-ghost-label]::before {
+        color: var(--tr-color-ghost-label-today);
+        opacity: 0.5;
+      }
+
+      /* Progress Indicator */
+      .tr-now-indicator {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: clamp(1.5px, 0.4vh, 3px);
+        background-color: var(--tr-color-bar-adaptive);
+        width: 100%;
+        transform-origin: 0 50%;
+        transform: scaleX(0);
+        transition: transform 1s linear;
+        box-shadow: var(--tr-shadow-progress);
+      }
+      .tr-day--today .tr-now-indicator {
+        opacity: 0.95;
+      }
+
+      /* ==========================================================================
+         4. TOOLTIP SYSTEM (GPU OPTIMIZED)
+         ========================================================================== */
+      #tr-tooltip {
+        position: fixed;
+        inset: 0 auto auto 0;
+        z-index: 10000;
+        pointer-events: none;
+        background: var(--tr-tooltip-bg);
+        backdrop-filter: blur(16px);
+        padding: 10px 16px;
+        border-radius: 8px;
+        color: var(--tr-tooltip-text);
+        opacity: 0;
+        box-shadow: var(--tr-shadow-tooltip);
+        border: 1px solid oklch(from var(--tr-base-hex) 0.9 0.05 h / 0.5);
+
+        display: flex;
+        flex-direction: column;
+        contain: layout style paint;
+
+        translate: 0 0;
+        will-change: translate, opacity;
+        transition: opacity 150ms ease-out, translate 100ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      #tr-tooltip .tr-tip-line {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #tr-tooltip b.tr-tip-line {
+        color: var(--tr-tooltip-accent);
+        font-size: 85%;
+        margin-top: 4px;
+        text-transform: uppercase;
+      }
+
+      /* ==========================================================================
+         5. BACKGROUND WATERMARK
+         ========================================================================== */
+      #tr-year-watermark {
+        position: absolute;
+        z-index: 1;
+        font-weight: 900;
+        font-size: clamp(100px, 25vw, 450px);
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        -webkit-text-stroke: var(--tr-year-stroke-width) var(--tr-color-year-stroke);
+        text-shadow: 0 10px 36px oklch(from var(--tr-base-hex) 0.2 0.06 h / 0.22);
+        mix-blend-mode: multiply;
+        opacity: var(--tr-watermark-base-opacity, 0.28);
+        pointer-events: none;
+        user-select: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transform: translateZ(0);
+        transition: opacity var(--tr-transition-smooth);
+        -webkit-mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.25) 100%);
+        mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.25) 100%);
+      }
+
+      #tr-year-watermark::after {
+        content: attr(data-tr-year);
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font: inherit;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        -webkit-text-stroke: calc(var(--tr-year-stroke-width) * 0.55) var(--tr-color-year-subliminal);
+        mix-blend-mode: multiply;
+        opacity: 0.22;
+      }
+
+      html[data-tr-tone='dark'] #tr-year-watermark,
       html[data-tr-tone='dark'] #tr-year-watermark::after {
         mix-blend-mode: screen;
       }
 
-      :root:active .tr-day:not(.tr-is-pressing) {
-        transform: translateY(0) scale(1) !important;
-        transition-delay: 0ms !important;
-        box-shadow: none !important;
-        filter: none !important;
+      #tr-container:has(#tr-viewport:hover) #tr-year-watermark,
+      #tr-container:has(#tr-viewport:focus-within) #tr-year-watermark {
+        opacity: 0.21;
       }
 
+      /* ==========================================================================
+         6. ANIMATIONS & UTILITIES
+         ========================================================================== */
       @keyframes tr-theme-pulse-anim {
         0% {
           transform: scale(1);
@@ -248,188 +349,6 @@
         animation: tr-theme-pulse-anim 0.6s cubic-bezier(0.22, 1, 0.36, 1);
       }
 
-      .tr-day {
-        width: 100%;
-        height: 100%;
-        border-radius: var(--tr-radius-standard);
-        transition: background-color var(--tr-transition-smooth), opacity var(--tr-transition-smooth),
-          transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        position: relative;
-        contain: layout style paint;
-        outline: none;
-
-        &.tr-day--past {
-          background-color: var(--tr-color-past);
-        }
-        &.tr-day--future {
-          background-color: var(--tr-color-future);
-          box-shadow: inset 0 0 0 0.5px oklch(from var(--tr-base-hex) 0.8 0.02 h / 0.15);
-        }
-        &.tr-day--filler {
-          opacity: 0.06;
-          background-color: var(--tr-color-past);
-          filter: grayscale(100%);
-          pointer-events: none;
-        }
-        &.tr-day--today {
-          background-color: var(--tr-color-today) !important;
-          opacity: 1 !important;
-          box-shadow: 0 0 0 2px var(--tr-bg-system),
-            0 0 0 5px color-mix(in oklch, var(--tr-color-bar-adaptive) var(--tr-today-ring-mix, 55%), transparent),
-            0 14px 34px oklch(from var(--tr-base-hex) 0.2 0.1 h / var(--tr-today-shadow-alpha, 0.28));
-          z-index: 10;
-          border-radius: 3px;
-          transition-delay: 0ms !important;
-        }
-
-        /* Focus-visible styling */
-        &:focus-visible {
-          transform: translateY(-4px) scale(1.15);
-          z-index: 50;
-          box-shadow: 0 0 0 4px var(--tr-bg-system), 0 0 0 7px var(--tr-color-hover-adaptive),
-            0 15px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Touch/drag transitions rely on explicit classes to avoid sticky :hover on touch */
-        .tr-is-touch-active,
-        .tr-is-dragging {
-          transform: translateY(-2px) scale(1.05);
-          z-index: 20;
-          opacity: 1 !important;
-          background-color: var(--tr-color-hover-adaptive);
-          box-shadow: var(--tr-shadow-lift);
-          transition-duration: 150ms;
-        }
-
-        &.tr-is-dragging {
-          transform: translateY(-1px) scale(1.01);
-          will-change: transform;
-          z-index: 20;
-          opacity: 1 !important;
-          background-color: var(--tr-color-hover-adaptive);
-          box-shadow: var(--tr-shadow-lift);
-          transition: transform 0.15s ease-out, background-color 0.15s ease-out, opacity 0.15s ease-out;
-          transition-delay: 0ms !important;
-        }
-
-        /* Press feedback */
-        .tr-day.tr-is-pressing {
-          transform: translateY(0) scale(0.96) !important;
-          transition-duration: 80ms !important;
-        }
-
-        &.tr-day--monday::after {
-          content: '';
-          position: absolute;
-          bottom: 12%;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 2px;
-          height: 2px;
-          border-radius: 50%;
-          background-color: var(--tr-color-ghost-label);
-          opacity: 0.15;
-          z-index: 4;
-          pointer-events: none;
-        }
-        &[data-tr-ghost-label]::before {
-          content: attr(data-tr-ghost-label);
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          font-size: clamp(6px, 0.8vw, 11px);
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          color: var(--tr-color-ghost-label);
-          opacity: var(--tr-ghost-label-opacity, 0.33);
-          pointer-events: none;
-          white-space: nowrap;
-          z-index: 3;
-          transition: color var(--tr-transition-smooth);
-          transition-delay: inherit;
-        }
-        &.tr-day--today[data-tr-ghost-label]::before {
-          color: var(--tr-color-ghost-label-today);
-          opacity: 0.5;
-        }
-        &.tr-is-touch-active[data-tr-ghost-label]::before {
-          color: var(--tr-color-ghost-label-today);
-          opacity: 0.5;
-        }
-      }
-
-      /* Desktop hover-only styles — scoped so touch drag does not leave hover trails */
-      @media (hover: hover) and (pointer: fine) {
-        .tr-day:hover {
-          transform: translateY(-1px) scale(1.01);
-          will-change: transform;
-          z-index: 20;
-          opacity: 1 !important;
-          background-color: var(--tr-color-hover-adaptive);
-          box-shadow: var(--tr-shadow-lift);
-          transition: transform 0.15s ease-out, background-color 0.15s ease-out, opacity 0.15s ease-out;
-          transition-delay: 0ms !important;
-        }
-
-        .tr-day:hover[data-tr-ghost-label]::before {
-          color: var(--tr-color-ghost-label-today);
-          opacity: 0.5;
-        }
-      }
-
-      .tr-now-indicator {
-        position: absolute;
-        bottom: 0;
-        inset-inline-start: 0;
-        height: clamp(1.5px, 0.4vh, 3px);
-        background-color: var(--tr-color-bar-adaptive);
-        width: 100%;
-        transform-origin: 0 50%;
-        transform: scaleX(0);
-        transition: transform 1s linear;
-        will-change: transform;
-        z-index: 5;
-        box-shadow: var(--tr-shadow-progress);
-      }
-
-      .tr-day--today .tr-now-indicator {
-        opacity: 0.95;
-      }
-
-      #tr-tooltip {
-        position: fixed;
-        inset: 0 auto auto 0;
-        pointer-events: none;
-        background: var(--tr-tooltip-bg);
-        backdrop-filter: blur(16px);
-        padding: 10px 16px;
-        border-radius: 8px;
-        opacity: 0;
-        z-index: 10000;
-        translate: 0 0; /* Properti kunci untuk 120fps */
-        will-change: translate, opacity;
-        transition: opacity 150ms ease-out, translate 100ms cubic-bezier(0.22, 1, 0.36, 1);
-        display: flex;
-        flex-direction: column;
-        contain: layout style paint;
-      }
-
-      #tr-tooltip .tr-tip-line {
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-      }
-
-      #tr-tooltip b.tr-tip-line {
-        color: var(--tr-tooltip-accent);
-        font-size: 85%;
-        margin-top: 4px;
-        text-transform: uppercase;
-      }
-
       .tr-sr-only {
         position: absolute;
         width: 1px;
@@ -441,58 +360,14 @@
         border: 0;
       }
 
-      /* Respect prefers-reduced-motion */
       @media (prefers-reduced-motion: reduce) {
-        .tr-day {
-          transition: none !important;
-        }
-        .tr-day.tr-is-pressing {
-          transition: none !important;
-        }
-        .tr-day:hover,
-        .tr-day.tr-is-touch-active {
-          transition: none !important;
-          transform: none !important;
-        }
-        #tr-tooltip {
-          transition: none !important;
-        }
+        *,
+        .tr-day,
+        #tr-tooltip,
         .tr-theme-pulse {
+          transition: none !important;
           animation: none !important;
-        }
-      }
-
-      /* Touch device optimizations */
-      @media (pointer: coarse) {
-        .tr-day {
-          /* Disable hover transitions on touch - use class toggle instead */
-          transition: background-color 0.2s ease-out, opacity 0.2s ease-out;
-        }
-        .tr-day:hover {
-          transform: none;
-          box-shadow: none;
-        }
-        .tr-day.tr-is-touch-active {
-          transform: translateY(-2px) scale(1.05);
-          z-index: 20;
-          opacity: 1 !important;
-          background-color: var(--tr-color-hover-adaptive);
-          box-shadow: var(--tr-shadow-lift);
-        }
-
-        /* Keep today emphasis tidy on small screens */
-        .tr-day.tr-day--today {
-          background-color: var(--tr-color-today) !important;
-          opacity: 1 !important;
-          box-shadow: 0 0 0 2px var(--tr-bg-system),
-            0 0 0 5px color-mix(in oklch, var(--tr-color-bar-adaptive) var(--tr-today-ring-mix, 55%), transparent),
-            0 14px 34px oklch(from var(--tr-base-hex) 0.2 0.1 h / var(--tr-today-shadow-alpha, 0.28));
-          z-index: 10;
-          border-radius: 3px;
-        }
-
-        .tr-now-indicator {
-          box-shadow: var(--tr-shadow-progress-touch);
+          transform: none !important;
         }
       }
     </style>

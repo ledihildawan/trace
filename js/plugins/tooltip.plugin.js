@@ -1,16 +1,14 @@
 // TRACE Tooltip Plugin
-// Optimized: CSS Individual Transforms & High-Speed Snap
+// Modern Standard: Individual Transforms (ES2024+)
 
 import { TracePlugin } from '../core/plugin-manager.js';
 import { clamp, pxVar } from '../core/utils.js';
 
 export class TooltipPlugin extends TracePlugin {
-  constructor() {
-    super('TooltipPlugin');
-    this._target = null;
-    this._raf = null;
-    this._isTouch = false;
-  }
+  #target = null;
+  #raf = null;
+  #isTouch = false;
+  #hideTimer = null;
 
   init(engine) {
     super.init(engine);
@@ -20,94 +18,88 @@ export class TooltipPlugin extends TracePlugin {
       zIndex: '10000',
       pointerEvents: 'none',
       willChange: 'translate, opacity',
-      translate: '0 0', // Properti CSS Modern
+      translate: '0 0',
+      display: 'flex',
+      flexDirection: 'column',
     });
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.engine.tooltip.style.transition = reduce
+      ? 'opacity 0ms'
+      : 'opacity 150ms ease-out, translate 100ms cubic-bezier(0.22, 1, 0.36, 1)';
   }
 
   showTooltipForElement(el, isTouch = false) {
     if (!el) return;
-    this._isTouch = isTouch;
+    this.#isTouch = isTouch;
     this.cancelHide();
 
-    const cacheKey = el.dataset.trDate + el.dataset.trInfo;
-    if (this.engine.tooltip.dataset.cache !== cacheKey) {
-      this._render(el.dataset.trDate, el.dataset.trInfo);
+    if (this.engine.tooltip.dataset.cache !== el.dataset.trDate + el.dataset.trInfo) {
+      this.#render(el);
     }
 
     this.engine.tooltip.style.opacity = '1';
     this.engine.tooltip.setAttribute('aria-hidden', 'false');
-
-    this._target = el;
-    this._updatePosition();
+    this.#target = el;
+    this.updatePosition();
   }
 
-  _render(date, info) {
-    const el = this.engine.tooltip;
-    el.style.opacity = '0.4';
+  #render(el) {
+    const tip = this.engine.tooltip;
+    tip.style.opacity = '0.4';
 
-    const frag = document.createDocumentFragment();
-    const dateLine = document.createElement('span');
-    dateLine.className = 'tr-tip-line';
-    dateLine.textContent = date;
-
-    const infoLine = document.createElement('b');
-    infoLine.className = 'tr-tip-line';
-    infoLine.textContent = info;
-
-    frag.append(dateLine, infoLine);
-
-    setTimeout(() => {
-      el.replaceChildren(frag);
-      el.style.opacity = '1';
-      el.dataset.cache = date + info;
-    }, 30);
+    requestAnimationFrame(() => {
+      const frag = document.createDocumentFragment();
+      const d = document.createElement('span');
+      d.className = 'tr-tip-line';
+      d.textContent = el.dataset.trDate;
+      const i = document.createElement('b');
+      i.className = 'tr-tip-line';
+      i.textContent = el.dataset.trInfo;
+      frag.append(d, i);
+      tip.replaceChildren(frag);
+      tip.dataset.cache = el.dataset.trDate + el.dataset.trInfo;
+      requestAnimationFrame(() => (tip.style.opacity = '1'));
+    });
   }
 
-  _updatePosition() {
-    if (this._raf) cancelAnimationFrame(this._raf);
+  updatePosition() {
+    if (this.#raf) cancelAnimationFrame(this.#raf);
 
     const loop = () => {
-      if (!this._target) return (this._raf = null);
-
-      const r = this._target.getBoundingClientRect();
+      if (!this.#target) return (this.#raf = null);
+      const r = this.#target.getBoundingClientRect();
       const t = this.engine.tooltip.getBoundingClientRect();
       const pad = 14;
 
-      // Horizontal Center
       const x = clamp(r.left + r.width / 2, pad + t.width / 2, window.innerWidth - pad - t.width / 2);
-
-      // Vertical Snap
-      const offset = this._isTouch ? 50 : 15;
+      const offset = this.#isTouch ? 50 : 15;
       const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
       const useBottom = r.top - safeTop < t.height;
-
       const y = useBottom ? r.bottom + offset : r.top - offset;
 
-      // GPU Accelerated
       this.engine.tooltip.style.translate = `${Math.round(x)}px ${Math.round(y)}px`;
       this.engine.tooltip.style.transform = `translate(-50%, ${useBottom ? '0' : '-100%'})`;
 
-      this._raf = requestAnimationFrame(loop);
+      this.#raf = requestAnimationFrame(loop);
     };
-    this._raf = requestAnimationFrame(loop);
+    this.#raf = requestAnimationFrame(loop);
   }
 
   hideTooltip() {
     this.cancelHide();
-    this._target = null;
-    if (this._raf) cancelAnimationFrame(this._raf);
-    this._raf = null;
+    this.#target = null;
     this.engine.tooltip.style.opacity = '0';
     this.engine.tooltip.setAttribute('aria-hidden', 'true');
   }
 
   scheduleHide(ms) {
     this.cancelHide();
-    this._hideTimer = setTimeout(() => this.hideTooltip(), ms);
+    this.#hideTimer = setTimeout(() => this.hideTooltip(), ms);
   }
 
   cancelHide() {
-    clearTimeout(this._hideTimer);
-    this._hideTimer = null;
+    clearTimeout(this.#hideTimer);
+    this.#hideTimer = null;
   }
 }

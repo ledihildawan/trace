@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// Final Optimized Version: GPU-Accelerated, DRY Logic, & Dynamic Linger
+// Version: Production-Grade Seamless Interaction (ES2024+)
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -10,189 +10,201 @@ import {
 import { TracePlugin } from '../core/plugin-manager.js';
 
 export class InteractionPlugin extends TracePlugin {
-  constructor() {
-    super('InteractionPlugin');
-    this._activeElement = null;
-    this._isTouching = false;
-    this._timers = new Map(); // Manajemen timer terpusat
-    this._tracking = { startX: 0, startY: 0, startTime: 0, lastX: 0, lastY: 0, velocity: 0 };
-    this._lastTapTime = 0;
-    this.hasHover = window.matchMedia('(hover: hover)').matches;
-  }
+  #activeEl = null;
+  #isTouching = false;
+  #lastTapTime = 0;
+  #timers = new Map();
+  #track = { startX: 0, startY: 0, lastX: 0, lastY: 0, startTime: 0, lastTime: 0, velocity: 0 };
 
   init(engine) {
     super.init(engine);
     this.tooltip = this.engine.plugins.get('TooltipPlugin');
-    const options = { passive: true, signal: this.signal };
 
-    this._setupStyles();
-    this._bindEvents(options);
+    this.#setupViewport();
+    this.#bindEvents();
   }
 
-  _setupStyles() {
+  #setupViewport() {
     Object.assign(this.engine.viewport.style, {
       touchAction: 'pan-y',
       userSelect: 'none',
       webkitUserSelect: 'none',
+      webkitTouchCallout: 'none',
     });
   }
 
-  _bindEvents(options) {
+  #bindEvents() {
+    const options = { passive: true, signal: this.signal };
     const vp = this.engine.viewport;
-    vp.addEventListener('pointerdown', (e) => this._onDown(e), options);
-    vp.addEventListener('pointermove', (e) => this._onMove(e), options);
-    vp.addEventListener('pointerup', (e) => this._onUp(e), options);
-    vp.addEventListener('pointercancel', () => this._reset(true), options);
-    vp.addEventListener('mouseover', (e) => this._onHover(e), options);
-    window.addEventListener('keydown', (e) => this._onKey(e), options);
+
+    vp.addEventListener('pointerdown', (e) => this.#handleDown(e), { passive: false, signal: this.signal });
+    vp.addEventListener('pointermove', (e) => this.#handleMove(e), options);
+    vp.addEventListener('pointerup', (e) => this.#handleUp(e), options);
+    vp.addEventListener('pointercancel', () => this.#cleanup(true), options);
+    vp.addEventListener('mouseover', (e) => this.#handleHover(e), options);
+    window.addEventListener('keydown', (e) => this.#handleKey(e), options);
   }
 
-  _setTimer(key, fn, ms) {
-    this._clearTimer(key);
-    this._timers.set(key, setTimeout(fn, ms));
-  }
-
-  _clearTimer(key) {
-    if (this._timers.has(key)) {
-      clearTimeout(this._timers.get(key));
-      this._timers.delete(key);
-    }
-  }
-
-  _reset(immediate = false) {
-    this._clearTimer('longPress');
-    if (immediate) {
-      this._clearTimer('linger');
-      if (this._activeElement) {
-        this._activeElement.classList.remove('tr-is-touch-active', 'tr-is-pressing');
-        this._activeElement = null;
-      }
-      this.tooltip?.hideTooltip();
-    }
-  }
-
-  _onDown(e) {
+  #handleDown(e) {
     if (e.pointerType === 'mouse') return;
-    this._reset(true);
-    this._isTouching = true;
-    Object.assign(this._tracking, { startX: e.clientX, startY: e.clientY, startTime: performance.now() });
+    e.target.setPointerCapture(e.pointerId);
+
+    this.#cleanup(true);
+    this.#isTouching = true;
+
+    const now = performance.now();
+    Object.assign(this.#track, {
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      startTime: now,
+      lastTime: now,
+      velocity: 0,
+    });
 
     const target = document.elementFromPoint(e.clientX, e.clientY);
-    if (this._isDay(target)) this._updateActive(target, true);
+    this.#processHit(target, true);
 
-    this._setTimer(
+    this.#setTimer(
       'longPress',
       () => {
-        if (this._isTouching && !this._hasMoved(e.clientX, e.clientY)) {
-          this._trigger('reset');
+        if (this.#isTouching && !this.#hasMoved(e.clientX, e.clientY)) {
+          this.#execute('reset');
         }
       },
       LONG_PRESS_DURATION_MS
     );
   }
 
-  _onMove(e) {
-    if (!this._isTouching || e.pointerType === 'mouse') return;
+  #handleMove(e) {
+    if (!this.#isTouching || e.pointerType === 'mouse') return;
 
-    // Hitung velocity untuk dynamic linger
     const now = performance.now();
-    const dt = now - (this._tracking.lastTime || now);
-    if (dt > 16) {
-      const dist = Math.hypot(e.clientX - this._tracking.lastX, e.clientY - this._tracking.lastY);
-      this._tracking.velocity = dist / dt;
-      this._tracking.lastTime = now;
-    }
-    this._tracking.lastX = e.clientX;
-    this._tracking.lastY = e.clientY;
+    const dt = now - this.#track.lastTime;
 
-    if (this._hasMoved(e.clientX, e.clientY)) this._clearTimer('longPress');
+    if (dt > 10) {
+      const dist = Math.hypot(e.clientX - this.#track.lastX, e.clientY - this.#track.lastY);
+      this.#track.velocity = dist / dt;
+      this.#track.lastX = e.clientX;
+      this.#track.lastY = e.clientY;
+      this.#track.lastTime = now;
+    }
+
+    if (this.#hasMoved(e.clientX, e.clientY)) this.#clearTimer('longPress');
 
     const target = document.elementFromPoint(e.clientX, e.clientY);
-    if (this._isDay(target)) this._updateActive(target, false);
+    this.#processHit(target, false);
   }
 
-  _onUp(e) {
+  #handleUp(e) {
     if (e.pointerType === 'mouse') return;
-    this._isTouching = false;
+    this.#isTouching = false;
+    this.#clearTimer('longPress');
 
-    const duration = performance.now() - this._tracking.startTime;
-    if (Math.abs(e.clientY - this._tracking.startY) > 100 && duration < 300) {
-      this._trigger('random');
+    const duration = performance.now() - this.#track.startTime;
+    const deltaY = e.clientY - this.#track.startY;
+
+    if (Math.abs(deltaY) > 80 && duration < 250) {
+      this.#execute('random');
     } else {
-      this._handleTap();
+      const now = performance.now();
+      if (now - this.#lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
+        this.#execute('theme');
+        this.#lastTapTime = 0;
+      } else {
+        this.#lastTapTime = now;
+        this.#scheduleLinger();
+      }
     }
   }
 
-  _handleTap() {
-    const now = performance.now();
-    if (now - this._lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
-      this._trigger('theme');
-    } else {
-      this._lastTapTime = now;
-      this._scheduleLinger();
+  #processHit(target, isPressing) {
+    const el = target?.closest('.tr-day');
+    if (!el || el.classList.contains('tr-day--filler')) return;
+
+    if (this.#activeEl !== el) {
+      this.#clearVisuals();
+      this.#activeEl = el;
+      el.classList.add('tr-is-touch-active');
+      if (isPressing) el.classList.add('tr-is-pressing');
+      this.tooltip?.showTooltipForElement(el, true);
+
+      const isBoundary = el.dataset.trDate?.includes(' 1,') || el.classList.contains('tr-day--monday');
+      this.#vibrate(isBoundary ? 'boundary' : 'scrub');
     }
   }
 
-  _updateActive(el, pressing) {
-    if (this._activeElement === el || !this._isDay(el)) return;
-    this._resetVisualsOnly();
-    this._activeElement = el;
-    el.classList.add('tr-is-touch-active');
-    if (pressing) el.classList.add('tr-is-pressing');
-
-    this.tooltip?.showTooltipForElement(el, true);
-
-    const isBoundary = el.dataset.trDate?.includes(' 1,') || el.classList.contains('tr-day--monday');
-    this._vibrate(isBoundary ? 'boundary' : 'scrub');
+  #scheduleLinger() {
+    this.#clearTimer('linger');
+    const lingerTime = Math.max(1200, Math.min(3000, 2500 - this.#track.velocity * 500));
+    this.#setTimer('linger', () => this.#cleanup(true), lingerTime);
+    this.tooltip?.scheduleHide(lingerTime);
   }
 
-  _resetVisualsOnly() {
-    if (this._activeElement) {
-      this._activeElement.classList.remove('tr-is-touch-active', 'tr-is-pressing');
-    }
-  }
-
-  _scheduleLinger() {
-    const ms = Math.max(1000, Math.min(2500, 2000 - this._tracking.velocity * 400));
-    this._setTimer('linger', () => this._reset(true), ms);
-    this.tooltip?.scheduleHide(ms);
-  }
-
-  _trigger(action) {
-    const plugins = this.engine.plugins;
-    if (action === 'theme') plugins.get('ThemePlugin')?.cycleTheme();
-    if (action === 'reset') plugins.get('DevToolsPlugin')?.resetToDefaults();
+  #execute(action) {
+    const p = this.engine.plugins;
+    if (action === 'theme') p.get('ThemePlugin')?.cycleTheme();
+    if (action === 'reset') p.get('DevToolsPlugin')?.resetToDefaults();
     if (action === 'random') {
-      plugins.get('DevToolsPlugin')?.randomizeThemeNowAndLocale();
-      this.engine.viewport.classList.add('tr-theme-pulse');
-      setTimeout(() => this.engine.viewport.classList.remove('tr-theme-pulse'), 600);
+      p.get('DevToolsPlugin')?.randomizeThemeNowAndLocale();
+      this.#animatePulse();
     }
-    this._vibrate('success');
-    this._reset(true);
+    this.#vibrate('success');
+    this.#cleanup(true);
   }
 
-  _isDay(el) {
-    return el?.classList?.contains('tr-day') && !el.classList.contains('tr-day--filler');
-  }
-  _hasMoved(x, y) {
-    return Math.hypot(x - this._tracking.startX, y - this._tracking.startY) > 10;
+  #animatePulse() {
+    const vp = this.engine.viewport;
+    vp.classList.remove('tr-theme-pulse');
+    void vp.offsetWidth;
+    vp.classList.add('tr-theme-pulse');
+    vp.addEventListener('animationend', () => vp.classList.remove('tr-theme-pulse'), { once: true });
   }
 
-  _vibrate(type) {
+  #cleanup(immediate) {
+    this.#clearTimer('longPress');
+    if (immediate) {
+      this.#clearTimer('linger');
+      this.#clearVisuals();
+      this.#activeEl = null;
+      this.tooltip?.hideTooltip();
+    }
+  }
+
+  #clearVisuals() {
+    this.#activeEl?.classList.remove('tr-is-touch-active', 'tr-is-pressing');
+  }
+  #hasMoved(x, y) {
+    return Math.hypot(x - this.#track.startX, y - this.#track.startY) > 12;
+  }
+  #setTimer(k, f, ms) {
+    this.#clearTimer(k);
+    this.#timers.set(k, setTimeout(f, ms));
+  }
+  #clearTimer(k) {
+    clearTimeout(this.#timers.get(k));
+    this.#timers.delete(k);
+  }
+
+  #vibrate(t) {
     if (!navigator.vibrate) return;
-    const patterns = { scrub: HAPTIC_SCRUB_MS, success: HAPTIC_SUCCESS_MS, boundary: [15, 30, 15] };
-    navigator.vibrate(patterns[type] || HAPTIC_SCRUB_MS);
+    const p = { scrub: HAPTIC_SCRUB_MS, success: HAPTIC_SUCCESS_MS, boundary: [10, 25, 10] };
+    navigator.vibrate(p[t] || HAPTIC_SCRUB_MS);
   }
 
-  _onHover(e) {
-    if (this._isTouching || !this.hasHover) return;
-    if (this._isDay(e.target)) this.tooltip?.showTooltipForElement(e.target, false);
+  #handleHover(e) {
+    if (this.#isTouching || !window.matchMedia('(hover: hover)').matches) return;
+    const target = e.target.closest('.tr-day');
+    if (target && !target.classList.contains('tr-day--filler')) {
+      this.tooltip?.showTooltipForElement(target, false);
+    }
   }
 
-  _onKey(e) {
+  #handleKey(e) {
     if (this.engine.viewport?.contains(e.target)) return;
-    const key = e.key.toLowerCase();
     const actions = { c: 'theme', x: 'reset', r: 'random' };
-    if (actions[key]) this._trigger(actions[key]);
+    const action = actions[e.key.toLowerCase()];
+    if (action) this.#execute(action);
   }
 }
