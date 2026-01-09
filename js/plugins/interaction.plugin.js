@@ -1,5 +1,5 @@
 // TRACE Interaction Plugin
-// Integrated: Keyboard Shortcuts (C, X, R) & Mobile Gestures (Swipe, Long Press, Double Tap)
+// FIXED: Reset conflict during scrubbing & synchronized linger duration
 
 import {
   DOUBLE_TAP_MAX_DELAY_MS,
@@ -20,7 +20,7 @@ export class InteractionPlugin extends TracePlugin {
     this._timerLinger = null;
     this._timerLongPress = null;
 
-    // Gesture tracking
+    this._startX = 0;
     this._startY = 0;
     this._startTime = 0;
     this._lastTapTime = 0;
@@ -43,8 +43,7 @@ export class InteractionPlugin extends TracePlugin {
 
     this.tooltipPlugin = this.engine.plugins.get('TooltipPlugin');
 
-    // UI configuration
-    this.engine.viewport.style.touchAction = 'pan-y'; // Allow native vertical scroll
+    this.engine.viewport.style.touchAction = 'pan-y';
     this.engine.viewport.style.userSelect = 'none';
     this.engine.viewport.style.webkitUserSelect = 'none';
 
@@ -56,8 +55,6 @@ export class InteractionPlugin extends TracePlugin {
     return el?.classList.contains('tr-day') && !el.classList.contains('tr-day--filler');
   }
 
-  // --- GESTURE & POINTER LOGIC ---
-
   setupPointerEvents() {
     const vp = this.engine.viewport;
 
@@ -67,15 +64,19 @@ export class InteractionPlugin extends TracePlugin {
         if (e.pointerType === 'mouse') return;
 
         this._isTouching = true;
+        this._startX = e.clientX;
         this._startY = e.clientY;
         this._startTime = performance.now();
+
         this._clearLinger();
 
         const target = document.elementFromPoint(e.clientX, e.clientY);
         this._handleTouchUpdate(target, true);
 
-        // Long Press -> RESET (X equivalent)
+        // Reset Long Press timer
+        if (this._timerLongPress) clearTimeout(this._timerLongPress);
         this._timerLongPress = setTimeout(() => {
+          // Hanya pemicu reset jika jari tidak bergerak (still touching same spot)
           if (this._isTouching) {
             this.triggerHaptic(HAPTIC_SUCCESS_MS);
             this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
@@ -90,6 +91,18 @@ export class InteractionPlugin extends TracePlugin {
       'pointermove',
       (e) => {
         if (e.pointerType === 'mouse' || !this._isTouching) return;
+
+        // FIX: Batalkan Long Press (Reset) jika jari bergerak > 10px
+        // Ini mencegah reset tiba-tiba saat sedang scrubbing
+        const dx = Math.abs(e.clientX - this._startX);
+        const dy = Math.abs(e.clientY - this._startY);
+        if (dx > 10 || dy > 10) {
+          if (this._timerLongPress) {
+            clearTimeout(this._timerLongPress);
+            this._timerLongPress = null;
+          }
+        }
+
         const target = document.elementFromPoint(e.clientX, e.clientY);
         this._handleTouchUpdate(target, false);
       },
@@ -104,22 +117,20 @@ export class InteractionPlugin extends TracePlugin {
         const deltaY = e.clientY - this._startY;
         const duration = performance.now() - this._startTime;
 
-        // Vertical Swipe -> RANDOMIZE (R equivalent)
+        // Vertical Swipe -> Randomize (Shortcut R)
         if (Math.abs(deltaY) > 100 && duration < 300) {
           this._triggerRandomize();
-        }
-        // Tap Logic
-        else {
+        } else {
           const now = performance.now();
           if (now - this._lastTapTime < DOUBLE_TAP_MAX_DELAY_MS) {
-            // Double Tap -> CHANGE THEME (C equivalent)
+            // Double Tap -> Cycle Theme (Shortcut C)
             this.engine.plugins.get('ThemePlugin')?.cycleTheme();
             this.triggerHaptic(HAPTIC_SUCCESS_MS);
             this._resetInteraction(true);
             this._lastTapTime = 0;
           } else {
             this._lastTapTime = now;
-            this._scheduleLinger();
+            this._scheduleLinger(); // Aktifkan linger agar visual & tooltip sinkron
           }
         }
 
@@ -151,8 +162,6 @@ export class InteractionPlugin extends TracePlugin {
     );
   }
 
-  // --- KEYBOARD SHORTCUTS (C, X, R) ---
-
   setupKeyboardControls() {
     window.addEventListener(
       'keydown',
@@ -161,18 +170,13 @@ export class InteractionPlugin extends TracePlugin {
         const key = e.key.toLowerCase();
 
         if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          // C -> Cycle Theme
           if (key === 'c') {
             this.engine.plugins.get('ThemePlugin')?.cycleTheme();
             this.triggerHaptic(HAPTIC_SUCCESS_MS);
-          }
-          // X -> Reset to Defaults
-          else if (key === 'x') {
+          } else if (key === 'x') {
             this.engine.plugins.get('DevToolsPlugin')?.resetToDefaults();
             this.triggerHaptic(HAPTIC_SUCCESS_MS);
-          }
-          // R -> Randomize
-          else if (key === 'r') {
+          } else if (key === 'r') {
             this._triggerRandomize();
           }
         }
@@ -180,8 +184,6 @@ export class InteractionPlugin extends TracePlugin {
       { signal: this.signal }
     );
   }
-
-  // --- HELPERS ---
 
   _triggerRandomize() {
     const devTools = this.engine.plugins.get('DevToolsPlugin');
@@ -215,6 +217,7 @@ export class InteractionPlugin extends TracePlugin {
   _resetInteraction(immediate = false) {
     if (this._timerLongPress) clearTimeout(this._timerLongPress);
     if (immediate) {
+      this._clearLinger();
       this._resetVisuals();
       this._activeElement = null;
       this.tooltipPlugin?.hideTooltip();
@@ -228,6 +231,7 @@ export class InteractionPlugin extends TracePlugin {
 
   _clearLinger() {
     if (this._timerLinger) clearTimeout(this._timerLinger);
+    this._timerLinger = null;
   }
 
   triggerHaptic(ms = HAPTIC_SCRUB_MS) {

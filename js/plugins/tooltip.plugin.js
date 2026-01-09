@@ -1,5 +1,5 @@
 // TRACE Tooltip Plugin
-// STABLE VERSION: "Magnetic" Element-based positioning
+// REWRITE: Magnetic Snap Positioning (Element-Based)
 
 import { TracePlugin } from '../core/plugin-manager.js';
 import { clamp, pxVar } from '../core/utils.js';
@@ -20,7 +20,6 @@ export class TooltipPlugin extends TracePlugin {
     el.setAttribute('role', 'tooltip');
     el.setAttribute('aria-hidden', 'true');
 
-    // Fixed position menjamin tooltip tidak bergetar saat scroll halaman
     Object.assign(el.style, {
       position: 'fixed',
       top: '0',
@@ -35,9 +34,6 @@ export class TooltipPlugin extends TracePlugin {
     el.style.transition = reduceMotion ? 'opacity 0ms' : 'opacity 150ms ease-out';
   }
 
-  /**
-   * API UTAMA: Menampilkan tooltip yang menempel (snap) pada elemen DOM.
-   */
   showTooltipForElement(element, isTouch = false) {
     if (!element) return;
     this.cancelHide();
@@ -54,7 +50,6 @@ export class TooltipPlugin extends TracePlugin {
     this._targetEl = element;
     this._isTouch = isTouch;
 
-    // Mulai loop update posisi
     if (!this._rafId) {
       this._rafId = requestAnimationFrame(this._updatePosition.bind(this));
     }
@@ -68,24 +63,17 @@ export class TooltipPlugin extends TracePlugin {
     const toolRect = this.engine.tooltip.getBoundingClientRect();
     const pad = 14;
 
-    // Center secara horizontal terhadap elemen kotak
     let centerX = rect.left + rect.width / 2;
     centerX = clamp(centerX, pad + toolRect.width / 2, window.innerWidth - pad - toolRect.width / 2);
 
-    // Offset vertikal agar tidak tertutup jari
-    const touchOffset = 45;
-    const mouseOffset = 15;
-    const offset = this._isTouch ? touchOffset : mouseOffset;
-
+    const offset = this._isTouch ? 50 : 15;
     const topAnchor = rect.top - offset;
     const safeTop = (pxVar('--tr-safe-top') || 0) + pad;
-    const spaceAbove = topAnchor - safeTop;
 
     let finalY = topAnchor;
     let anchorBottom = true;
 
-    // Jika tidak muat di atas, pindahkan ke bawah kotak
-    if (spaceAbove < toolRect.height) {
+    if (topAnchor - safeTop < toolRect.height) {
       finalY = rect.bottom + offset;
       anchorBottom = false;
     }
@@ -118,7 +106,6 @@ export class TooltipPlugin extends TracePlugin {
     this._targetEl = null;
     if (this._rafId) cancelAnimationFrame(this._rafId);
     this._rafId = null;
-
     this.engine.tooltip.style.opacity = '0';
     this.engine.tooltip.setAttribute('aria-hidden', 'true');
   }
