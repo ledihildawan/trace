@@ -3,19 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Final Stable Engine</title>
+    <title>Galactic Odyssey V2 - Liquid Engine Final</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
     
     <style>
-      /* --- HOUDINI & GPU ACCELERATION --- */
+      /* --- MODERN CSS ENGINE (2026) --- */
       @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
       @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
       @property --warp-scale { syntax: '<number>'; inherits: true; initial-value: 1; }
 
       :root {
         --bg: light-dark(#f8fafc, #020617);
-        --grid-bg: light-dark(#e2e8f0, #0f172a);
         --border: light-dark(#cbd5e1, #1e293b);
         --cell-bg: light-dark(#ffffff, #020617);
         --text-main: light-dark(#0f172a, #f1f5f9);
@@ -33,18 +32,19 @@
 
       *, *::before, *::after { 
         box-sizing: border-box; 
-        margin: 0; padding: 0;
-        -webkit-backface-visibility: hidden;
-        backface-visibility: hidden;
+        margin: 0; padding: 0; 
+        -webkit-font-smoothing: antialiased;
       }
 
       html, body {
-        height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
-        font-family: 'Space Grotesk', sans-serif; overflow: hidden; cursor: none;
+        height: 100dvh; width: 100vw; 
+        background: var(--bg); color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif; 
+        overflow: hidden; cursor: none;
         perspective: 1200px;
       }
 
-      /* --- GPU LAYERS --- */
+      /* --- GPU ACCELERATED CURSOR --- */
       #ion-drive {
         position: fixed; inset: 0; z-index: 5; pointer-events: none;
         background: radial-gradient(var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
@@ -55,7 +55,7 @@
       #cursor-wrapper {
         position: fixed; top: 0; left: 0; z-index: 10000;
         pointer-events: none; will-change: transform;
-        transform: translate3d(0,0,0); transition: opacity 0.3s ease;
+        transform: translate3d(0,0,0);
       }
 
       #cursor-dot {
@@ -71,83 +71,107 @@
       #atmosphere {
         position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: var(--dust-opacity);
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        mix-blend-mode: overlay; animation: drift 20s linear infinite; transform: translate3d(0,0,0);
+        mix-blend-mode: overlay; animation: drift 30s linear infinite;
       }
 
       @keyframes drift { from { background-position: 0 0; } to { background-position: 200px 200px; } }
 
-      /* --- VIEWPORT ENGINE --- */
+      /* --- VIEWPORT & CANVAS --- */
       #viewport {
-        width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
-        scrollbar-width: none; position: relative; -webkit-overflow-scrolling: touch;
+        width: 100vw; height: 100dvh; 
+        overflow-y: auto; scroll-snap-type: y mandatory;
+        scrollbar-width: none; position: relative;
+        -webkit-overflow-scrolling: touch;
       }
       #viewport::-webkit-scrollbar { display: none; }
       #infinite-canvas { position: relative; width: 100%; contain: layout; }
 
+      /* --- WARP DRIVE TRANSITIONS --- */
       .year-block {
         position: absolute; left: 0; width: 100vw; height: 100dvh;
         scroll-snap-align: start; scroll-snap-stop: always;
-        display: flex; flex-direction: column; overflow: hidden;
+        display: flex; flex-direction: column;
+        overflow: hidden;
+        content-visibility: auto; 
+        contain-intrinsic-size: 100vw 100dvh;
         transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
         transform-origin: center center;
         will-change: transform, filter, opacity;
       }
 
       .year-block:not(.active) {
-        transform: scale(0.92) translateZ(-150px);
+        transform: scale(var(--warp-scale, 0.92)) translateZ(-150px);
         filter: blur(10px); opacity: 0.35;
       }
 
       .grid-container { 
-        position: relative; flex: 1; display: flex; flex-direction: column; 
-        background: var(--bg); overflow-x: hidden; scrollbar-width: none;
+        position: relative; flex: 1; display: flex; 
+        background: var(--bg); overflow-x: hidden;
+        scrollbar-width: none;
       }
       .grid-container::-webkit-scrollbar { display: none; }
 
       .watermark-embedded {
         position: absolute; top: 0; right: 5%; height: 100%; display: flex; align-items: center;
-        font-size: clamp(150px, 35dvh, 500px); font-weight: 900; color: transparent;
+        font-size: clamp(100px, 30dvh, 400px); font-weight: 900; color: transparent;
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
         background-clip: text; -webkit-background-clip: text;
-        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1); writing-mode: vertical-rl;
-        pointer-events: none; opacity: 0; z-index: 10;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
+        writing-mode: vertical-rl; pointer-events: none; 
+        z-index: 10; opacity: 0.15;
         transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
-        will-change: transform, opacity;
       }
-
-      .year-block.active .watermark-embedded { opacity: 0.15; transform: translate3d(0,0,0); }
       .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.08; }
 
+      /* --- PIXEL-PERFECT SYMMETRICAL GRID --- */
       .grid-layer {
-        position: relative; z-index: 2; display: grid; width: 100%; min-height: 100%; 
-        opacity: 0; transition: opacity 0.8s ease; background: transparent; gap: 0;
+        display: grid; 
+        width: 100.1%; /* Compensa sub-pixel rounding */
+        margin-left: -0.5px; /* Alignment fix */
+        min-height: 100%; 
+        opacity: 0; transition: opacity 0.8s ease;
+        z-index: 2; gap: 0; background: transparent;
       }
       .year-block.active .grid-layer { opacity: 1; }
 
-      /* --- PIXEL-PERFECT CELLS --- */
       .cell { 
-        background: var(--cell-bg); position: relative; contain: strict;
-        box-shadow: 0 0 0 0.5px var(--border); min-height: 60px; will-change: background;
+        background: var(--cell-bg); position: relative;
+        contain: strict;
+        box-shadow: inset 0 0 0 0.5px var(--border); /* Avoid double border thickness */
+        min-height: 60px; will-change: background;
+        display: flex; flex-direction: column;
       }
 
-      .cell.filler { background: var(--filler-bg); }
-      .cell.filler .date-num { color: var(--filler-text); opacity: 0.4; font-weight: 300; }
+      .cell.filler { background: color-mix(in srgb, var(--bg), transparent 60%); }
+      .cell.filler .date-num { color: var(--text-muted); opacity: 0.2; font-weight: 300; }
       .cell.filler .info-meta { visibility: hidden; }
 
-      .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--cyan), 0 0 0 0.5px var(--border); }
+      .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--cyan), inset 0 0 0 0.5px var(--border); }
       .cell.month-start .info-meta.top-label { color: var(--cyan); font-weight: 900; font-size: clamp(8px, 1.1dvh, 12px); }
       
       .cell.today { 
         background: var(--today-bg) !important; z-index: 11; 
-        box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4), 0 0 0 0.5px var(--border); 
+        box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4), inset 0 0 0 0.5px var(--border); 
       }
       .cell.today .date-num { font-weight: 900; color: #fff !important; }
 
-      .cell-content { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding-block: 10px; text-align: center; }
-      .info-meta { font-size: clamp(7px, 0.9dvh, 10px); text-transform: uppercase; font-weight: 500; color: var(--text-muted); letter-spacing: 0.15em; }
-      .date-num { font-size: clamp(16px, 3dvh, 32px); font-weight: 300; color: var(--text-main); }
+      .cell-content { 
+        flex: 1; display: flex; flex-direction: column; justify-content: space-between; 
+        align-items: center; padding: 8px 4px; text-align: center;
+        pointer-events: none;
+      }
+
+      .info-meta {
+        font-size: clamp(7px, 0.9dvh, 8px); text-transform: uppercase;
+        font-weight: 500; color: var(--text-muted); letter-spacing: 0.1em;
+      }
+
+      .date-num { 
+        font-size: clamp(16px, 3dvh, 28px); font-weight: 300; 
+        line-height: 1.1; color: var(--text-main);
+      }
       
-      #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s ease-out; }
+      #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s; }
       #theme-veil.active { opacity: 1; }
     </style>
   </head>
@@ -196,31 +220,28 @@
           this.#viewport.scrollTop = this.startY;
           this.#lastScrollPos = this.startY;
 
-          this.observer = new IntersectionObserver((entries) => {
-            entries.forEach(e => {
-              const block = e.target;
-              block.classList.toggle('active', e.isIntersecting);
-              
-              // CHRONOS LOGIC: Handle natural scroll order when moving up
-              if (e.isIntersecting && this.#isScrollingUp()) {
-                const container = block.querySelector('.grid-container');
-                if (container && block.classList.contains('is-scrolling')) {
-                  container.scrollTop = container.scrollHeight;
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach(e => {
+                const block = e.target;
+                block.classList.toggle('active', e.isIntersecting);
+                
+                // CHRONOS LOGIC: Handle natural scroll direction
+                if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
+                  const container = block.querySelector('.grid-container');
+                  if (container && block.classList.contains('is-scrolling')) {
+                    container.scrollTop = container.scrollHeight;
+                  }
                 }
-              }
-            });
-          }, { threshold: 0.1 });
+                this.#lastScrollPos = this.#viewport.scrollTop;
+              });
+            },
+            { threshold: 0.15 }
+          );
 
           this.#setupListeners();
           this.#cursorLoop();
           this.#render();
-        }
-
-        #isScrollingUp() {
-          const current = this.#viewport.scrollTop;
-          const up = current < this.#lastScrollPos;
-          this.#lastScrollPos = current;
-          return up;
         }
 
         #setupListeners() {
@@ -242,17 +263,13 @@
           document.addEventListener('mouseout', (e) => {
             if (e.target.closest('.cell')) {
               this.#isHovering = false;
-              this.#hoverEl = null;
               this.#cursorWrapper.classList.remove('is-hovering');
               this.#ionDrive.style.setProperty('--glow-size', '600px');
             }
           });
 
           this.#viewport.addEventListener('scroll', () => {
-            requestAnimationFrame(() => {
-              this.#render();
-              this.#handleParallax();
-            });
+            requestAnimationFrame(() => this.#render());
           }, { passive: true });
 
           window.addEventListener('keydown', (e) => {
@@ -282,10 +299,8 @@
         #cursorLoop() {
           if (this.#isHovering && this.#hoverEl) {
             const rect = this.#hoverEl.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            this.#target.x = this.#mouse.x + (centerX - this.#mouse.x) * this.#config.attraction;
-            this.#target.y = this.#mouse.y + (centerY - this.#mouse.y) * this.#config.attraction;
+            this.#target.x = this.#mouse.x + (rect.left + rect.width / 2 - this.#mouse.x) * this.#config.attraction;
+            this.#target.y = this.#mouse.y + (rect.top + rect.height / 2 - this.#mouse.y) * this.#config.attraction;
           } else {
             this.#target.x = this.#mouse.x;
             this.#target.y = this.#mouse.y;
@@ -299,21 +314,6 @@
           this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
 
           requestAnimationFrame(() => this.#cursorLoop());
-        }
-
-        #handleParallax() {
-          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
-          const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          const block = this.#activeYears.get(year);
-          if (block) {
-            const wm = block.querySelector('.watermark-embedded');
-            if (wm && !block.classList.contains('is-scrolling')) {
-               const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
-               wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
-            } else if (wm) {
-               wm.style.transform = `none`;
-            }
-          }
         }
 
         #render() {
@@ -332,14 +332,14 @@
 
         #drawYear(year, yPos) {
           if (this.#activeYears.has(year)) return;
+          
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
           
           const jan1 = new Date(year, 0, 1);
           const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-          const vh = window.innerHeight;
-          const vw = window.innerWidth;
+          const vw = window.innerWidth, vh = window.innerHeight;
           
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
           const msPerDay = 86400000;
@@ -352,24 +352,28 @@
           const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
           
-          let cellsHtml = '';
+          let html = `
+            <div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
+              <div class="watermark-embedded">${year}</div>
+              <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${isOverflowing ? 'auto' : '100%'};">`;
+
           for (let s = 0; s < cols * rows; s++) {
             const isMain = iterDate.getFullYear() === year;
-            const isFirst = iterDate.getDate() === 1 && isMain;
-            const dDay = iterDate.getDay();
-            let cls = `cell ${!isMain ? 'filler' : ''} ${isFirst ? 'month-start' : ''} ${(dDay===0||dDay===6)&&isMain ? 'weekend' : ''} ${iterDate.toDateString()===todayStr ? 'today' : ''}`;
-            
-            cellsHtml += `<div class="${cls}">
+            const dDate = iterDate.getDate(), dMonth = iterDate.getMonth(), dDay = iterDate.getDay();
+            let cls = `cell ${!isMain ? 'filler' : ''} ${dDate === 1 && isMain ? 'month-start' : ''} ${(dDay === 0 || dDay === 6) && isMain ? 'weekend' : ''} ${iterDate.toDateString() === todayStr ? 'today' : ''}`;
+
+            html += `
+              <div class="${cls}">
                 <div class="cell-content">
-                  <span class="info-meta ${isFirst ? 'top-label' : ''}">${isMain ? this.#months[iterDate.getMonth()] : ''}</span>
-                  <span class="date-num">${iterDate.getDate()}</span>
+                  <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${isMain ? this.#months[dMonth] : ''}</span>
+                  <span class="date-num">${dDate}</span>
                   <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
                 </div>
               </div>`;
-            iterDate.setDate(iterDate.getDate() + 1);
+            iterDate.setDate(dDate + 1);
           }
 
-          block.innerHTML = `<div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${isOverflowing ? 'auto' : '100%'};">${cellsHtml}</div></div>`;
+          block.innerHTML = html + `</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
