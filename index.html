@@ -3,234 +3,121 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Grid Architect V74 - Spectral Harmony</title>
+    <title>Galactic Odyssey V2 - Precision Grid Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
     <style>
-      /* --- SPECTRAL COLOR SYSTEM --- */
+      @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
+      @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
+
       :root[data-theme='light'] {
-        --bg: #fdfdfd; /* White Lily */
-        --grid-bg: #f1f5f9; /* Slate 100 */
-        --border: #e2e8f0; /* Slate 200 */
-        --cell-bg: #ffffff;
-        --text-main: #0f172a; /* Slate 900 */
-        --text-muted: #64748b; /* Slate 500 */
-        --accent: #4f46e5; /* Indigo 600 */
-        --cyan: #0891b2; /* Cyan 700 */
-        --weekend-bg: #f8f7ff; /* Soft Lavender */
-        --weekend-text: #6366f1;
-        --today-bg: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-        --month-start-bg: #f0f9ff;
-        --filler-bg: #f8fafc;
-        --filler-text: #cbd5e1;
+        --bg: #f8fafc; --border: #cbd5e1; --cell-bg: #ffffff;
+        --text-main: #0f172a; --text-muted: #64748b; --accent: #f59e0b; --cyan: #0891b2;
+        --weekend-bg: #f1f5f9; --weekend-text: #475569;
+        --today-bg: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        --month-start-bg: #e2e8f0; --filler-bg: #f8fafc; --filler-text: #cbd5e1;
+        --dust-opacity: 0.05; --ion-color: rgba(8, 145, 178, 0.1);
       }
-
       :root[data-theme='dark'] {
-        --bg: #030712; /* Deep Obsidian */
-        --grid-bg: #111827; /* Gray 900 */
-        --border: #1f2937; /* Gray 800 */
-        --cell-bg: #030712;
-        --text-main: #f9fafb; /* Gray 50 */
-        --text-muted: #6b7280; /* Gray 500 */
-        --accent: #818cf8; /* Indigo 400 */
-        --cyan: #22d3ee; /* Cyan 400 */
-        --weekend-bg: #0b0e1b; /* Deep Indigo Tint */
-        --weekend-text: #a5b4fc;
-        --today-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        --month-start-bg: #0c4a6e; /* Blue 900 */
-        --filler-bg: #02040a;
-        --filler-text: #374151;
+        --bg: #020617; --border: #1e293b; --cell-bg: #020617;
+        --text-main: #f1f5f9; --text-muted: #64748b; --accent: #fbbf24; --cyan: #22d3ee;
+        --weekend-bg: #030712; --weekend-text: #94a3b8;
+        --today-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        --month-start-bg: #0f172a; --filler-bg: #010409; --filler-text: #1e293b;
+        --dust-opacity: 0.15; --ion-color: rgba(34, 211, 238, 0.12);
       }
 
-      /* --- GLOBAL RESET & ARCHITECTURE --- */
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        -webkit-font-smoothing: antialiased;
-        user-select: none;
-        -webkit-tap-highlight-color: transparent;
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif; overflow: hidden;
+        overscroll-behavior: none; cursor: none;
       }
 
-      html,
-      body {
-        height: 100dvh;
-        width: 100vw;
-        background: var(--bg);
-        color: var(--text-main);
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        overflow: hidden;
-        overscroll-behavior: none;
-        transition: none; /* Transition handled by Veil */
+      #ion-drive {
+        position: fixed; inset: 0; z-index: 5; pointer-events: none;
+        background: radial-gradient(600px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
+      }
+      #cursor-dot {
+        position: fixed; width: 4px; height: 4px; background: var(--cyan); border-radius: 50%;
+        pointer-events: none; z-index: 10000; translate: -50% -50%;
+        left: calc(var(--ion-x) * 1px); top: calc(var(--ion-y) * 1px); box-shadow: 0 0 10px var(--cyan);
       }
 
-      /* THE KINETIC VEIL: Optimized for Eye Comfort */
-      #theme-veil {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: var(--bg);
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.75s cubic-bezier(0.19, 1, 0.22, 1);
-        will-change: opacity;
-      }
-      #theme-veil.active {
-        opacity: 1;
-        transition: opacity 0.2s ease-out;
+      #hud-status {
+        position: fixed; bottom: 30px; left: 30px; z-index: 500;
+        font-weight: 900; font-size: 14px; letter-spacing: 0.5em; opacity: 0.3;
       }
 
       #viewport {
-        width: 100vw;
-        height: 100dvh;
-        overflow-y: auto;
-        scroll-snap-type: y mandatory;
-        scrollbar-width: none;
-        position: relative;
-        transform: translate3d(0, 0, 0);
-        &::-webkit-scrollbar {
-          display: none;
-        }
+        width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
+        scrollbar-width: none; position: relative;
       }
-
-      #infinite-canvas {
-        position: relative;
-        width: 100%;
-        contain: paints;
-      }
+      #viewport::-webkit-scrollbar { display: none; }
+      #infinite-canvas { position: relative; width: 100%; contain: paint; }
 
       .year-block {
-        position: absolute;
-        left: 0;
-        width: 100vw;
-        height: 100dvh;
-        scroll-snap-align: start;
-        scroll-snap-stop: always;
-        display: flex;
-        overflow: hidden;
-        contain: strict;
+        position: absolute; left: 0; width: 100vw; height: 100dvh;
+        scroll-snap-align: start; scroll-snap-stop: always;
+        display: flex; overflow: hidden; content-visibility: auto;
       }
 
-      .grid-container {
-        position: relative;
-        flex: 1;
-        display: flex;
-        background: var(--bg);
-      }
+      .grid-container { position: relative; flex: 1; display: flex; background: var(--bg); overflow: hidden; }
 
-      /* --- VISUAL ELEMENTS --- */
       .watermark-embedded {
-        position: absolute;
-        top: 0;
-        right: 5%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        font-size: clamp(150px, 32dvh, 450px);
-        font-weight: 950;
-        color: transparent;
+        position: absolute; top: 0; right: 5%; height: 100%; display: flex; align-items: center;
+        font-size: clamp(150px, 35dvh, 500px); font-weight: 900; color: transparent;
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
-        writing-mode: vertical-rl;
-        pointer-events: none;
-        z-index: 5;
-        white-space: nowrap;
-        opacity: 0;
-        transform: translate3d(0, 30px, 0);
-        transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
-        .year-block.active & {
-          opacity: 0.12;
-          transform: translate3d(0, 0, 0);
-        }
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.05); writing-mode: vertical-rl;
+        pointer-events: none; z-index: 4; opacity: 0; translate: 0 20px;
+        transition: opacity 1s, translate 1.2s cubic-bezier(0.16, 1, 0.3, 1);
       }
+      .year-block.active .watermark-embedded { opacity: 0.12; translate: 0 0; }
 
       .grid-layer {
-        position: relative;
-        z-index: 2;
-        display: grid;
-        gap: 1px;
-        background: var(--border);
-        width: 100%;
-        height: 100%;
-        opacity: 0;
+        position: relative; z-index: 2; display: grid; gap: 1px;
+        background: var(--border); width: 100%; height: 100%; opacity: 0;
         transition: opacity 0.8s ease;
-        .year-block.active & {
-          opacity: 1;
-        }
+        /* Dynamic Scaling Engine - Memastikan baris muat 1 layar */
+        grid-auto-rows: 1fr; 
       }
+      .year-block.active .grid-layer { opacity: 1; }
 
-      .cell {
-        background: var(--cell-bg);
-        position: relative;
-        opacity: 0;
-        transform: translate3d(0, 15px, 0);
-        transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        .year-block.active & {
-          opacity: 1;
-          transform: translate3d(0, 0, 0);
-        }
-        &:nth-child(n + 1) {
-          transition-delay: calc(var(--s-idx) * 0.003s);
-        }
+      .cell { background: var(--cell-bg); position: relative; opacity: 0; transition: opacity 0.4s ease-out; }
+      .year-block.active .cell { opacity: 1; }
 
-        &.filler {
-          background: var(--filler-bg);
-          .date-num,
-          .info-meta {
-            color: var(--filler-text);
-            opacity: 0.4;
-          }
-        }
-        &.weekend {
-          background: var(--weekend-bg);
-          .date-num,
-          .info-meta {
-            color: var(--weekend-text);
-          }
-        }
-        &.month-start {
-          background: var(--month-start-bg);
-          box-shadow: inset 4px 0 0 var(--cyan);
-        }
-        &.today {
-          background: var(--today-bg) !important;
-          z-index: 10;
-          box-shadow: 0 12px 30px -5px rgba(79, 70, 229, 0.5);
-          .date-num,
-          .info-meta {
-            color: #fff !important;
-          }
-        }
-      }
+      .cell.filler { background: var(--filler-bg); }
+      .cell.filler .date-num { color: var(--filler-text); opacity: 0.2; }
+      .cell.filler .info-meta { visibility: hidden; }
+
+      .cell.weekend { background: var(--weekend-bg); }
+      .cell.weekend .date-num, .cell.weekend .info-meta { color: var(--weekend-text); opacity: 0.7; }
+
+      .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--cyan); }
+      .cell.month-start .info-meta.top-label { color: var(--cyan); font-weight: 900; }
+
+      .cell.today { background: var(--today-bg) !important; z-index: 10; }
+      .cell.today .date-num { font-weight: 900; color: #fff !important; }
 
       .cell-content {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: center;
-        height: 100%;
-        padding-block: 10%;
-        text-align: center;
+        display: flex; flex-direction: column; justify-content: space-between;
+        align-items: center; height: 100%; padding-block: 5%; text-align: center;
+        overflow: hidden;
       }
 
-      .info-meta {
-        font-size: clamp(6px, 0.8dvh, 10px);
-        text-transform: uppercase;
-        font-weight: 800;
-        color: var(--text-muted);
-        letter-spacing: 0.1em;
-      }
-      .date-num {
-        font-size: clamp(14px, 2.8dvh, 32px);
-        font-weight: 900;
-        line-height: 1;
-      }
+      .info-meta { font-size: clamp(6px, 0.7dvh, 9px); text-transform: uppercase; font-weight: 500; color: var(--text-muted); }
+      .date-num { font-size: clamp(12px, 2.2dvh, 30px); font-weight: 300; line-height: 1; color: var(--text-main); }
+
+      #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s ease; }
+      #theme-veil.active { opacity: 1; }
     </style>
   </head>
   <body>
+    <div id="ion-drive"></div>
+    <div id="cursor-dot"></div>
     <div id="theme-veil"></div>
+    <div id="hud-status">SYNCING...</div>
 
     <main id="viewport">
       <div id="infinite-canvas"></div>
@@ -240,144 +127,147 @@
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
-        #veil = document.getElementById('theme-veil');
-        #months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-        #days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        #root = document.documentElement;
         #today = new Date();
         #yearHeight = window.innerHeight;
         #activeYears = new Map();
-        #isRendering = false;
-        #tapCount = 0;
+        
+        #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
+        #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
 
         constructor() {
           this.totalYears = 2000;
           this.startY = (this.totalYears / 2) * this.#yearHeight;
-          this.#setupTheme();
-          this.#setupCore();
-          this.#setupEvents();
-          this.#render();
+          this.#init();
         }
 
-        #setupTheme() {
-          const saved = localStorage.getItem('theme');
-          const system = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          document.documentElement.setAttribute('data-theme', saved || (system ? 'dark' : 'light'));
-        }
-
-        #toggleTheme() {
-          this.#veil.classList.add('active');
-          setTimeout(() => {
-            const current = document.documentElement.getAttribute('data-theme');
-            const next = current === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
-            if (navigator.vibrate) navigator.vibrate(20);
-            setTimeout(() => {
-              this.#veil.classList.remove('active');
-            }, 150);
-          }, 250);
-        }
-
-        #setupCore() {
+        async #init() {
+          const saved = localStorage.getItem('theme') || 'dark';
+          this.#root.setAttribute('data-theme', saved);
           this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
           this.#viewport.scrollTop = this.startY;
+
           this.observer = new IntersectionObserver(
-            (entries) => {
-              entries.forEach((e) => {
-                window.requestAnimationFrame(() => {
-                  e.target.classList.toggle('active', e.isIntersecting);
-                });
-              });
-            },
-            { threshold: 0.1 }
+            (entries) => entries.forEach(e => e.target.classList.toggle('active', e.isIntersecting)),
+            { threshold: 0.01, rootMargin: '100px' }
           );
+
+          this.#setupListeners();
+          this.#render();
+          this.#updateHUD();
         }
 
-        #setupEvents() {
-          this.#viewport.addEventListener(
-            'scroll',
-            () => {
-              if (!this.#isRendering) {
-                window.requestAnimationFrame(() => {
-                  this.#render();
-                  this.#isRendering = false;
-                });
-                this.#isRendering = true;
-              }
-            },
-            { passive: true }
-          );
+        #setupListeners() {
+          window.addEventListener('pointermove', (e) => {
+            this.#root.style.setProperty('--ion-x', e.clientX);
+            this.#root.style.setProperty('--ion-y', e.clientY);
+          }, { passive: true });
 
-          window.addEventListener('keydown', (e) => {
-            if (['t', 'd'].includes(e.key.toLowerCase())) this.#toggleTheme();
-            if (e.key === ' ') {
-              e.preventDefault();
-              this.jumpToToday();
-            }
-          });
-
-          this.#viewport.addEventListener(
-            'touchstart',
-            () => {
-              this.#tapCount++;
-              setTimeout(() => {
-                this.#tapCount = 0;
-              }, 400);
-              if (this.#tapCount === 3) this.#toggleTheme();
-            },
-            { passive: true }
-          );
+          this.#viewport.addEventListener('scroll', () => {
+            requestAnimationFrame(() => { this.#render(); this.#updateHUD(); });
+          }, { passive: true });
 
           window.addEventListener('resize', () => location.reload());
         }
 
-        #render() {
-          const scrollTop = this.#viewport.scrollTop;
-          const idx = Math.round(scrollTop / this.#yearHeight);
+        #updateHUD() {
+          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          for (let i = -1; i <= 1; i++) this.#drawYear(year + i, (idx + i) * this.#yearHeight);
-          this.#activeYears.forEach((block, y) => {
-            if (Math.abs(y - year) > 1) {
+          document.getElementById('hud-status').textContent = `ORBIT — ${year}`;
+          
+          const block = this.#activeYears.get(year);
+          if (block) {
+            const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
+            const wm = block.querySelector('.watermark-embedded');
+            if (wm) wm.style.transform = `translateY(${offset * 0.06}px)`;
+          }
+        }
+
+        #render() {
+          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
+
+          for (let i = -1; i <= 1; i++) {
+            this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
+          }
+
+          this.#activeYears.forEach((block, year) => {
+            if (Math.abs(year - baseYear) > 1) {
               this.observer.unobserve(block);
               block.remove();
-              this.#activeYears.delete(y);
+              this.#activeYears.delete(year);
             }
           });
         }
 
         #drawYear(year, yPos) {
           if (this.#activeYears.has(year)) return;
+
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
-          const firstDay = new Date(year, 0, 1).getDay();
-          const totalDays = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
-          const vw = window.innerWidth;
-          let cols = Math.ceil(Math.sqrt(365 * (vw / window.innerHeight)));
-          if (vw < 500) cols = Math.max(cols, 14);
-          const rows = Math.ceil((totalDays + firstDay) / cols);
 
-          let gridHTML = `<div class="grid-container"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">`;
-          for (let s = 0; s < cols * rows; s++) {
-            const date = new Date(year, 0, 1);
-            date.setDate(date.getDate() + (s - firstDay));
-            const isMain = date.getFullYear() === year;
+          const firstDayDate = new Date(year, 0, 1);
+          const startDayOfWeek = firstDayDate.getDay();
+          const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+          const daysInYear = isLeap ? 366 : 365;
+
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+
+          /**
+           * DYNAMIC SCALING ENGINE
+           * Menentukan jumlah kolom agar grid selalu fit 1 layar tanpa overflow.
+           */
+          let cols;
+          if (vw < 600) {
+            cols = 7; // Mobile: Tetap 7 kolom agar mudah dibaca
+          } else {
+            // Desktop: Hitung kolom agar aspek rasio kotak mendekati persegi
+            cols = Math.ceil(Math.sqrt(daysInYear * (vw / vh)));
+          }
+
+          const totalCells = daysInYear + startDayOfWeek;
+          const rows = Math.ceil(totalCells / cols);
+          const finalCellCount = rows * cols; // Mengisi sisa grid dengan filler
+
+          const iterDate = new Date(year, 0, 1 - startDayOfWeek);
+          const todayStr = this.#today.toDateString();
+          
+          let cellsHtml = [];
+          for (let s = 0; s < finalCellCount; s++) {
+            const isMain = iterDate.getFullYear() === year;
+            const isFirst = iterDate.getDate() === 1 && isMain;
+            
             let cls = ['cell'];
             if (!isMain) cls.push('filler');
             else {
-              if (date.getDate() === 1) cls.push('month-start');
-              if (date.getDay() === 0 || date.getDay() === 6) cls.push('weekend');
-              if (date.toDateString() === this.#today.toDateString()) cls.push('today');
+              if (isFirst) cls.push('month-start');
+              if (iterDate.getDay() === 0 || iterDate.getDay() === 6) cls.push('weekend');
+              if (iterDate.toDateString() === todayStr) cls.push('today');
             }
-            gridHTML += `<div class="${cls.join(' ')}" style="--s-idx: ${
-              s % 60
-            }"><div class="cell-content"><span class="info-meta">${
-              this.#months[date.getMonth()]
-            }</span><span class="date-num">${date.getDate()}</span><span class="info-meta">${
-              this.#days[date.getDay()]
-            }</span></div></div>`;
+
+            cellsHtml.push(`
+              <div class="${cls.join(' ')}">
+                <div class="cell-content">
+                  <span class="info-meta top-label">${isMain ? this.#months[iterDate.getMonth()] : ''}</span>
+                  <span class="date-num">${iterDate.getDate()}</span>
+                  <span class="info-meta">${isMain ? this.#days[iterDate.getDay()] : ''}</span>
+                </div>
+              </div>`);
+            
+            iterDate.setDate(iterDate.getDate() + 1);
           }
-          block.innerHTML = gridHTML + `</div></div>`;
+
+          // Gunakan repeat(rows, 1fr) untuk memaksa semua baris muat dalam tinggi 100dvh
+          block.innerHTML = `
+            <div class="grid-container">
+              <div class="watermark-embedded">${year}</div>
+              <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); grid-template-rows:repeat(${rows}, 1fr);">
+                ${cellsHtml.join('')}
+              </div>
+            </div>`;
+
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
@@ -389,6 +279,7 @@
           setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
         }
       }
+
       new GridArchitect();
     </script>
   </body>
