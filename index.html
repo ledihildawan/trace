@@ -1,66 +1,103 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" style="color-scheme: dark;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Continuous Warp Engine</title>
+    <title>Galactic Odyssey V2 - Fixed Theme Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
+    
     <style>
-      :root[data-theme='light'] {
-        --bg: #f8fafc; --grid-bg: #e2e8f0; --border: #cbd5e1; --cell-bg: #ffffff;
-        --text-main: #0f172a; --text-muted: #64748b; --accent: #f59e0b; --cyan: #0891b2;
-        --weekend-bg: #f1f5f9; --weekend-text: #475569;
-        --today-bg: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        --month-start-bg: #e2e8f0; --filler-bg: #f8fafc; --filler-text: #64748b;
-        --dust-opacity: 0.05; --ion-color: rgba(8, 145, 178, 0.1);
-      }
-      :root[data-theme='dark'] {
-        --bg: #020617; --grid-bg: #0f172a; --border: #1e293b; --cell-bg: #020617;
-        --text-main: #f1f5f9; --text-muted: #64748b; --accent: #fbbf24; --cyan: #22d3ee;
-        --weekend-bg: #030712; --weekend-text: #94a3b8;
+      @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
+      @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
+      @property --warp-scale { syntax: '<number>'; inherits: true; initial-value: 1; }
+
+      :root {
+        /* FIXED: Menggunakan color-scheme agar light-dark() berfungsi sempurna */
+        --bg: light-dark(#f8fafc, #020617);
+        --grid-bg: light-dark(#e2e8f0, #0f172a);
+        --border: light-dark(#cbd5e1, #1e293b);
+        --cell-bg: light-dark(#ffffff, #020617);
+        --text-main: light-dark(#0f172a, #f1f5f9);
+        --text-muted: light-dark(#64748b, #64748b);
+        --accent: #fbbf24;
+        --cyan: #22d3ee;
         --today-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        --month-start-bg: #0f172a; --filler-bg: #010409; --filler-text: #4a5568;
-        --dust-opacity: 0.15; --ion-color: rgba(34, 211, 238, 0.12);
+        --month-start-bg: light-dark(#e2e8f0, #0f172a);
+        --dust-opacity: light-dark(0.05, 0.15);
+        --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
       }
 
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      /* Fallback manual jika browser belum mendukung light-dark() sepenuhnya */
+      [data-theme='light'] { color-scheme: light; }
+      [data-theme='dark'] { color-scheme: dark; }
+
+      *, *::before, *::after { 
+        box-sizing: border-box; 
+        margin: 0; padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
       html, body {
-        height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
-        font-family: 'Space Grotesk', sans-serif; overflow: hidden;
-        overscroll-behavior: none; cursor: none;
+        height: 100dvh; width: 100vw; 
+        background: var(--bg); color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif; 
+        overflow: hidden; cursor: none;
+        perspective: 1200px;
+        transition: background-color 0.5s ease; /* Transisi warna background yang halus */
       }
 
-      /* --- GPU LAYERS --- */
       #ion-drive {
         position: fixed; inset: 0; z-index: 5; pointer-events: none;
         background: radial-gradient(var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
         transform: translate3d(0,0,0);
       }
+      
       #cursor-wrapper {
         position: fixed; top: 0; left: 0; z-index: 10000;
-        pointer-events: none; will-change: transform; transition: opacity 0.3s ease;
+        pointer-events: none; will-change: transform;
       }
+
       #cursor-dot {
-        width: 6px; height: 6px; background: var(--cyan); border-radius: 50%;
-        box-shadow: 0 0 15px var(--cyan); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        width: 6px; height: 6px; background: var(--cyan);
+        border-radius: 50%; box-shadow: 0 0 15px var(--cyan);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
-      #cursor-wrapper.is-hovering #cursor-dot { transform: scale(3); background: var(--accent); box-shadow: 0 0 25px var(--accent); }
+
+      #cursor-wrapper.is-hovering #cursor-dot {
+        transform: scale(3.8); background: var(--accent); box-shadow: 0 0 25px var(--accent);
+      }
+
+      #atmosphere {
+        position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: var(--dust-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay; animation: drift 30s linear infinite;
+      }
+
+      @keyframes drift { from { background-position: 0 0; } to { background-position: 200px 200px; } }
 
       #viewport {
-        width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
+        width: 100vw; height: 100dvh; 
+        overflow-y: auto; scroll-snap-type: y mandatory;
         scrollbar-width: none; position: relative;
       }
       #viewport::-webkit-scrollbar { display: none; }
-      #infinite-canvas { position: relative; width: 100%; contain: paint; }
+      #infinite-canvas { position: relative; width: 100%; contain: layout; }
 
       .year-block {
         position: absolute; left: 0; width: 100vw; height: 100dvh;
-        scroll-snap-align: start; scroll-snap-stop: always; display: flex;
+        scroll-snap-align: start; scroll-snap-stop: always;
+        display: flex; flex-direction: column;
         overflow: hidden; content-visibility: auto; 
-        transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease;
+        contain-intrinsic-size: 100vw 100dvh;
+        transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
         transform-origin: center center;
       }
-      .year-block:not(.active) { transform: scale(0.95); filter: blur(4px); opacity: 0.5; }
+
+      .year-block:not(.active) {
+        transform: scale(var(--warp-scale, 0.92)) translateZ(-150px);
+        filter: blur(10px); opacity: 0.35;
+      }
 
       .grid-container { position: relative; flex: 1; display: flex; background: var(--bg); overflow-x: hidden; }
 
@@ -68,53 +105,64 @@
         position: absolute; top: 0; right: 5%; height: 100%; display: flex; align-items: center;
         font-size: clamp(150px, 35dvh, 500px); font-weight: 900; color: transparent;
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
-        -webkit-background-clip: text; background-clip: text;
-        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.15); writing-mode: vertical-rl;
-        pointer-events: none; opacity: 0; z-index: 10; will-change: transform, opacity;
+        background-clip: text; -webkit-background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.12);
+        writing-mode: vertical-rl; pointer-events: none; 
+        z-index: 10; opacity: 0;
+        transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
       }
-      .year-block.active .watermark-embedded { opacity: 0.15; translate: 0 0; }
-      .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.1; }
+      .year-block.active .watermark-embedded { opacity: 0.15; transform: translate3d(0,0,0); }
+      .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.08; }
 
       .grid-layer {
-        position: relative; z-index: 2; display: grid; gap: 1px;
-        background: var(--border); width: 100%; min-height: 100%; 
+        display: grid; width: 100%; min-height: 100%; 
         opacity: 0; transition: opacity 0.8s ease;
+        z-index: 2; gap: 0; background: transparent;
       }
       .year-block.active .grid-layer { opacity: 1; }
 
-      .cell { background: var(--cell-bg); position: relative; opacity: 0; transition: opacity 0.4s ease-out; min-height: 60px; contain: strict; }
-      .year-block.active .cell { opacity: 1; }
+      .cell { 
+        background: var(--cell-bg); position: relative;
+        contain: strict;
+        box-shadow: 0 0 0 0.5px var(--border);
+        min-height: 60px;
+      }
 
       .cell.filler { background: var(--filler-bg); }
       .cell.filler .date-num { color: var(--filler-text); opacity: 0.4; font-weight: 300; }
       .cell.filler .info-meta { visibility: hidden; }
 
-      .cell.weekend { background: var(--weekend-bg); }
-      .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--cyan); }
+      .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--cyan), 0 0 0 0.5px var(--border); }
       .cell.month-start .info-meta.top-label { color: var(--cyan); font-weight: 900; font-size: clamp(8px, 1.1dvh, 12px); }
-      .cell.today { background: var(--today-bg) !important; z-index: 11; box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4); }
+      
+      .cell.today { 
+        background: var(--today-bg) !important; z-index: 11; 
+        box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4), 0 0 0 0.5px var(--border); 
+      }
       .cell.today .date-num { font-weight: 900; color: #fff !important; }
 
       .cell-content { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding-block: 10px; text-align: center; }
       .info-meta { font-size: clamp(7px, 0.9dvh, 10px); text-transform: uppercase; font-weight: 500; color: var(--text-muted); letter-spacing: 0.15em; }
-      .date-num { font-size: clamp(14px, 2.5dvh, 32px); font-weight: 300; color: var(--text-main); }
+      .date-num { font-size: clamp(16px, 3dvh, 32px); font-weight: 300; line-height: 1; color: var(--text-main); }
       
       #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s ease-out; }
       #theme-veil.active { opacity: 1; }
     </style>
   </head>
   <body>
-    <div id="ion-drive" style="--ion-x: 0; --ion-y: 0;"></div>
+    <div id="ion-drive"></div>
     <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
     <div id="atmosphere"></div>
     <div id="theme-veil"></div>
-    <main id="viewport"><div id="infinite-canvas"></div></main>
+
+    <main id="viewport">
+      <div id="infinite-canvas"></div>
+    </main>
 
     <script type="module">
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
-        #root = document.documentElement;
         #cursorWrapper = document.getElementById('cursor-wrapper');
         #ionDrive = document.getElementById('ion-drive');
         
@@ -122,12 +170,14 @@
         #yearHeight = window.innerHeight;
         #activeYears = new Map();
         
-        #mouse = { x: 0, y: 0 };
-        #target = { x: 0, y: 0 };
-        #current = { x: 0, y: 0 };
-        #config = { speed: 0.18, attraction: 0.4 };
+        #mouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        #target = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        #current = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        #config = { speed: 0.18, attraction: 0.42 };
+        
         #isHovering = false;
         #hoverEl = null;
+        #scrollTicking = false;
 
         #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
         #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
@@ -139,14 +189,16 @@
         }
 
         async #init() {
+          // FIXED: Inisialisasi tema dengan benar
           const saved = localStorage.getItem('theme') || 'dark';
-          this.#root.setAttribute('data-theme', saved);
+          this.#applyTheme(saved);
+          
           this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
           this.#viewport.scrollTop = this.startY;
 
           this.observer = new IntersectionObserver(
             (entries) => entries.forEach(e => e.target.classList.toggle('active', e.isIntersecting)),
-            { threshold: 0.2 }
+            { threshold: 0.15 }
           );
 
           this.#setupListeners();
@@ -155,31 +207,79 @@
         }
 
         #setupListeners() {
-          window.addEventListener('pointermove', (e) => { this.#mouse.x = e.clientX; this.#mouse.y = e.clientY; }, { passive: true });
+          window.addEventListener('pointermove', (e) => {
+            this.#mouse.x = e.clientX;
+            this.#mouse.y = e.clientY;
+          }, { passive: true });
+
           document.addEventListener('mouseover', (e) => {
             const cell = e.target.closest('.cell');
             if (cell && !cell.classList.contains('filler')) {
-              this.#isHovering = true; this.#hoverEl = cell;
+              this.#isHovering = true;
+              this.#hoverEl = cell;
               this.#cursorWrapper.classList.add('is-hovering');
+              this.#ionDrive.style.setProperty('--glow-size', '800px');
             }
           });
+
           document.addEventListener('mouseout', (e) => {
             if (e.target.closest('.cell')) {
-              this.#isHovering = false; this.#cursorWrapper.classList.remove('is-hovering');
+              this.#isHovering = false;
+              this.#hoverEl = null;
+              this.#cursorWrapper.classList.remove('is-hovering');
+              this.#ionDrive.style.setProperty('--glow-size', '600px');
             }
           });
+
           this.#viewport.addEventListener('scroll', () => {
-            requestAnimationFrame(() => { this.#render(); this.#handleParallax(); });
+            if (!this.#scrollTicking) {
+              requestAnimationFrame(() => {
+                this.#render();
+                this.#handleParallax();
+                this.#scrollTicking = false;
+              });
+              this.#scrollTicking = true;
+            }
           }, { passive: true });
+
+          window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 't') this.#toggleTheme();
+            if (e.key === ' ') { e.preventDefault(); this.jumpToToday(); }
+          });
+
           window.addEventListener('resize', () => location.reload());
+        }
+
+        #applyTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          // FIXED: Ini baris krusial agar light-dark() di CSS bekerja
+          document.documentElement.style.colorScheme = theme;
+        }
+
+        #toggleTheme() {
+          const veil = document.getElementById('theme-veil');
+          veil.classList.add('active');
+          
+          setTimeout(() => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            
+            this.#applyTheme(next);
+            localStorage.setItem('theme', next);
+            
+            setTimeout(() => veil.classList.remove('active'), 200);
+          }, 400);
         }
 
         #cursorLoop() {
           if (this.#isHovering && this.#hoverEl) {
             const rect = this.#hoverEl.getBoundingClientRect();
-            this.#target.x = this.#mouse.x + ((rect.left + rect.width / 2) - this.#mouse.x) * this.#config.attraction;
-            this.#target.y = this.#mouse.y + ((rect.top + rect.height / 2) - this.#mouse.y) * this.#config.attraction;
-          } else { this.#target.x = this.#mouse.x; this.#target.y = this.#mouse.y; }
+            this.#target.x = this.#mouse.x + (rect.left + rect.width/2 - this.#mouse.x) * this.#config.attraction;
+            this.#target.y = this.#mouse.y + (rect.top + rect.height/2 - this.#mouse.y) * this.#config.attraction;
+          } else {
+            this.#target.x = this.#mouse.x;
+            this.#target.y = this.#mouse.y;
+          }
 
           this.#current.x += (this.#target.x - this.#current.x) * this.#config.speed;
           this.#current.y += (this.#target.y - this.#current.y) * this.#config.speed;
@@ -187,6 +287,7 @@
           this.#cursorWrapper.style.transform = `translate3d(${this.#current.x}px, ${this.#current.y}px, 0)`;
           this.#ionDrive.style.setProperty('--ion-x', this.#current.x);
           this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
+
           requestAnimationFrame(() => this.#cursorLoop());
         }
 
@@ -194,10 +295,14 @@
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
           const block = this.#activeYears.get(year);
-          if (block && !block.classList.contains('is-scrolling')) {
-            const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
+          if (block) {
             const wm = block.querySelector('.watermark-embedded');
-            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
+            if (wm && !block.classList.contains('is-scrolling')) {
+               const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
+               wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
+            } else if (wm) {
+               wm.style.transform = `none`;
+            }
           }
         }
 
@@ -206,7 +311,11 @@
           const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
           for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
           this.#activeYears.forEach((block, year) => {
-            if (Math.abs(year - baseYear) > 1) { this.observer.unobserve(block); block.remove(); this.#activeYears.delete(year); }
+            if (Math.abs(year - baseYear) > 1) {
+              this.observer.unobserve(block);
+              block.remove();
+              this.#activeYears.delete(year);
+            }
           });
         }
 
@@ -215,59 +324,32 @@
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
-          
-          // --- FIXED CONTINUOUS PATTERN LOGIC ---
           const jan1 = new Date(year, 0, 1);
-          const startDayOfWeek = jan1.getDay();
-          const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-          const vw = window.innerWidth, vh = window.innerHeight;
-          
-          // Tentukan kolom (tetap sinkron antar tahun)
-          let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
-          
-          /* Kunci pola kontinyu: 
-            Alih-alih 'startDayOfWeek', kita hitung selisih hari dari Epoch (tahun 1970)
-            untuk menentukan offset grid yang benar-benar sinkron secara global.
-          */
-          const msPerDay = 86400000;
-          const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
-          
+          const isLeap = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0);
+          const daysInYear = isLeap ? 366 : 365;
+          let cols = window.innerWidth < 600 ? 7 : Math.ceil(Math.sqrt(365 * (window.innerWidth / window.innerHeight)));
+          const globalOffset = Math.floor(jan1.getTime() / 86400000) % cols;
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
-          const isOverflowing = (vh / rows) < 60;
-          if (isOverflowing) block.classList.add('is-scrolling');
+          if ((window.innerHeight / rows) < 60) block.classList.add('is-scrolling');
 
           const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
-          
-          let html = `<div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
-                      <div class="watermark-embedded">${year}</div>
-                      <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${isOverflowing ? 'auto' : '100%'};">`;
-
+          let cellsHtml = '';
           for (let s = 0; s < cols * rows; s++) {
-            const isMain = iterDate.getFullYear() === year;
-            const isFirst = iterDate.getDate() === 1 && isMain;
-            const dDay = iterDate.getDay();
-            let cls = `cell ${!isMain ? 'filler' : ''} ${isFirst ? 'month-start' : ''} ${(dDay===0||dDay===6)&&isMain ? 'weekend' : ''} ${iterDate.toDateString()===todayStr ? 'today' : ''}`;
-            
-            html += `<div class="${cls}">
-                <div class="cell-content">
-                  <span class="info-meta ${isFirst ? 'top-label' : ''}">${isMain ? this.#months[iterDate.getMonth()] : ''}</span>
-                  <span class="date-num">${iterDate.getDate()}</span>
-                  <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
-                </div>
-              </div>`;
-            iterDate.setDate(iterDate.getDate() + 1);
+            const dDate = iterDate.getDate(), dDay = iterDate.getDay(), isMain = iterDate.getFullYear() === year;
+            let cls = `cell ${!isMain ? 'filler' : ''} ${dDate === 1 && isMain ? 'month-start' : ''} ${(dDay === 0 || dDay === 6) && isMain ? 'weekend' : ''} ${iterDate.toDateString() === todayStr ? 'today' : ''}`;
+            cellsHtml += `<div class="${cls}"><div class="cell-content"><span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${isMain ? this.#months[iterDate.getMonth()] : ''}</span><span class="date-num">${dDate}</span><span class="info-meta">${isMain ? this.#days[dDay] : ''}</span></div></div>`;
+            iterDate.setDate(dDate + 1);
           }
-          block.innerHTML = html + `</div></div>`;
+
+          block.innerHTML = `<div class="grid-container" style="${block.classList.contains('is-scrolling') ? 'overflow-y: auto;' : 'overflow-y: hidden;'}"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${block.classList.contains('is-scrolling') ? 'auto' : '100%'};">${cellsHtml}</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
         }
 
         jumpToToday() {
-          this.#viewport.style.scrollBehavior = 'auto';
-          this.#viewport.scrollTop = this.startY;
-          setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
+          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
         }
       }
       new GridArchitect();
