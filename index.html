@@ -3,12 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Filler Enhanced</title>
+    <title>Galactic Odyssey V2 - Continuous Warp Engine</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
     <style>
-      @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
-      @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
-
       :root[data-theme='light'] {
         --bg: #f8fafc; --grid-bg: #e2e8f0; --border: #cbd5e1; --cell-bg: #ffffff;
         --text-main: #0f172a; --text-muted: #64748b; --accent: #f59e0b; --cyan: #0891b2;
@@ -27,49 +24,45 @@
       }
 
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
       html, body {
         height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
         font-family: 'Space Grotesk', sans-serif; overflow: hidden;
         overscroll-behavior: none; cursor: none;
       }
 
+      /* --- GPU LAYERS --- */
       #ion-drive {
         position: fixed; inset: 0; z-index: 5; pointer-events: none;
-        background: radial-gradient(600px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
-        will-change: background;
+        background: radial-gradient(var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
+        transform: translate3d(0,0,0);
       }
-
+      #cursor-wrapper {
+        position: fixed; top: 0; left: 0; z-index: 10000;
+        pointer-events: none; will-change: transform; transition: opacity 0.3s ease;
+      }
       #cursor-dot {
-        position: fixed; width: 4px; height: 4px; background: var(--cyan); border-radius: 50%;
-        pointer-events: none; z-index: 10000; translate: -50% -50%;
-        left: calc(var(--ion-x) * 1px); top: calc(var(--ion-y) * 1px); box-shadow: 0 0 10px var(--cyan);
+        width: 6px; height: 6px; background: var(--cyan); border-radius: 50%;
+        box-shadow: 0 0 15px var(--cyan); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
-
-      #atmosphere {
-        position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: var(--dust-opacity);
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        mix-blend-mode: overlay; animation: drift 20s linear infinite;
-      }
+      #cursor-wrapper.is-hovering #cursor-dot { transform: scale(3); background: var(--accent); box-shadow: 0 0 25px var(--accent); }
 
       #viewport {
         width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
         scrollbar-width: none; position: relative;
       }
       #viewport::-webkit-scrollbar { display: none; }
-
       #infinite-canvas { position: relative; width: 100%; contain: paint; }
 
       .year-block {
         position: absolute; left: 0; width: 100vw; height: 100dvh;
         scroll-snap-align: start; scroll-snap-stop: always; display: flex;
-        overflow: hidden; content-visibility: auto; contain-intrinsic-size: 100vw 100dvh;
+        overflow: hidden; content-visibility: auto; 
+        transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease;
+        transform-origin: center center;
       }
+      .year-block:not(.active) { transform: scale(0.95); filter: blur(4px); opacity: 0.5; }
 
-      .grid-container { 
-        position: relative; flex: 1; display: flex; background: var(--bg); 
-        overflow-x: hidden;
-      }
+      .grid-container { position: relative; flex: 1; display: flex; background: var(--bg); overflow-x: hidden; }
 
       .watermark-embedded {
         position: absolute; top: 0; right: 5%; height: 100%; display: flex; align-items: center;
@@ -77,18 +70,10 @@
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
         -webkit-background-clip: text; background-clip: text;
         -webkit-text-stroke: 1px rgba(148, 163, 184, 0.15); writing-mode: vertical-rl;
-        pointer-events: none; opacity: 0; translate: 0 20px;
-        transition: opacity 1s, translate 1.2s cubic-bezier(0.16, 1, 0.3, 1);
-        will-change: transform, opacity;
-        z-index: 10;
+        pointer-events: none; opacity: 0; z-index: 10; will-change: transform, opacity;
       }
-
       .year-block.active .watermark-embedded { opacity: 0.15; translate: 0 0; }
-
-      .year-block.is-scrolling .watermark-embedded {
-        position: fixed;
-        opacity: 0.1;
-      }
+      .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.1; }
 
       .grid-layer {
         position: relative; z-index: 2; display: grid; gap: 1px;
@@ -97,85 +82,53 @@
       }
       .year-block.active .grid-layer { opacity: 1; }
 
-      .cell {
-        background: var(--cell-bg); position: relative; opacity: 0;
-        transition: opacity 0.4s ease-out; will-change: opacity;
-        min-height: 60px;
-      }
+      .cell { background: var(--cell-bg); position: relative; opacity: 0; transition: opacity 0.4s ease-out; min-height: 60px; contain: strict; }
       .year-block.active .cell { opacity: 1; }
 
-      /* --- UPDATED FILLER VISIBILITY --- */
-      .cell.filler { 
-        background: var(--filler-bg); 
-      }
-      .cell.filler .date-num { 
-        color: var(--filler-text); 
-        font-weight: 300; 
-        opacity: 0.4; /* Naik dari 0.2 agar lebih terlihat */
-      }
+      .cell.filler { background: var(--filler-bg); }
+      .cell.filler .date-num { color: var(--filler-text); opacity: 0.4; font-weight: 300; }
       .cell.filler .info-meta { visibility: hidden; }
 
       .cell.weekend { background: var(--weekend-bg); }
-      .cell.weekend .date-num { color: var(--weekend-text); opacity: 0.8; }
-      .cell.weekend .info-meta { color: var(--weekend-text); opacity: 0.5; }
-
       .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--cyan); }
-      .cell.month-start .info-meta.top-label {
-        color: var(--cyan); font-weight: 900; opacity: 1;
-        font-size: clamp(8px, 1.1dvh, 12px); text-shadow: 0 0 8px rgba(77, 208, 225, 0.2);
-      }
-      .cell.month-start .date-num { font-weight: 700; color: var(--text-main); }
-
-      .cell.today {
-        background: var(--today-bg) !important; z-index: 11;
-        box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4);
-      }
+      .cell.month-start .info-meta.top-label { color: var(--cyan); font-weight: 900; font-size: clamp(8px, 1.1dvh, 12px); }
+      .cell.today { background: var(--today-bg) !important; z-index: 11; box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4); }
       .cell.today .date-num { font-weight: 900; color: #fff !important; }
-      .cell.today .info-meta { color: rgba(255,255,255,0.7) !important; font-weight: 700; }
 
-      .cell-content {
-        display: flex; flex-direction: column; justify-content: space-between;
-        align-items: center; height: 100%; padding-block: 10px; text-align: center;
-      }
-
-      .info-meta {
-        font-size: clamp(7px, 0.9dvh, 10px); text-transform: uppercase;
-        font-weight: 500; color: var(--text-muted); letter-spacing: 0.15em;
-      }
-
-      .date-num { 
-        font-size: clamp(16px, 3dvh, 32px); 
-        font-weight: 300; 
-        line-height: 1; 
-        color: var(--text-main);
-      }
-
-      #theme-veil {
-        position: fixed; inset: 0; z-index: 9999; background: var(--bg);
-        pointer-events: none; opacity: 0; transition: opacity 0.5s ease-out;
-      }
+      .cell-content { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding-block: 10px; text-align: center; }
+      .info-meta { font-size: clamp(7px, 0.9dvh, 10px); text-transform: uppercase; font-weight: 500; color: var(--text-muted); letter-spacing: 0.15em; }
+      .date-num { font-size: clamp(14px, 2.5dvh, 32px); font-weight: 300; color: var(--text-main); }
+      
+      #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s ease-out; }
       #theme-veil.active { opacity: 1; }
     </style>
   </head>
   <body>
-    <div id="ion-drive"></div>
-    <div id="cursor-dot"></div>
+    <div id="ion-drive" style="--ion-x: 0; --ion-y: 0;"></div>
+    <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
     <div id="atmosphere"></div>
     <div id="theme-veil"></div>
-
-    <main id="viewport">
-      <div id="infinite-canvas"></div>
-    </main>
+    <main id="viewport"><div id="infinite-canvas"></div></main>
 
     <script type="module">
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
         #root = document.documentElement;
+        #cursorWrapper = document.getElementById('cursor-wrapper');
+        #ionDrive = document.getElementById('ion-drive');
+        
         #today = new Date();
         #yearHeight = window.innerHeight;
         #activeYears = new Map();
         
+        #mouse = { x: 0, y: 0 };
+        #target = { x: 0, y: 0 };
+        #current = { x: 0, y: 0 };
+        #config = { speed: 0.18, attraction: 0.4 };
+        #isHovering = false;
+        #hoverEl = null;
+
         #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
         #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
 
@@ -193,151 +146,122 @@
 
           this.observer = new IntersectionObserver(
             (entries) => entries.forEach(e => e.target.classList.toggle('active', e.isIntersecting)),
-            { threshold: 0.01, rootMargin: '100px' }
+            { threshold: 0.2 }
           );
 
           this.#setupListeners();
+          this.#cursorLoop();
           this.#render();
         }
 
         #setupListeners() {
-          let ticking = false;
-          window.addEventListener('pointermove', (e) => {
-            if (!ticking) {
-              requestAnimationFrame(() => {
-                this.#root.style.setProperty('--ion-x', e.clientX);
-                this.#root.style.setProperty('--ion-y', e.clientY);
-                ticking = false;
-              });
-              ticking = true;
+          window.addEventListener('pointermove', (e) => { this.#mouse.x = e.clientX; this.#mouse.y = e.clientY; }, { passive: true });
+          document.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('.cell');
+            if (cell && !cell.classList.contains('filler')) {
+              this.#isHovering = true; this.#hoverEl = cell;
+              this.#cursorWrapper.classList.add('is-hovering');
             }
-          }, { passive: true });
-
-          this.#viewport.addEventListener('scroll', () => {
-            requestAnimationFrame(() => {
-              this.#render();
-              this.#handleParallax();
-            });
-          }, { passive: true });
-
-          window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 't') this.#toggleTheme();
-            if (e.key === ' ') { e.preventDefault(); this.jumpToToday(); }
           });
-
+          document.addEventListener('mouseout', (e) => {
+            if (e.target.closest('.cell')) {
+              this.#isHovering = false; this.#cursorWrapper.classList.remove('is-hovering');
+            }
+          });
+          this.#viewport.addEventListener('scroll', () => {
+            requestAnimationFrame(() => { this.#render(); this.#handleParallax(); });
+          }, { passive: true });
           window.addEventListener('resize', () => location.reload());
+        }
+
+        #cursorLoop() {
+          if (this.#isHovering && this.#hoverEl) {
+            const rect = this.#hoverEl.getBoundingClientRect();
+            this.#target.x = this.#mouse.x + ((rect.left + rect.width / 2) - this.#mouse.x) * this.#config.attraction;
+            this.#target.y = this.#mouse.y + ((rect.top + rect.height / 2) - this.#mouse.y) * this.#config.attraction;
+          } else { this.#target.x = this.#mouse.x; this.#target.y = this.#mouse.y; }
+
+          this.#current.x += (this.#target.x - this.#current.x) * this.#config.speed;
+          this.#current.y += (this.#target.y - this.#current.y) * this.#config.speed;
+
+          this.#cursorWrapper.style.transform = `translate3d(${this.#current.x}px, ${this.#current.y}px, 0)`;
+          this.#ionDrive.style.setProperty('--ion-x', this.#current.x);
+          this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
+          requestAnimationFrame(() => this.#cursorLoop());
         }
 
         #handleParallax() {
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
           const block = this.#activeYears.get(year);
-          
-          if (block) {
+          if (block && !block.classList.contains('is-scrolling')) {
+            const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
             const wm = block.querySelector('.watermark-embedded');
-            if (wm && !block.classList.contains('is-scrolling')) {
-               const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
-               wm.style.transform = `translateY(${offset * 0.06}px)`;
-            } else if (wm) {
-               wm.style.transform = `none`;
-            }
+            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
           }
         }
 
         #render() {
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
-
-          for (let i = -1; i <= 1; i++) {
-            this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
-          }
-
+          for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
           this.#activeYears.forEach((block, year) => {
-            if (Math.abs(year - baseYear) > 1) {
-              this.observer.unobserve(block);
-              block.remove();
-              this.#activeYears.delete(year);
-            }
+            if (Math.abs(year - baseYear) > 1) { this.observer.unobserve(block); block.remove(); this.#activeYears.delete(year); }
           });
         }
 
         #drawYear(year, yPos) {
           if (this.#activeYears.has(year)) return;
-
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
-
-          const firstDayDate = new Date(year, 0, 1);
-          const startDayOfWeek = firstDayDate.getDay();
+          
+          // --- FIXED CONTINUOUS PATTERN LOGIC ---
+          const jan1 = new Date(year, 0, 1);
+          const startDayOfWeek = jan1.getDay();
           const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-
-          const vh = window.innerHeight;
-          const vw = window.innerWidth;
-
+          const vw = window.innerWidth, vh = window.innerHeight;
+          
+          // Tentukan kolom (tetap sinkron antar tahun)
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
-          let rows = Math.ceil((daysInYear + startDayOfWeek) / cols);
-
-          const expectedCellHeight = vh / rows;
-          const isOverflowing = expectedCellHeight < 60;
-
+          
+          /* Kunci pola kontinyu: 
+            Alih-alih 'startDayOfWeek', kita hitung selisih hari dari Epoch (tahun 1970)
+            untuk menentukan offset grid yang benar-benar sinkron secara global.
+          */
+          const msPerDay = 86400000;
+          const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
+          
+          let rows = Math.ceil((daysInYear + globalOffset) / cols);
+          const isOverflowing = (vh / rows) < 60;
           if (isOverflowing) block.classList.add('is-scrolling');
 
-          const iterDate = new Date(year, 0, 1 - startDayOfWeek);
+          const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
           
-          let cellsHtml = [];
+          let html = `<div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
+                      <div class="watermark-embedded">${year}</div>
+                      <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${isOverflowing ? 'auto' : '100%'};">`;
+
           for (let s = 0; s < cols * rows; s++) {
             const isMain = iterDate.getFullYear() === year;
             const isFirst = iterDate.getDate() === 1 && isMain;
             const dDay = iterDate.getDay();
+            let cls = `cell ${!isMain ? 'filler' : ''} ${isFirst ? 'month-start' : ''} ${(dDay===0||dDay===6)&&isMain ? 'weekend' : ''} ${iterDate.toDateString()===todayStr ? 'today' : ''}`;
             
-            let cls = ['cell'];
-            if (!isMain) cls.push('filler');
-            else {
-              if (isFirst) cls.push('month-start');
-              if (dDay === 0 || dDay === 6) cls.push('weekend');
-              if (iterDate.toDateString() === todayStr) cls.push('today');
-            }
-
-            cellsHtml.push(`
-              <div class="${cls.join(' ')}">
+            html += `<div class="${cls}">
                 <div class="cell-content">
                   <span class="info-meta ${isFirst ? 'top-label' : ''}">${isMain ? this.#months[iterDate.getMonth()] : ''}</span>
                   <span class="date-num">${iterDate.getDate()}</span>
                   <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
                 </div>
-              </div>`);
-            
+              </div>`;
             iterDate.setDate(iterDate.getDate() + 1);
           }
-
-          const gridStyle = isOverflowing 
-            ? `grid-template-columns:repeat(${cols},1fr); height: auto;` 
-            : `grid-template-columns:repeat(${cols},1fr); height: 100%;`;
-
-          block.innerHTML = `
-            <div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
-              <div class="watermark-embedded">${year}</div>
-              <div class="grid-layer" style="${gridStyle}">
-                ${cellsHtml.join('')}
-              </div>
-            </div>`;
-
+          block.innerHTML = html + `</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
-        }
-
-        #toggleTheme() {
-          const veil = document.getElementById('theme-veil');
-          veil.classList.add('active');
-          setTimeout(() => {
-            const next = this.#root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-            this.#root.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
-            setTimeout(() => veil.classList.remove('active'), 200);
-          }, 400);
         }
 
         jumpToToday() {
@@ -346,7 +270,6 @@
           setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
         }
       }
-
       new GridArchitect();
     </script>
   </body>
