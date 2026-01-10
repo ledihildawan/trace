@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey v2.7 - Liquid Warp</title>
+    <title>Galactic Odyssey v2.7 - Liquid Warp Final</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -182,8 +182,8 @@
         overflow: hidden;
         content-visibility: auto;
         contain-intrinsic-size: 100vw 100dvh;
-        transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
         transform-origin: center center;
+        transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
         will-change: transform, filter, opacity;
       }
       .year-block:not(.active) {
@@ -260,7 +260,6 @@
         display: flex;
         flex-direction: column;
       }
-
       .cell.filler {
         background: color-mix(in srgb, var(--bg), transparent 60%);
       }
@@ -360,10 +359,6 @@
     </main>
 
     <script type="module">
-      /**
-       * Galactic Odyssey v2.7 - Liquid Warp Edition
-       * Optimasi: Compositor-Only Animations, Houdini @property, Content Visibility.
-       */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
@@ -406,7 +401,6 @@
           this.#viewport.scrollTop = this.startY;
           this.#lastScrollPos = this.startY;
 
-          // Performance: Menggunakan IntersectionObserver dengan threshold yang dioptimalkan
           this.observer = new IntersectionObserver(
             (entries) => {
               for (let i = 0; i < entries.length; i++) {
@@ -430,6 +424,7 @@
           this.#cursorLoop();
           this.#render();
 
+          // Jump to today on initial load
           setTimeout(() => this.jumpToToday(), 100);
         }
 
@@ -509,8 +504,7 @@
               this.yearHeight = window.innerHeight;
               this.startY = (this.totalYears / 2) * this.yearHeight;
               this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
-              // keep scroll near previous logical position
-              this.#viewport.scrollTop = Math.min(this.#viewport.scrollTop, this.startY);
+              this.#viewport.scrollTop = this.startY; // Recenter on resize
               this.#render();
             },
             { passive: true }
@@ -535,15 +529,11 @@
 
         #cursorLoop() {
           if (window.matchMedia('(pointer: coarse)').matches) return;
-
-          // Smooth Lerp dengan performa tinggi
           this.#current.x += (this.#mouse.x - this.#current.x) * 0.18;
           this.#current.y += (this.#mouse.y - this.#current.y) * 0.18;
-
           this.#cursorWrapper.style.transform = `translate3d(${this.#current.x}px, ${this.#current.y}px, 0)`;
           this.#ionDrive.style.setProperty('--ion-x', this.#current.x);
           this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
-
           requestAnimationFrame(() => this.#cursorLoop());
         }
 
@@ -561,9 +551,7 @@
         #render() {
           const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
           const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
-
           for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.yearHeight);
-
           this.#activeYears.forEach((block, year) => {
             if (Math.abs(year - baseYear) > 1) {
               this.observer.unobserve(block);
@@ -575,31 +563,27 @@
 
         #drawYear(year, yPos) {
           if (this.#activeYears.has(year)) return;
-
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
-
           const jan1 = new Date(year, 0, 1);
           const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
           const vw = window.innerWidth,
             vh = window.innerHeight;
-
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
           const msPerDay = 86400000;
           const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
-
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
           const isOverflowing = vh / rows < 60;
           if (isOverflowing) block.classList.add('is-scrolling');
 
           const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
-
-          let html = `
-                  <div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
-                    <div class="watermark-embedded">${year}</div>
-                    <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
+          let html = `<div class="grid-container" style="${
+            isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'
+          }">
+                        <div class="watermark-embedded">${year}</div>
+                        <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
             isOverflowing ? 'auto' : '100%'
           };">`;
 
@@ -609,14 +593,12 @@
               dMonth = iterDate.getMonth(),
               dDay = iterDate.getDay();
             const isToday = iterDate.toDateString() === todayStr && isMain;
-
             let cls = `cell ${!isMain ? 'filler' : ''} ${isToday ? 'today' : ''}`;
             if (isMain) {
               if (dDate === 1) cls += ' month-start';
               if (dDay === 0 || dDay === 6) cls += ' weekend';
               if (dDay === 1) cls += ' week-start';
             }
-
             html += `<div class="${cls}"><div class="cell-content">
                         <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
               isMain ? this.#months[dMonth] : ''
@@ -626,7 +608,6 @@
                       </div></div>`;
             iterDate.setDate(dDate + 1);
           }
-
           block.innerHTML = html + `</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
