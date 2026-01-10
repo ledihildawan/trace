@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Smart Adaptive Engine</title>
+    <title>Galactic Odyssey V2 - Filler Enhanced</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
     <style>
       @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
@@ -14,7 +14,7 @@
         --text-main: #0f172a; --text-muted: #64748b; --accent: #f59e0b; --cyan: #0891b2;
         --weekend-bg: #f1f5f9; --weekend-text: #475569;
         --today-bg: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-        --month-start-bg: #e2e8f0; --filler-bg: #f8fafc; --filler-text: #cbd5e1;
+        --month-start-bg: #e2e8f0; --filler-bg: #f8fafc; --filler-text: #64748b;
         --dust-opacity: 0.05; --ion-color: rgba(8, 145, 178, 0.1);
       }
       :root[data-theme='dark'] {
@@ -22,7 +22,7 @@
         --text-main: #f1f5f9; --text-muted: #64748b; --accent: #fbbf24; --cyan: #22d3ee;
         --weekend-bg: #030712; --weekend-text: #94a3b8;
         --today-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        --month-start-bg: #0f172a; --filler-bg: #010409; --filler-text: #1e293b;
+        --month-start-bg: #0f172a; --filler-bg: #010409; --filler-text: #4a5568;
         --dust-opacity: 0.15; --ion-color: rgba(34, 211, 238, 0.12);
       }
 
@@ -51,12 +51,6 @@
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         mix-blend-mode: overlay; animation: drift 20s linear infinite;
       }
-      @keyframes drift { from { background-position: 0 0; } to { background-position: 200px 200px; } }
-
-      #hud-status {
-        position: fixed; bottom: 30px; left: 30px; z-index: 500;
-        font-weight: 900; font-size: 14px; letter-spacing: 0.5em; opacity: 0.3;
-      }
 
       #viewport {
         width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
@@ -74,9 +68,7 @@
 
       .grid-container { 
         position: relative; flex: 1; display: flex; background: var(--bg); 
-        overflow-y: auto; /* Fitur Utama: Aktifkan scroll jika konten meluap */
         overflow-x: hidden;
-        cursor: auto; /* Memungkinkan interaksi scroll internal */
       }
 
       .watermark-embedded {
@@ -84,32 +76,43 @@
         font-size: clamp(150px, 35dvh, 500px); font-weight: 900; color: transparent;
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
         -webkit-background-clip: text; background-clip: text;
-        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.05); writing-mode: vertical-rl;
-        pointer-events: none; z-index: 4; opacity: 0; translate: 0 20px;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.15); writing-mode: vertical-rl;
+        pointer-events: none; opacity: 0; translate: 0 20px;
         transition: opacity 1s, translate 1.2s cubic-bezier(0.16, 1, 0.3, 1);
         will-change: transform, opacity;
+        z-index: 10;
       }
-      .year-block.active .watermark-embedded { opacity: 0.12; translate: 0 0; }
+
+      .year-block.active .watermark-embedded { opacity: 0.15; translate: 0 0; }
+
+      .year-block.is-scrolling .watermark-embedded {
+        position: fixed;
+        opacity: 0.1;
+      }
 
       .grid-layer {
         position: relative; z-index: 2; display: grid; gap: 1px;
-        background: var(--border); width: 100%; 
-        /* Jangan paksa height 100% jika kita ingin internal scroll */
-        min-height: 100%; 
-        opacity: 0;
-        transition: opacity 0.8s ease;
+        background: var(--border); width: 100%; min-height: 100%; 
+        opacity: 0; transition: opacity 0.8s ease;
       }
       .year-block.active .grid-layer { opacity: 1; }
 
       .cell {
         background: var(--cell-bg); position: relative; opacity: 0;
         transition: opacity 0.4s ease-out; will-change: opacity;
-        min-height: 60px; /* Minimal tinggi agar konten tidak penyok */
+        min-height: 60px;
       }
       .year-block.active .cell { opacity: 1; }
 
-      .cell.filler { background: var(--filler-bg); }
-      .cell.filler .date-num { color: var(--filler-text); font-weight: 300; opacity: 0.2; }
+      /* --- UPDATED FILLER VISIBILITY --- */
+      .cell.filler { 
+        background: var(--filler-bg); 
+      }
+      .cell.filler .date-num { 
+        color: var(--filler-text); 
+        font-weight: 300; 
+        opacity: 0.4; /* Naik dari 0.2 agar lebih terlihat */
+      }
       .cell.filler .info-meta { visibility: hidden; }
 
       .cell.weekend { background: var(--weekend-bg); }
@@ -124,7 +127,7 @@
       .cell.month-start .date-num { font-weight: 700; color: var(--text-main); }
 
       .cell.today {
-        background: var(--today-bg) !important; z-index: 10;
+        background: var(--today-bg) !important; z-index: 11;
         box-shadow: 0 15px 35px -5px rgba(63, 81, 181, 0.4);
       }
       .cell.today .date-num { font-weight: 900; color: #fff !important; }
@@ -159,7 +162,6 @@
     <div id="cursor-dot"></div>
     <div id="atmosphere"></div>
     <div id="theme-veil"></div>
-    <div id="hud-status">ANALYZING GRID...</div>
 
     <main id="viewport">
       <div id="infinite-canvas"></div>
@@ -196,7 +198,6 @@
 
           this.#setupListeners();
           this.#render();
-          this.#updateHUD();
         }
 
         #setupListeners() {
@@ -215,7 +216,7 @@
           this.#viewport.addEventListener('scroll', () => {
             requestAnimationFrame(() => {
               this.#render();
-              this.#updateHUD();
+              this.#handleParallax();
             });
           }, { passive: true });
 
@@ -227,16 +228,19 @@
           window.addEventListener('resize', () => location.reload());
         }
 
-        #updateHUD() {
+        #handleParallax() {
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          document.getElementById('hud-status').textContent = `ORBIT — ${year}`;
-          
           const block = this.#activeYears.get(year);
+          
           if (block) {
-            const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
             const wm = block.querySelector('.watermark-embedded');
-            if (wm) wm.style.transform = `translateY(${offset * 0.06}px)`;
+            if (wm && !block.classList.contains('is-scrolling')) {
+               const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
+               wm.style.transform = `translateY(${offset * 0.06}px)`;
+            } else if (wm) {
+               wm.style.transform = `none`;
+            }
           }
         }
 
@@ -266,20 +270,18 @@
 
           const firstDayDate = new Date(year, 0, 1);
           const startDayOfWeek = firstDayDate.getDay();
-          const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-          const daysInYear = isLeap ? 366 : 365;
+          const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
 
           const vh = window.innerHeight;
           const vw = window.innerWidth;
 
-          // LOGIKA SMART GRID
-          // 1. Tentukan jumlah kolom
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
           let rows = Math.ceil((daysInYear + startDayOfWeek) / cols);
 
-          // 2. Cek apakah akan kepotong? (Jika tinggi sel < 60px)
           const expectedCellHeight = vh / rows;
           const isOverflowing = expectedCellHeight < 60;
+
+          if (isOverflowing) block.classList.add('is-scrolling');
 
           const iterDate = new Date(year, 0, 1 - startDayOfWeek);
           const todayStr = this.#today.toDateString();
@@ -310,7 +312,6 @@
             iterDate.setDate(iterDate.getDate() + 1);
           }
 
-          // Gunakan height: auto jika overflow, height: 100% jika fit
           const gridStyle = isOverflowing 
             ? `grid-template-columns:repeat(${cols},1fr); height: auto;` 
             : `grid-template-columns:repeat(${cols},1fr); height: 100%;`;
