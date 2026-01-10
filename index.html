@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey v2.6 - Jump Engine Edition</title>
+    <title>Galactic Odyssey v2.7 - Liquid Warp</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -11,7 +11,7 @@
     />
 
     <style>
-      /* --- MODERN CSS ENGINE (2026) --- */
+      /* --- CSS HOUDINI: GPU ACCELERATED PROPERTIES --- */
       @property --ion-x {
         syntax: '<number>';
         inherits: true;
@@ -25,24 +25,19 @@
       @property --warp-scale {
         syntax: '<number>';
         inherits: true;
-        initial-value: 1;
+        initial-value: 0.92;
       }
 
       :root {
         --accent-primary: #fbbf24;
         --accent-secondary: #22d3ee;
         --today-glow: rgba(59, 130, 246, 0.5);
-
         --bg: light-dark(#f8fafc, #020617);
         --border: light-dark(#cbd5e1, #1e293b);
         --cell-bg: light-dark(#ffffff, #020617);
         --text-main: light-dark(#0f172a, #f1f5f9);
         --text-muted: light-dark(#64748b, #64748b);
-        --month-start-bg: light-dark(#e2e8f0, #0f172a);
-        --dust-opacity: light-dark(0.05, 0.15);
         --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
-
-        /* Celestial Patterns (from v2.5) */
         --weekend-shimmer: light-dark(rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.03));
       }
 
@@ -71,9 +66,10 @@
         font-family: 'Space Grotesk', sans-serif;
         overflow: hidden;
         perspective: 1200px;
+        overscroll-behavior: none;
       }
 
-      /* --- CURSOR DISPLAY LOGIC --- */
+      /* --- GPU OPTIMIZED CURSOR --- */
       @media (pointer: fine) {
         html,
         body,
@@ -144,6 +140,7 @@
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         mix-blend-mode: overlay;
         animation: drift 30s linear infinite;
+        will-change: transform;
       }
       @keyframes drift {
         from {
@@ -190,7 +187,7 @@
         will-change: transform, filter, opacity;
       }
       .year-block:not(.active) {
-        transform: scale(0.92) translateZ(-150px);
+        transform: scale(var(--warp-scale, 0.92)) translateZ(-150px);
         filter: blur(10px);
         opacity: 0.35;
       }
@@ -226,6 +223,7 @@
         opacity: 0;
         z-index: 10;
         transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform, opacity;
       }
       .year-block.active .watermark-embedded {
         opacity: 0.15;
@@ -236,7 +234,6 @@
         opacity: 0.08;
       }
 
-      /* --- PIXEL-PERFECT SYMMETRICAL GRID --- */
       .grid-layer {
         display: grid;
         width: 100.1%;
@@ -272,7 +269,6 @@
         opacity: 0.2;
       }
 
-      /* Weekend Stellar Dust (from v2.5) */
       .cell.weekend {
         background-image: repeating-linear-gradient(
           45deg,
@@ -282,8 +278,6 @@
           transparent 8px
         );
       }
-
-      /* Celestial Monday Point (from v2.5) */
       .cell.week-start::before {
         content: '';
         position: absolute;
@@ -298,7 +292,6 @@
         z-index: 3;
       }
 
-      /* Glass Transition Month (from v2.5) */
       .cell.month-start {
         background: linear-gradient(to bottom, transparent 90%, var(--accent-secondary) 180%);
       }
@@ -306,7 +299,6 @@
         color: var(--accent-secondary);
         font-weight: 800;
         letter-spacing: 0.25em;
-        text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
       }
 
       .cell.today {
@@ -369,9 +361,8 @@
 
     <script type="module">
       /**
-       * Galactic Odyssey v2.6 - Jump Engine Edition
-       * Referensi Utama: v2.5 Celestial Liquid
-       * Fitur: Jump Logic, Chronos Sync, Pixel-Perfect Grid, GPU Acceleration.
+       * Galactic Odyssey v2.7 - Liquid Warp Edition
+       * Optimasi: Compositor-Only Animations, Houdini @property, Content Visibility.
        */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
@@ -380,17 +371,11 @@
         #ionDrive = document.getElementById('ion-drive');
 
         #today = new Date();
-        #yearHeight = window.innerHeight;
         #activeYears = new Map();
         #lastScrollPos = 0;
 
         #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        #target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        #config = { speed: 0.18, attraction: 0.42 };
-
-        #isHovering = false;
-        #hoverEl = null;
 
         #months = [
           'JANUARI',
@@ -410,52 +395,46 @@
 
         constructor() {
           this.totalYears = 2000;
-          this.startY = (this.totalYears / 2) * this.#yearHeight;
+          this.yearHeight = window.innerHeight;
+          this.startY = (this.totalYears / 2) * this.yearHeight;
           this.#init();
         }
 
         async #init() {
           this.#applyTheme(localStorage.getItem('theme') || 'dark');
-          this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
+          this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
           this.#viewport.scrollTop = this.startY;
           this.#lastScrollPos = this.startY;
 
+          // Performance: Menggunakan IntersectionObserver dengan threshold yang dioptimalkan
           this.observer = new IntersectionObserver(
             (entries) => {
-              entries.forEach((e) => {
+              for (let i = 0; i < entries.length; i++) {
+                const e = entries[i];
                 const block = e.target;
                 block.classList.toggle('active', e.isIntersecting);
 
-                // CHRONOS LOGIC: Handle natural scroll direction (backwards in time)
                 if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
                   const container = block.querySelector('.grid-container');
                   if (container && block.classList.contains('is-scrolling')) {
                     container.scrollTop = container.scrollHeight;
                   }
                 }
-                this.#lastScrollPos = this.#viewport.scrollTop;
-              });
+              }
+              this.#lastScrollPos = this.#viewport.scrollTop;
             },
-            { threshold: 0.15 }
+            { threshold: 0.1, rootMargin: '10% 0px' }
           );
 
           this.#setupListeners();
           this.#cursorLoop();
           this.#render();
 
-          // JUMP TO TODAY ON LOAD (v2.6 Engine)
           setTimeout(() => this.jumpToToday(), 100);
         }
 
-        /**
-         * Jump Engine v2.6
-         * Menangani navigasi presisi ke sel Today dalam mode adaptive maupun fixed.
-         */
         jumpToToday() {
-          // 1. Warp layar utama ke koordinat tahun saat ini
           this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
-
-          // 2. Jika dalam mode scroll internal, arahkan container ke sel today
           setTimeout(() => {
             const block = this.#activeYears.get(this.#today.getFullYear());
             if (block && block.classList.contains('is-scrolling')) {
@@ -468,7 +447,7 @@
                 });
               }
             }
-          }, 600);
+          }, 650);
         }
 
         #setupListeners() {
@@ -482,23 +461,28 @@
             { passive: true }
           );
 
-          document.addEventListener('mouseover', (e) => {
-            const cell = e.target.closest('.cell');
-            if (cell && !cell.classList.contains('filler')) {
-              this.#isHovering = true;
-              this.#hoverEl = cell;
-              this.#cursorWrapper.classList.add('is-hovering');
-              this.#ionDrive.style.setProperty('--glow-size', '800px');
-            }
-          });
+          document.addEventListener(
+            'mouseover',
+            (e) => {
+              const cell = e.target.closest('.cell');
+              if (cell && !cell.classList.contains('filler')) {
+                this.#cursorWrapper.classList.add('is-hovering');
+                this.#ionDrive.style.setProperty('--glow-size', '800px');
+              }
+            },
+            { passive: true }
+          );
 
-          document.addEventListener('mouseout', (e) => {
-            if (e.target.closest('.cell')) {
-              this.#isHovering = false;
-              this.#cursorWrapper.classList.remove('is-hovering');
-              this.#ionDrive.style.setProperty('--glow-size', '600px');
-            }
-          });
+          document.addEventListener(
+            'mouseout',
+            (e) => {
+              if (e.target.closest('.cell')) {
+                this.#cursorWrapper.classList.remove('is-hovering');
+                this.#ionDrive.style.setProperty('--glow-size', '600px');
+              }
+            },
+            { passive: true }
+          );
 
           this.#viewport.addEventListener(
             'scroll',
@@ -518,7 +502,19 @@
               this.jumpToToday();
             }
           });
-          window.addEventListener('resize', () => location.reload());
+
+          window.addEventListener(
+            'resize',
+            () => {
+              this.yearHeight = window.innerHeight;
+              this.startY = (this.totalYears / 2) * this.yearHeight;
+              this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
+              // keep scroll near previous logical position
+              this.#viewport.scrollTop = Math.min(this.#viewport.scrollTop, this.startY);
+              this.#render();
+            },
+            { passive: true }
+          );
         }
 
         #applyTheme(theme) {
@@ -539,37 +535,35 @@
 
         #cursorLoop() {
           if (window.matchMedia('(pointer: coarse)').matches) return;
-          if (this.#isHovering && this.#hoverEl) {
-            const rect = this.#hoverEl.getBoundingClientRect();
-            this.#target.x = this.#mouse.x + (rect.left + rect.width / 2 - this.#mouse.x) * this.#config.attraction;
-            this.#target.y = this.#mouse.y + (rect.top + rect.height / 2 - this.#mouse.y) * this.#config.attraction;
-          } else {
-            this.#target.x = this.#mouse.x;
-            this.#target.y = this.#mouse.y;
-          }
-          this.#current.x += (this.#target.x - this.#current.x) * this.#config.speed;
-          this.#current.y += (this.#target.y - this.#current.y) * this.#config.speed;
+
+          // Smooth Lerp dengan performa tinggi
+          this.#current.x += (this.#mouse.x - this.#current.x) * 0.18;
+          this.#current.y += (this.#mouse.y - this.#current.y) * 0.18;
+
           this.#cursorWrapper.style.transform = `translate3d(${this.#current.x}px, ${this.#current.y}px, 0)`;
           this.#ionDrive.style.setProperty('--ion-x', this.#current.x);
           this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
+
           requestAnimationFrame(() => this.#cursorLoop());
         }
 
         #handleParallax() {
-          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
           const block = this.#activeYears.get(year);
           if (block && !block.classList.contains('is-scrolling')) {
-            const offset = (this.#viewport.scrollTop % this.#yearHeight) - this.#yearHeight / 2;
+            const offset = (this.#viewport.scrollTop % this.yearHeight) - this.yearHeight / 2;
             const wm = block.querySelector('.watermark-embedded');
             if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
           }
         }
 
         #render() {
-          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
           const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
+
+          for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.yearHeight);
+
           this.#activeYears.forEach((block, year) => {
             if (Math.abs(year - baseYear) > 1) {
               this.observer.unobserve(block);
@@ -581,6 +575,7 @@
 
         #drawYear(year, yPos) {
           if (this.#activeYears.has(year)) return;
+
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
@@ -589,17 +584,29 @@
           const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
           const vw = window.innerWidth,
             vh = window.innerHeight;
+
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
-          const globalOffset = Math.floor(jan1.getTime() / 86400000) % cols;
+          const msPerDay = 86400000;
+          const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
+
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
-          if (vh / rows < 60) block.classList.add('is-scrolling');
+          const isOverflowing = vh / rows < 60;
+          if (isOverflowing) block.classList.add('is-scrolling');
 
           const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
-          let cellsHtml = '';
+
+          let html = `
+                  <div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
+                    <div class="watermark-embedded">${year}</div>
+                    <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
+            isOverflowing ? 'auto' : '100%'
+          };">`;
+
           for (let s = 0; s < cols * rows; s++) {
             const isMain = iterDate.getFullYear() === year;
             const dDate = iterDate.getDate(),
+              dMonth = iterDate.getMonth(),
               dDay = iterDate.getDay();
             const isToday = iterDate.toDateString() === todayStr && isMain;
 
@@ -610,21 +617,17 @@
               if (dDay === 1) cls += ' week-start';
             }
 
-            cellsHtml += `<div class="${cls}"><div class="cell-content">
-                  <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
-              isMain ? this.#months[iterDate.getMonth()] : ''
+            html += `<div class="${cls}"><div class="cell-content">
+                        <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
+              isMain ? this.#months[dMonth] : ''
             }</span>
-                  <span class="date-num">${dDate}</span>
-                  <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
-                </div></div>`;
+                        <span class="date-num">${dDate}</span>
+                        <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
+                      </div></div>`;
             iterDate.setDate(dDate + 1);
           }
-          block.innerHTML = `<div class="grid-container" style="${
-            block.classList.contains('is-scrolling') ? 'overflow-y:auto' : 'overflow-y:hidden'
-          }">
-            <div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
-            block.classList.contains('is-scrolling') ? 'auto' : '100%'
-          };">${cellsHtml}</div></div>`;
+
+          block.innerHTML = html + `</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
