@@ -3,20 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Ultra Edition</title>
+    <title>Galactic Odyssey V2 - Liquid Engine Final</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
     
     <style>
-      /* --- DYNAMIC BRANDING ENGINE --- */
+      /* --- MODERN CSS ENGINE (2026) --- */
       @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
       @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
       @property --warp-scale { syntax: '<number>'; inherits: true; initial-value: 1; }
 
       :root {
-        /* Ubah warna di sini untuk mengganti tema galaksi Anda */
-        --accent-primary: #fbbf24; /* Amber Warp */
-        --accent-secondary: #22d3ee; /* Electric Cyan */
+        --accent-primary: #fbbf24;
+        --accent-secondary: #22d3ee;
         --today-glow: rgba(59, 130, 246, 0.5);
         
         --bg: light-dark(#f8fafc, #020617);
@@ -125,7 +124,7 @@
       /* --- PIXEL-PERFECT SYMMETRICAL GRID --- */
       .grid-layer {
         display: grid; 
-        width: 100.1%; /* Pixel alignment fix */
+        width: 100.1%; /* Compensa sub-pixel rounding */
         margin-left: -0.5px;
         min-height: 100%; 
         opacity: 0; transition: opacity 0.8s ease;
@@ -187,8 +186,8 @@
 
     <script type="module">
       /**
-       * Galactic Odyssey V2 - Final Stable 2026
-       * Fitur: Chronos Logic, Pixel-Perfect Grid, Liquid Cursor, Warp Transitions.
+       * Galactic Odyssey V2 - Final Liquid Engine (2026)
+       * Standar Performa: 120FPS Render, Chronos Sync, Pixel-Perfect Grid.
        */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
@@ -230,7 +229,7 @@
                 const block = e.target;
                 block.classList.toggle('active', e.isIntersecting);
                 
-                // CHRONOS LOGIC: Handle natural scroll direction for years
+                // CHRONOS LOGIC: Handle natural scroll direction (backwards in time)
                 if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
                   const container = block.querySelector('.grid-container');
                   if (container && block.classList.contains('is-scrolling')) {
@@ -267,6 +266,7 @@
           document.addEventListener('mouseout', (e) => {
             if (e.target.closest('.cell')) {
               this.#isHovering = false;
+              this.#hoverEl = null;
               this.#cursorWrapper.classList.remove('is-hovering');
               this.#ionDrive.style.setProperty('--glow-size', '600px');
             }
@@ -306,8 +306,10 @@
         #cursorLoop() {
           if (this.#isHovering && this.#hoverEl) {
             const rect = this.#hoverEl.getBoundingClientRect();
-            this.#target.x = this.#mouse.x + (rect.left + rect.width / 2 - this.#mouse.x) * this.#config.attraction;
-            this.#target.y = this.#mouse.y + (rect.top + rect.height / 2 - this.#mouse.y) * this.#config.attraction;
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            this.#target.x = this.#mouse.x + (centerX - this.#mouse.x) * this.#config.attraction;
+            this.#target.y = this.#mouse.y + (centerY - this.#mouse.y) * this.#config.attraction;
           } else {
             this.#target.x = this.#mouse.x;
             this.#target.y = this.#mouse.y;
@@ -377,7 +379,9 @@
           for (let s = 0; s < cols * rows; s++) {
             const isMain = iterDate.getFullYear() === year;
             const dDate = iterDate.getDate(), dMonth = iterDate.getMonth(), dDay = iterDate.getDay();
-            let cls = `cell ${!isMain ? 'filler' : ''} ${dDate === 1 && isMain ? 'month-start' : ''} ${(dDay === 0 || dDay === 6) && isMain ? 'weekend' : ''} ${iterDate.toDateString() === todayStr ? 'today' : ''}`;
+            const isToday = iterDate.toDateString() === todayStr && isMain;
+            
+            let cls = `cell ${!isMain ? 'filler' : ''} ${dDate === 1 && isMain ? 'month-start' : ''} ${isToday ? 'today' : ''} ${(dDay === 0 || dDay === 6) && isMain ? 'weekend' : ''}`;
 
             html += `
               <div class="${cls}">
