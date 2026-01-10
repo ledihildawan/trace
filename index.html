@@ -38,14 +38,21 @@
       }
 
       html, body {
-        height: 100dvh; width: 100vw; 
-        background: var(--bg); color: var(--text-main);
-        font-family: 'Space Grotesk', sans-serif; 
-        overflow: hidden; cursor: none;
-        perspective: 1200px;
+        height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif; overflow: hidden; perspective: 1200px;
       }
 
-      /* --- GPU ACCELERATED UI ELEMENTS --- */
+      /* --- CURSOR DISPLAY LOGIC --- */
+      @media (pointer: fine) {
+        html, body, .cell { cursor: none !important; }
+        #cursor-wrapper, #ion-drive { display: block; }
+      }
+
+      @media (pointer: coarse) {
+        #cursor-wrapper, #ion-drive { display: none !important; }
+        html, body, .cell { cursor: auto !important; }
+      }
+
       #ion-drive {
         position: fixed; inset: 0; z-index: 5; pointer-events: none;
         background: radial-gradient(var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
@@ -56,7 +63,7 @@
       #cursor-wrapper {
         position: fixed; top: 0; left: 0; z-index: 10000;
         pointer-events: none; will-change: transform;
-        transform: translate3d(0,0,0);
+        transform: translate3d(0,0,0); opacity: 0;
       }
 
       #cursor-dot {
@@ -77,7 +84,6 @@
 
       @keyframes drift { from { background-position: 0 0; } to { background-position: 200px 200px; } }
 
-      /* --- VIEWPORT ENGINE --- */
       #viewport {
         width: 100vw; height: 100dvh; 
         overflow-y: auto; scroll-snap-type: y mandatory;
@@ -121,10 +127,9 @@
       }
       .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.08; }
 
-      /* --- PIXEL-PERFECT SYMMETRICAL GRID --- */
       .grid-layer {
         display: grid; 
-        width: 100.1%; /* Compensa sub-pixel rounding */
+        width: 100.1%; 
         margin-left: -0.5px;
         min-height: 100%; 
         opacity: 0; transition: opacity 0.8s ease;
@@ -185,10 +190,6 @@
     </main>
 
     <script type="module">
-      /**
-       * Galactic Odyssey V2 - Final Liquid Engine (2026)
-       * Standar Performa: 120FPS Render, Chronos Sync, Pixel-Perfect Grid.
-       */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
@@ -229,7 +230,6 @@
                 const block = e.target;
                 block.classList.toggle('active', e.isIntersecting);
                 
-                // CHRONOS LOGIC: Handle natural scroll direction (backwards in time)
                 if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
                   const container = block.querySelector('.grid-container');
                   if (container && block.classList.contains('is-scrolling')) {
@@ -251,6 +251,7 @@
           window.addEventListener('pointermove', (e) => {
             this.#mouse.x = e.clientX;
             this.#mouse.y = e.clientY;
+            if(e.pointerType === 'mouse') this.#cursorWrapper.style.opacity = '1';
           }, { passive: true });
 
           document.addEventListener('mouseover', (e) => {
@@ -304,12 +305,11 @@
         }
 
         #cursorLoop() {
+          if (window.matchMedia("(pointer: coarse)").matches) return;
           if (this.#isHovering && this.#hoverEl) {
             const rect = this.#hoverEl.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            this.#target.x = this.#mouse.x + (centerX - this.#mouse.x) * this.#config.attraction;
-            this.#target.y = this.#mouse.y + (centerY - this.#mouse.y) * this.#config.attraction;
+            this.#target.x = this.#mouse.x + (rect.left + rect.width / 2 - this.#mouse.x) * this.#config.attraction;
+            this.#target.y = this.#mouse.y + (rect.top + rect.height / 2 - this.#mouse.y) * this.#config.attraction;
           } else {
             this.#target.x = this.#mouse.x;
             this.#target.y = this.#mouse.y;
@@ -329,10 +329,14 @@
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
           const block = this.#activeYears.get(year);
-          if (block && !block.classList.contains('is-scrolling')) {
-            const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
+          if (block) {
             const wm = block.querySelector('.watermark-embedded');
-            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
+            if (wm && !block.classList.contains('is-scrolling')) {
+               const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
+               wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
+            } else if (wm) {
+               wm.style.transform = `none`;
+            }
           }
         }
 
@@ -361,8 +365,7 @@
           const vw = window.innerWidth, vh = window.innerHeight;
           
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
-          const msPerDay = 86400000;
-          const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
+          const globalOffset = Math.floor(jan1.getTime() / 86400000) % cols;
           
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
           const isOverflowing = (vh / rows) < 60;
