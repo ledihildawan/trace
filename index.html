@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Fixed Theme Engine</title>
+    <title>Galactic Odyssey V2 - Final Stable Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
     
     <style>
+      /* --- HOUDINI & GPU ACCELERATION --- */
       @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
       @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
       @property --warp-scale { syntax: '<number>'; inherits: true; initial-value: 1; }
 
       :root {
-        /* FIXED: Menggunakan color-scheme agar light-dark() berfungsi sempurna */
         --bg: light-dark(#f8fafc, #020617);
         --grid-bg: light-dark(#e2e8f0, #0f172a);
         --border: light-dark(#cbd5e1, #1e293b);
@@ -28,34 +28,34 @@
         --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
       }
 
-      /* Fallback manual jika browser belum mendukung light-dark() sepenuhnya */
       [data-theme='light'] { color-scheme: light; }
       [data-theme='dark'] { color-scheme: dark; }
 
       *, *::before, *::after { 
         box-sizing: border-box; 
         margin: 0; padding: 0;
-        -webkit-font-smoothing: antialiased;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
       }
 
       html, body {
-        height: 100dvh; width: 100vw; 
-        background: var(--bg); color: var(--text-main);
-        font-family: 'Space Grotesk', sans-serif; 
-        overflow: hidden; cursor: none;
+        height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif; overflow: hidden; cursor: none;
         perspective: 1200px;
-        transition: background-color 0.5s ease; /* Transisi warna background yang halus */
       }
 
+      /* --- GPU LAYERS --- */
       #ion-drive {
         position: fixed; inset: 0; z-index: 5; pointer-events: none;
         background: radial-gradient(var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
         transform: translate3d(0,0,0);
+        will-change: background;
       }
       
       #cursor-wrapper {
         position: fixed; top: 0; left: 0; z-index: 10000;
         pointer-events: none; will-change: transform;
+        transform: translate3d(0,0,0); transition: opacity 0.3s ease;
       }
 
       #cursor-dot {
@@ -65,21 +65,21 @@
       }
 
       #cursor-wrapper.is-hovering #cursor-dot {
-        transform: scale(3.8); background: var(--accent); box-shadow: 0 0 25px var(--accent);
+        transform: scale(3.5); background: var(--accent); box-shadow: 0 0 25px var(--accent);
       }
 
       #atmosphere {
         position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: var(--dust-opacity);
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        mix-blend-mode: overlay; animation: drift 30s linear infinite;
+        mix-blend-mode: overlay; animation: drift 20s linear infinite; transform: translate3d(0,0,0);
       }
 
       @keyframes drift { from { background-position: 0 0; } to { background-position: 200px 200px; } }
 
+      /* --- VIEWPORT ENGINE --- */
       #viewport {
-        width: 100vw; height: 100dvh; 
-        overflow-y: auto; scroll-snap-type: y mandatory;
-        scrollbar-width: none; position: relative;
+        width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
+        scrollbar-width: none; position: relative; -webkit-overflow-scrolling: touch;
       }
       #viewport::-webkit-scrollbar { display: none; }
       #infinite-canvas { position: relative; width: 100%; contain: layout; }
@@ -87,45 +87,47 @@
       .year-block {
         position: absolute; left: 0; width: 100vw; height: 100dvh;
         scroll-snap-align: start; scroll-snap-stop: always;
-        display: flex; flex-direction: column;
-        overflow: hidden; content-visibility: auto; 
-        contain-intrinsic-size: 100vw 100dvh;
+        display: flex; flex-direction: column; overflow: hidden;
         transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
         transform-origin: center center;
+        will-change: transform, filter, opacity;
       }
 
       .year-block:not(.active) {
-        transform: scale(var(--warp-scale, 0.92)) translateZ(-150px);
+        transform: scale(0.92) translateZ(-150px);
         filter: blur(10px); opacity: 0.35;
       }
 
-      .grid-container { position: relative; flex: 1; display: flex; background: var(--bg); overflow-x: hidden; }
+      .grid-container { 
+        position: relative; flex: 1; display: flex; flex-direction: column; 
+        background: var(--bg); overflow-x: hidden; scrollbar-width: none;
+      }
+      .grid-container::-webkit-scrollbar { display: none; }
 
       .watermark-embedded {
         position: absolute; top: 0; right: 5%; height: 100%; display: flex; align-items: center;
         font-size: clamp(150px, 35dvh, 500px); font-weight: 900; color: transparent;
         background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
         background-clip: text; -webkit-background-clip: text;
-        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.12);
-        writing-mode: vertical-rl; pointer-events: none; 
-        z-index: 10; opacity: 0;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1); writing-mode: vertical-rl;
+        pointer-events: none; opacity: 0; z-index: 10;
         transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform, opacity;
       }
+
       .year-block.active .watermark-embedded { opacity: 0.15; transform: translate3d(0,0,0); }
       .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.08; }
 
       .grid-layer {
-        display: grid; width: 100%; min-height: 100%; 
-        opacity: 0; transition: opacity 0.8s ease;
-        z-index: 2; gap: 0; background: transparent;
+        position: relative; z-index: 2; display: grid; width: 100%; min-height: 100%; 
+        opacity: 0; transition: opacity 0.8s ease; background: transparent; gap: 0;
       }
       .year-block.active .grid-layer { opacity: 1; }
 
+      /* --- PIXEL-PERFECT CELLS --- */
       .cell { 
-        background: var(--cell-bg); position: relative;
-        contain: strict;
-        box-shadow: 0 0 0 0.5px var(--border);
-        min-height: 60px;
+        background: var(--cell-bg); position: relative; contain: strict;
+        box-shadow: 0 0 0 0.5px var(--border); min-height: 60px; will-change: background;
       }
 
       .cell.filler { background: var(--filler-bg); }
@@ -143,7 +145,7 @@
 
       .cell-content { display: flex; flex-direction: column; justify-content: space-between; align-items: center; height: 100%; padding-block: 10px; text-align: center; }
       .info-meta { font-size: clamp(7px, 0.9dvh, 10px); text-transform: uppercase; font-weight: 500; color: var(--text-muted); letter-spacing: 0.15em; }
-      .date-num { font-size: clamp(16px, 3dvh, 32px); font-weight: 300; line-height: 1; color: var(--text-main); }
+      .date-num { font-size: clamp(16px, 3dvh, 32px); font-weight: 300; color: var(--text-main); }
       
       #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s ease-out; }
       #theme-veil.active { opacity: 1; }
@@ -169,6 +171,7 @@
         #today = new Date();
         #yearHeight = window.innerHeight;
         #activeYears = new Map();
+        #lastScrollPos = 0;
         
         #mouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
         #target = { x: window.innerWidth/2, y: window.innerHeight/2 };
@@ -177,7 +180,6 @@
         
         #isHovering = false;
         #hoverEl = null;
-        #scrollTicking = false;
 
         #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
         #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
@@ -189,21 +191,36 @@
         }
 
         async #init() {
-          // FIXED: Inisialisasi tema dengan benar
-          const saved = localStorage.getItem('theme') || 'dark';
-          this.#applyTheme(saved);
-          
+          this.#applyTheme(localStorage.getItem('theme') || 'dark');
           this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
           this.#viewport.scrollTop = this.startY;
+          this.#lastScrollPos = this.startY;
 
-          this.observer = new IntersectionObserver(
-            (entries) => entries.forEach(e => e.target.classList.toggle('active', e.isIntersecting)),
-            { threshold: 0.15 }
-          );
+          this.observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+              const block = e.target;
+              block.classList.toggle('active', e.isIntersecting);
+              
+              // CHRONOS LOGIC: Handle natural scroll order when moving up
+              if (e.isIntersecting && this.#isScrollingUp()) {
+                const container = block.querySelector('.grid-container');
+                if (container && block.classList.contains('is-scrolling')) {
+                  container.scrollTop = container.scrollHeight;
+                }
+              }
+            });
+          }, { threshold: 0.1 });
 
           this.#setupListeners();
           this.#cursorLoop();
           this.#render();
+        }
+
+        #isScrollingUp() {
+          const current = this.#viewport.scrollTop;
+          const up = current < this.#lastScrollPos;
+          this.#lastScrollPos = current;
+          return up;
         }
 
         #setupListeners() {
@@ -232,14 +249,10 @@
           });
 
           this.#viewport.addEventListener('scroll', () => {
-            if (!this.#scrollTicking) {
-              requestAnimationFrame(() => {
-                this.#render();
-                this.#handleParallax();
-                this.#scrollTicking = false;
-              });
-              this.#scrollTicking = true;
-            }
+            requestAnimationFrame(() => {
+              this.#render();
+              this.#handleParallax();
+            });
           }, { passive: true });
 
           window.addEventListener('keydown', (e) => {
@@ -252,21 +265,16 @@
 
         #applyTheme(theme) {
           document.documentElement.setAttribute('data-theme', theme);
-          // FIXED: Ini baris krusial agar light-dark() di CSS bekerja
           document.documentElement.style.colorScheme = theme;
         }
 
         #toggleTheme() {
           const veil = document.getElementById('theme-veil');
           veil.classList.add('active');
-          
           setTimeout(() => {
-            const current = document.documentElement.getAttribute('data-theme');
-            const next = current === 'light' ? 'dark' : 'light';
-            
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
             this.#applyTheme(next);
             localStorage.setItem('theme', next);
-            
             setTimeout(() => veil.classList.remove('active'), 200);
           }, 400);
         }
@@ -274,8 +282,10 @@
         #cursorLoop() {
           if (this.#isHovering && this.#hoverEl) {
             const rect = this.#hoverEl.getBoundingClientRect();
-            this.#target.x = this.#mouse.x + (rect.left + rect.width/2 - this.#mouse.x) * this.#config.attraction;
-            this.#target.y = this.#mouse.y + (rect.top + rect.height/2 - this.#mouse.y) * this.#config.attraction;
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            this.#target.x = this.#mouse.x + (centerX - this.#mouse.x) * this.#config.attraction;
+            this.#target.y = this.#mouse.y + (centerY - this.#mouse.y) * this.#config.attraction;
           } else {
             this.#target.x = this.#mouse.x;
             this.#target.y = this.#mouse.y;
@@ -310,6 +320,7 @@
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
           for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
+          
           this.#activeYears.forEach((block, year) => {
             if (Math.abs(year - baseYear) > 1) {
               this.observer.unobserve(block);
@@ -324,25 +335,41 @@
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
+          
           const jan1 = new Date(year, 0, 1);
-          const isLeap = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0);
-          const daysInYear = isLeap ? 366 : 365;
-          let cols = window.innerWidth < 600 ? 7 : Math.ceil(Math.sqrt(365 * (window.innerWidth / window.innerHeight)));
-          const globalOffset = Math.floor(jan1.getTime() / 86400000) % cols;
+          const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
+          const vh = window.innerHeight;
+          const vw = window.innerWidth;
+          
+          let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
+          const msPerDay = 86400000;
+          const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
+          
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
-          if ((window.innerHeight / rows) < 60) block.classList.add('is-scrolling');
+          const isOverflowing = (vh / rows) < 60;
+          if (isOverflowing) block.classList.add('is-scrolling');
 
           const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
+          
           let cellsHtml = '';
           for (let s = 0; s < cols * rows; s++) {
-            const dDate = iterDate.getDate(), dDay = iterDate.getDay(), isMain = iterDate.getFullYear() === year;
-            let cls = `cell ${!isMain ? 'filler' : ''} ${dDate === 1 && isMain ? 'month-start' : ''} ${(dDay === 0 || dDay === 6) && isMain ? 'weekend' : ''} ${iterDate.toDateString() === todayStr ? 'today' : ''}`;
-            cellsHtml += `<div class="${cls}"><div class="cell-content"><span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${isMain ? this.#months[iterDate.getMonth()] : ''}</span><span class="date-num">${dDate}</span><span class="info-meta">${isMain ? this.#days[dDay] : ''}</span></div></div>`;
-            iterDate.setDate(dDate + 1);
+            const isMain = iterDate.getFullYear() === year;
+            const isFirst = iterDate.getDate() === 1 && isMain;
+            const dDay = iterDate.getDay();
+            let cls = `cell ${!isMain ? 'filler' : ''} ${isFirst ? 'month-start' : ''} ${(dDay===0||dDay===6)&&isMain ? 'weekend' : ''} ${iterDate.toDateString()===todayStr ? 'today' : ''}`;
+            
+            cellsHtml += `<div class="${cls}">
+                <div class="cell-content">
+                  <span class="info-meta ${isFirst ? 'top-label' : ''}">${isMain ? this.#months[iterDate.getMonth()] : ''}</span>
+                  <span class="date-num">${iterDate.getDate()}</span>
+                  <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
+                </div>
+              </div>`;
+            iterDate.setDate(iterDate.getDate() + 1);
           }
 
-          block.innerHTML = `<div class="grid-container" style="${block.classList.contains('is-scrolling') ? 'overflow-y: auto;' : 'overflow-y: hidden;'}"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${block.classList.contains('is-scrolling') ? 'auto' : '100%'};">${cellsHtml}</div></div>`;
+          block.innerHTML = `<div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${isOverflowing ? 'auto' : '100%'};">${cellsHtml}</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
