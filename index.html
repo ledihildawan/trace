@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey v2.7</title>
+    <title>Galactic Odyssey v2.8 - Refined Synergy</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -11,7 +11,7 @@
     />
 
     <style>
-      /* --- CSS HOUDINI: GPU ACCELERATED PROPERTIES --- */
+      /* --- MODERN CSS ENGINE (2026) --- */
       @property --ion-x {
         syntax: '<number>';
         inherits: true;
@@ -31,14 +31,14 @@
       :root {
         --accent-primary: #fbbf24;
         --accent-secondary: #22d3ee;
-        --today-glow: rgba(59, 130, 246, 0.5);
+        --today-glow: rgba(59, 130, 246, 0.6);
         --bg: light-dark(#f8fafc, #020617);
         --border: light-dark(#cbd5e1, #1e293b);
         --cell-bg: light-dark(#ffffff, #020617);
         --text-main: light-dark(#0f172a, #f1f5f9);
         --text-muted: light-dark(#64748b, #64748b);
         --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
-        --weekend-shimmer: light-dark(rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.03));
+        --dust-opacity: light-dark(0.05, 0.15);
       }
 
       [data-theme='light'] {
@@ -69,7 +69,7 @@
         overscroll-behavior: none;
       }
 
-      /* --- CURSOR DISPLAY --- */
+      /* --- CURSOR DISPLAY LOGIC --- */
       @media (pointer: fine) {
         html,
         body,
@@ -151,6 +151,7 @@
         }
       }
 
+      /* --- VIEWPORT ENGINE --- */
       #viewport {
         width: 100vw;
         height: 100dvh;
@@ -248,7 +249,7 @@
         opacity: 1;
       }
 
-      /* --- CELL SYSTEM --- */
+      /* --- CELL SYSTEM v2.8 (AESTHETIC SYNERGY) --- */
       .cell {
         background: var(--cell-bg);
         position: relative;
@@ -258,6 +259,7 @@
         will-change: background;
         display: flex;
         flex-direction: column;
+        transition: background 0.4s ease;
       }
       .cell.filler {
         background: color-mix(in srgb, var(--bg), transparent 60%);
@@ -268,48 +270,46 @@
       }
 
       .cell.weekend {
-        background-image: repeating-linear-gradient(
-          45deg,
-          var(--weekend-shimmer),
-          var(--weekend-shimmer) 2px,
-          transparent 2px,
-          transparent 8px
-        );
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.05) 0%, transparent 100%);
       }
-      .cell.week-start::before {
+
+      .cell.week-start {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
+      }
+      .cell.week-start::after {
         content: '';
         position: absolute;
-        top: 8px;
-        left: 8px;
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background: var(--accent-primary);
-        box-shadow: 0 0 8px var(--accent-primary);
-        opacity: 0.7;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent-primary), transparent);
+        opacity: 0.3;
         z-index: 3;
       }
 
       .cell.month-start {
-        background: linear-gradient(to bottom, transparent 90%, var(--accent-secondary) 180%);
+        background: linear-gradient(180deg, rgba(34, 211, 238, 0.1) 0%, transparent 100%);
+        box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
       }
       .cell.month-start .info-meta.top-label {
         color: var(--accent-secondary);
-        font-weight: 800;
-        letter-spacing: 0.25em;
+        font-weight: 900;
+        letter-spacing: 0.15em;
       }
 
       .cell.today {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-        z-index: 11;
-        box-shadow: 0 15px 35px -5px var(--today-glow), inset 0 0 0 0.5px var(--border);
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+        z-index: 10;
+        box-shadow: 0 15px 35px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
       }
       .cell.today .date-num {
         font-weight: 900;
-        color: #fff;
+        color: #fff !important;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
       }
       .cell.today .info-meta {
-        color: rgba(255, 255, 255, 0.85);
+        color: rgba(255, 255, 255, 0.9) !important;
         font-weight: 700;
       }
 
@@ -319,22 +319,24 @@
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 4px;
+        padding: 12px 4px;
         text-align: center;
         pointer-events: none;
         z-index: 2;
       }
+
       .info-meta {
         font-size: clamp(7px, 0.9dvh, 8px);
         text-transform: uppercase;
-        font-weight: 500;
+        font-weight: 600;
         color: var(--text-muted);
         letter-spacing: 0.1em;
       }
+
       .date-num {
-        font-size: clamp(16px, 3dvh, 28px);
+        font-size: clamp(18px, 3dvh, 26px);
         font-weight: 300;
-        line-height: 1.1;
+        line-height: 1;
         color: var(--text-main);
       }
 
@@ -376,21 +378,8 @@
         #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
-        #months = [
-          'JANUARI',
-          'FEBRUARI',
-          'MARET',
-          'APRIL',
-          'MEI',
-          'JUNI',
-          'JULI',
-          'AGUSTUS',
-          'SEPTEMBER',
-          'OKTOBER',
-          'NOVEMBER',
-          'DESEMBER',
-        ];
-        #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+        #monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
+        #daysShort = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
 
         constructor() {
           this.totalYears = 2000;
@@ -507,7 +496,7 @@
               this.yearHeight = window.innerHeight;
               this.startY = (this.totalYears / 2) * this.yearHeight;
               this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
-              this.#viewport.scrollTop = this.startY; // Recenter on resize
+              this.#viewport.scrollTop = this.startY;
               this.#render();
             },
             { passive: true }
@@ -596,19 +585,21 @@
               dMonth = iterDate.getMonth(),
               dDay = iterDate.getDay();
             const isToday = iterDate.toDateString() === todayStr && isMain;
+
             let cls = `cell ${!isMain ? 'filler' : ''} ${isToday ? 'today' : ''}`;
             if (isMain) {
               if (dDate === 1) cls += ' month-start';
               if (dDay === 0 || dDay === 6) cls += ' weekend';
               if (dDay === 1) cls += ' week-start';
             }
+            const showMonth = isMain && (dDate === 1 || s === globalOffset);
             html += `<div class="${cls}"><div class="cell-content">
-                        <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
-              isMain ? this.#months[dMonth] : ''
+              <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
+              showMonth ? this.#monthsShort[dMonth] : ''
             }</span>
-                        <span class="date-num">${dDate}</span>
-                        <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
-                      </div></div>`;
+              <span class="date-num">${dDate}</span>
+              <span class="info-meta">${isMain ? this.#daysShort[dDay] : ''}</span>
+            </div></div>`;
             iterDate.setDate(dDate + 1);
           }
           block.innerHTML = html + `</div></div>`;
