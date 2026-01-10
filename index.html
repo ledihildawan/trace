@@ -1,23 +1,38 @@
 <!DOCTYPE html>
-<html lang="id" style="color-scheme: dark;">
+<html lang="id" style="color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey V2 - Liquid Engine Final</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap" rel="stylesheet" />
-    
+    <title>Galactic Odyssey v2.6 - Jump Engine Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+
     <style>
       /* --- MODERN CSS ENGINE (2026) --- */
-      @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
-      @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
-      @property --warp-scale { syntax: '<number>'; inherits: true; initial-value: 1; }
+      @property --ion-x {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --ion-y {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --warp-scale {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 1;
+      }
 
       :root {
         --accent-primary: #fbbf24;
         --accent-secondary: #22d3ee;
         --today-glow: rgba(59, 130, 246, 0.5);
-        
+
         --bg: light-dark(#f8fafc, #020617);
         --border: light-dark(#cbd5e1, #1e293b);
         --cell-bg: light-dark(#ffffff, #020617);
@@ -26,157 +41,320 @@
         --month-start-bg: light-dark(#e2e8f0, #0f172a);
         --dust-opacity: light-dark(0.05, 0.15);
         --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
+
+        /* Celestial Patterns (from v2.5) */
+        --weekend-shimmer: light-dark(rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.03));
       }
 
-      [data-theme='light'] { color-scheme: light; }
-      [data-theme='dark'] { color-scheme: dark; }
+      [data-theme='light'] {
+        color-scheme: light;
+      }
+      [data-theme='dark'] {
+        color-scheme: dark;
+      }
 
-      *, *::before, *::after { 
-        box-sizing: border-box; 
-        margin: 0; padding: 0; 
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
         -webkit-font-smoothing: antialiased;
       }
 
-      html, body {
-        height: 100dvh; width: 100vw; background: var(--bg); color: var(--text-main);
-        font-family: 'Space Grotesk', sans-serif; overflow: hidden; perspective: 1200px;
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif;
+        overflow: hidden;
+        perspective: 1200px;
       }
 
       /* --- CURSOR DISPLAY LOGIC --- */
       @media (pointer: fine) {
-        html, body, .cell { cursor: none !important; }
-        #cursor-wrapper, #ion-drive { display: block; }
+        html,
+        body,
+        .cell {
+          cursor: none !important;
+        }
+        #cursor-wrapper,
+        #ion-drive {
+          display: block;
+        }
       }
-
       @media (pointer: coarse) {
-        #cursor-wrapper, #ion-drive { display: none !important; }
-        html, body, .cell { cursor: auto !important; }
+        #cursor-wrapper,
+        #ion-drive {
+          display: none !important;
+        }
+        html,
+        body,
+        .cell {
+          cursor: auto !important;
+        }
       }
 
       #ion-drive {
-        position: fixed; inset: 0; z-index: 5; pointer-events: none;
-        background: radial-gradient(var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), var(--ion-color) 0%, transparent 70%);
-        transform: translate3d(0,0,0);
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        background: radial-gradient(
+          var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+          var(--ion-color) 0%,
+          transparent 70%
+        );
+        transform: translate3d(0, 0, 0);
         will-change: background;
       }
-      
+
       #cursor-wrapper {
-        position: fixed; top: 0; left: 0; z-index: 10000;
-        pointer-events: none; will-change: transform;
-        transform: translate3d(0,0,0); opacity: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10000;
+        pointer-events: none;
+        will-change: transform;
+        transform: translate3d(0, 0, 0);
+        opacity: 0;
       }
 
       #cursor-dot {
-        width: 6px; height: 6px; background: var(--accent-secondary);
-        border-radius: 50%; box-shadow: 0 0 15px var(--accent-secondary);
+        width: 6px;
+        height: 6px;
+        background: var(--accent-secondary);
+        border-radius: 50%;
+        box-shadow: 0 0 15px var(--accent-secondary);
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
-
       #cursor-wrapper.is-hovering #cursor-dot {
-        transform: scale(3.5); background: var(--accent-primary); box-shadow: 0 0 25px var(--accent-primary);
+        transform: scale(3.5);
+        background: var(--accent-primary);
       }
 
       #atmosphere {
-        position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: var(--dust-opacity);
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        pointer-events: none;
+        opacity: var(--dust-opacity);
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        mix-blend-mode: overlay; animation: drift 30s linear infinite;
+        mix-blend-mode: overlay;
+        animation: drift 30s linear infinite;
+      }
+      @keyframes drift {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 200px 200px;
+        }
       }
 
-      @keyframes drift { from { background-position: 0 0; } to { background-position: 200px 200px; } }
-
+      /* --- VIEWPORT ENGINE --- */
       #viewport {
-        width: 100vw; height: 100dvh; 
-        overflow-y: auto; scroll-snap-type: y mandatory;
-        scrollbar-width: none; position: relative;
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
         -webkit-overflow-scrolling: touch;
       }
-      #viewport::-webkit-scrollbar { display: none; }
-      #infinite-canvas { position: relative; width: 100%; contain: layout; }
+      #viewport::-webkit-scrollbar {
+        display: none;
+      }
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: layout;
+      }
 
       .year-block {
-        position: absolute; left: 0; width: 100vw; height: 100dvh;
-        scroll-snap-align: start; scroll-snap-stop: always;
-        display: flex; flex-direction: column; overflow: hidden;
-        content-visibility: auto; contain-intrinsic-size: 100vw 100dvh;
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        content-visibility: auto;
+        contain-intrinsic-size: 100vw 100dvh;
         transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
         transform-origin: center center;
         will-change: transform, filter, opacity;
       }
-
       .year-block:not(.active) {
-        transform: scale(var(--warp-scale, 0.92)) translateZ(-150px);
-        filter: blur(10px); opacity: 0.35;
+        transform: scale(0.92) translateZ(-150px);
+        filter: blur(10px);
+        opacity: 0.35;
       }
 
-      .grid-container { 
-        position: relative; flex: 1; display: flex; 
-        background: var(--bg); overflow-x: hidden;
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+        overflow-x: hidden;
         scrollbar-width: none;
       }
-      .grid-container::-webkit-scrollbar { display: none; }
+      .grid-container::-webkit-scrollbar {
+        display: none;
+      }
 
       .watermark-embedded {
-        position: absolute; top: 0; right: 5%; height: 100%; display: flex; align-items: center;
-        font-size: clamp(100px, 30dvh, 400px); font-weight: 900; color: transparent;
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(100px, 30dvh, 400px);
+        font-weight: 900;
+        color: transparent;
         background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary), transparent);
-        background-clip: text; -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-background-clip: text;
         -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
-        writing-mode: vertical-rl; pointer-events: none; 
-        z-index: 10; opacity: 0.15;
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 10;
         transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
       }
-      .year-block.is-scrolling .watermark-embedded { position: fixed; opacity: 0.08; }
-
-      .grid-layer {
-        display: grid; 
-        width: 100.1%; 
-        margin-left: -0.5px;
-        min-height: 100%; 
-        opacity: 0; transition: opacity 0.8s ease;
-        z-index: 2; gap: 0; background: transparent;
+      .year-block.active .watermark-embedded {
+        opacity: 0.15;
+        transform: translate3d(0, 0, 0);
       }
-      .year-block.active .grid-layer { opacity: 1; }
+      .year-block.is-scrolling .watermark-embedded {
+        position: fixed;
+        opacity: 0.08;
+      }
 
-      .cell { 
-        background: var(--cell-bg); position: relative;
+      /* --- PIXEL-PERFECT SYMMETRICAL GRID --- */
+      .grid-layer {
+        display: grid;
+        width: 100.1%;
+        margin-left: -0.5px;
+        min-height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        z-index: 2;
+        gap: 0;
+        background: transparent;
+      }
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      /* --- CELL SYSTEM --- */
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
         contain: strict;
         box-shadow: inset 0 0 0 0.5px var(--border);
-        min-height: 60px; will-change: background;
-        display: flex; flex-direction: column;
+        min-height: 60px;
+        will-change: background;
+        display: flex;
+        flex-direction: column;
       }
 
-      .cell.filler { background: color-mix(in srgb, var(--bg), transparent 60%); }
-      .cell.filler .date-num { color: var(--text-muted); opacity: 0.2; font-weight: 300; }
-      .cell.filler .info-meta { visibility: hidden; }
-
-      .cell.month-start { background: var(--month-start-bg); box-shadow: inset 4px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border); }
-      .cell.month-start .info-meta.top-label { color: var(--accent-secondary); font-weight: 900; font-size: clamp(8px, 1.1dvh, 12px); }
-      
-      .cell.today { 
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; 
-        z-index: 11; 
-        box-shadow: 0 15px 35px -5px var(--today-glow), inset 0 0 0 0.5px var(--border); 
+      .cell.filler {
+        background: color-mix(in srgb, var(--bg), transparent 60%);
       }
-      .cell.today .date-num { font-weight: 900; color: #fff !important; }
+      .cell.filler .date-num {
+        color: var(--text-muted);
+        opacity: 0.2;
+      }
 
-      .cell-content { 
-        flex: 1; display: flex; flex-direction: column; justify-content: space-between; 
-        align-items: center; padding: 8px 4px; text-align: center;
+      /* Weekend Stellar Dust (from v2.5) */
+      .cell.weekend {
+        background-image: repeating-linear-gradient(
+          45deg,
+          var(--weekend-shimmer),
+          var(--weekend-shimmer) 2px,
+          transparent 2px,
+          transparent 8px
+        );
+      }
+
+      /* Celestial Monday Point (from v2.5) */
+      .cell.week-start::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+        box-shadow: 0 0 8px var(--accent-primary);
+        opacity: 0.7;
+        z-index: 3;
+      }
+
+      /* Glass Transition Month (from v2.5) */
+      .cell.month-start {
+        background: linear-gradient(to bottom, transparent 90%, var(--accent-secondary) 180%);
+      }
+      .cell.month-start .info-meta.top-label {
+        color: var(--accent-secondary);
+        font-weight: 800;
+        letter-spacing: 0.25em;
+        text-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+      }
+
+      .cell.today {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        z-index: 11;
+        box-shadow: 0 15px 35px -5px var(--today-glow), inset 0 0 0 0.5px var(--border);
+      }
+      .cell.today .date-num {
+        font-weight: 900;
+        color: #fff !important;
+      }
+
+      .cell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 4px;
+        text-align: center;
         pointer-events: none;
       }
-
       .info-meta {
-        font-size: clamp(7px, 0.9dvh, 8px); text-transform: uppercase;
-        font-weight: 500; color: var(--text-muted); letter-spacing: 0.1em;
+        font-size: clamp(7px, 0.9dvh, 8px);
+        text-transform: uppercase;
+        font-weight: 500;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+      }
+      .date-num {
+        font-size: clamp(16px, 3dvh, 28px);
+        font-weight: 300;
+        line-height: 1.1;
+        color: var(--text-main);
       }
 
-      .date-num { 
-        font-size: clamp(16px, 3dvh, 28px); font-weight: 300; 
-        line-height: 1.1; color: var(--text-main);
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
       }
-      
-      #theme-veil { position: fixed; inset: 0; z-index: 9999; background: var(--bg); pointer-events: none; opacity: 0; transition: opacity 0.5s; }
-      #theme-veil.active { opacity: 1; }
+      #theme-veil.active {
+        opacity: 1;
+      }
     </style>
   </head>
   <body>
@@ -190,26 +368,44 @@
     </main>
 
     <script type="module">
+      /**
+       * Galactic Odyssey v2.6 - Jump Engine Edition
+       * Referensi Utama: v2.5 Celestial Liquid
+       * Fitur: Jump Logic, Chronos Sync, Pixel-Perfect Grid, GPU Acceleration.
+       */
       class GridArchitect {
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
         #cursorWrapper = document.getElementById('cursor-wrapper');
         #ionDrive = document.getElementById('ion-drive');
-        
+
         #today = new Date();
         #yearHeight = window.innerHeight;
         #activeYears = new Map();
         #lastScrollPos = 0;
-        
-        #mouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
-        #target = { x: window.innerWidth/2, y: window.innerHeight/2 };
-        #current = { x: window.innerWidth/2, y: window.innerHeight/2 };
+
+        #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        #target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #config = { speed: 0.18, attraction: 0.42 };
-        
+
         #isHovering = false;
         #hoverEl = null;
 
-        #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
+        #months = [
+          'JANUARI',
+          'FEBRUARI',
+          'MARET',
+          'APRIL',
+          'MEI',
+          'JUNI',
+          'JULI',
+          'AGUSTUS',
+          'SEPTEMBER',
+          'OKTOBER',
+          'NOVEMBER',
+          'DESEMBER',
+        ];
         #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
 
         constructor() {
@@ -226,10 +422,11 @@
 
           this.observer = new IntersectionObserver(
             (entries) => {
-              entries.forEach(e => {
+              entries.forEach((e) => {
                 const block = e.target;
                 block.classList.toggle('active', e.isIntersecting);
-                
+
+                // CHRONOS LOGIC: Handle natural scroll direction (backwards in time)
                 if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
                   const container = block.querySelector('.grid-container');
                   if (container && block.classList.contains('is-scrolling')) {
@@ -245,14 +442,45 @@
           this.#setupListeners();
           this.#cursorLoop();
           this.#render();
+
+          // JUMP TO TODAY ON LOAD (v2.6 Engine)
+          setTimeout(() => this.jumpToToday(), 100);
+        }
+
+        /**
+         * Jump Engine v2.6
+         * Menangani navigasi presisi ke sel Today dalam mode adaptive maupun fixed.
+         */
+        jumpToToday() {
+          // 1. Warp layar utama ke koordinat tahun saat ini
+          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
+
+          // 2. Jika dalam mode scroll internal, arahkan container ke sel today
+          setTimeout(() => {
+            const block = this.#activeYears.get(this.#today.getFullYear());
+            if (block && block.classList.contains('is-scrolling')) {
+              const todayCell = block.querySelector('.cell.today');
+              const container = block.querySelector('.grid-container');
+              if (todayCell && container) {
+                container.scrollTo({
+                  top: todayCell.offsetTop - window.innerHeight / 3,
+                  behavior: 'smooth',
+                });
+              }
+            }
+          }, 600);
         }
 
         #setupListeners() {
-          window.addEventListener('pointermove', (e) => {
-            this.#mouse.x = e.clientX;
-            this.#mouse.y = e.clientY;
-            if(e.pointerType === 'mouse') this.#cursorWrapper.style.opacity = '1';
-          }, { passive: true });
+          window.addEventListener(
+            'pointermove',
+            (e) => {
+              this.#mouse.x = e.clientX;
+              this.#mouse.y = e.clientY;
+              if (e.pointerType === 'mouse') this.#cursorWrapper.style.opacity = '1';
+            },
+            { passive: true }
+          );
 
           document.addEventListener('mouseover', (e) => {
             const cell = e.target.closest('.cell');
@@ -267,24 +495,29 @@
           document.addEventListener('mouseout', (e) => {
             if (e.target.closest('.cell')) {
               this.#isHovering = false;
-              this.#hoverEl = null;
               this.#cursorWrapper.classList.remove('is-hovering');
               this.#ionDrive.style.setProperty('--glow-size', '600px');
             }
           });
 
-          this.#viewport.addEventListener('scroll', () => {
-            requestAnimationFrame(() => {
-              this.#render();
-              this.#handleParallax();
-            });
-          }, { passive: true });
+          this.#viewport.addEventListener(
+            'scroll',
+            () => {
+              requestAnimationFrame(() => {
+                this.#render();
+                this.#handleParallax();
+              });
+            },
+            { passive: true }
+          );
 
           window.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 't') this.#toggleTheme();
-            if (e.key === ' ') { e.preventDefault(); this.jumpToToday(); }
+            if (e.key === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
           });
-
           window.addEventListener('resize', () => location.reload());
         }
 
@@ -305,7 +538,7 @@
         }
 
         #cursorLoop() {
-          if (window.matchMedia("(pointer: coarse)").matches) return;
+          if (window.matchMedia('(pointer: coarse)').matches) return;
           if (this.#isHovering && this.#hoverEl) {
             const rect = this.#hoverEl.getBoundingClientRect();
             this.#target.x = this.#mouse.x + (rect.left + rect.width / 2 - this.#mouse.x) * this.#config.attraction;
@@ -314,14 +547,11 @@
             this.#target.x = this.#mouse.x;
             this.#target.y = this.#mouse.y;
           }
-
           this.#current.x += (this.#target.x - this.#current.x) * this.#config.speed;
           this.#current.y += (this.#target.y - this.#current.y) * this.#config.speed;
-
           this.#cursorWrapper.style.transform = `translate3d(${this.#current.x}px, ${this.#current.y}px, 0)`;
           this.#ionDrive.style.setProperty('--ion-x', this.#current.x);
           this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
-
           requestAnimationFrame(() => this.#cursorLoop());
         }
 
@@ -329,14 +559,10 @@
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
           const block = this.#activeYears.get(year);
-          if (block) {
+          if (block && !block.classList.contains('is-scrolling')) {
+            const offset = (this.#viewport.scrollTop % this.#yearHeight) - this.#yearHeight / 2;
             const wm = block.querySelector('.watermark-embedded');
-            if (wm && !block.classList.contains('is-scrolling')) {
-               const offset = (this.#viewport.scrollTop % this.#yearHeight) - (this.#yearHeight / 2);
-               wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
-            } else if (wm) {
-               wm.style.transform = `none`;
-            }
+            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
           }
         }
 
@@ -344,7 +570,6 @@
           const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
           const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
           for (let i = -1; i <= 1; i++) this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
-          
           this.#activeYears.forEach((block, year) => {
             if (Math.abs(year - baseYear) > 1) {
               this.observer.unobserve(block);
@@ -359,52 +584,50 @@
           const block = document.createElement('section');
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
-          
+
           const jan1 = new Date(year, 0, 1);
-          const daysInYear = ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 366 : 365;
-          const vw = window.innerWidth, vh = window.innerHeight;
-          
+          const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth,
+            vh = window.innerHeight;
           let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
           const globalOffset = Math.floor(jan1.getTime() / 86400000) % cols;
-          
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
-          const isOverflowing = (vh / rows) < 60;
-          if (isOverflowing) block.classList.add('is-scrolling');
+          if (vh / rows < 60) block.classList.add('is-scrolling');
 
           const iterDate = new Date(year, 0, 1 - globalOffset);
           const todayStr = this.#today.toDateString();
-          
-          let html = `
-            <div class="grid-container" style="${isOverflowing ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
-              <div class="watermark-embedded">${year}</div>
-              <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${isOverflowing ? 'auto' : '100%'};">`;
-
+          let cellsHtml = '';
           for (let s = 0; s < cols * rows; s++) {
             const isMain = iterDate.getFullYear() === year;
-            const dDate = iterDate.getDate(), dMonth = iterDate.getMonth(), dDay = iterDate.getDay();
+            const dDate = iterDate.getDate(),
+              dDay = iterDate.getDay();
             const isToday = iterDate.toDateString() === todayStr && isMain;
-            
-            let cls = `cell ${!isMain ? 'filler' : ''} ${dDate === 1 && isMain ? 'month-start' : ''} ${isToday ? 'today' : ''} ${(dDay === 0 || dDay === 6) && isMain ? 'weekend' : ''}`;
 
-            html += `
-              <div class="${cls}">
-                <div class="cell-content">
-                  <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${isMain ? this.#months[dMonth] : ''}</span>
+            let cls = `cell ${!isMain ? 'filler' : ''} ${isToday ? 'today' : ''}`;
+            if (isMain) {
+              if (dDate === 1) cls += ' month-start';
+              if (dDay === 0 || dDay === 6) cls += ' weekend';
+              if (dDay === 1) cls += ' week-start';
+            }
+
+            cellsHtml += `<div class="${cls}"><div class="cell-content">
+                  <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
+              isMain ? this.#months[iterDate.getMonth()] : ''
+            }</span>
                   <span class="date-num">${dDate}</span>
                   <span class="info-meta">${isMain ? this.#days[dDay] : ''}</span>
-                </div>
-              </div>`;
+                </div></div>`;
             iterDate.setDate(dDate + 1);
           }
-
-          block.innerHTML = html + `</div></div>`;
+          block.innerHTML = `<div class="grid-container" style="${
+            block.classList.contains('is-scrolling') ? 'overflow-y:auto' : 'overflow-y:hidden'
+          }">
+            <div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
+            block.classList.contains('is-scrolling') ? 'auto' : '100%'
+          };">${cellsHtml}</div></div>`;
           this.#canvas.appendChild(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
-        }
-
-        jumpToToday() {
-          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
         }
       }
       new GridArchitect();
