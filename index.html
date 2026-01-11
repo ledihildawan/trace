@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey v3.6 - Infinite Immersion</title>
+    <title>Galactic Odyssey MPV2 - Unified Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -55,6 +55,10 @@
         margin: 0;
         padding: 0;
         -webkit-font-smoothing: antialiased;
+        /* MPV2: Clean Interaction */
+        user-select: none;
+        -webkit-user-drag: none;
+        -webkit-tap-highlight-color: transparent;
       }
 
       html,
@@ -69,7 +73,7 @@
         overscroll-behavior: none;
       }
 
-      /* --- INITIAL LOAD SCREEN (v3.0) --- */
+      /* --- INITIAL LOAD SCREEN --- */
       #loading-screen {
         position: fixed;
         inset: 0;
@@ -244,7 +248,7 @@
         display: none;
       }
 
-      /* --- WATERMARK YEAR (FIXED v2.9.3 STYLE) --- */
+      /* --- WATERMARK YEAR (FIXED MPV2) --- */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -418,7 +422,7 @@
       }
     </style>
   </head>
-  <body>
+  <body oncontextmenu="return false;">
     <div id="loading-screen">
       <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
       <div class="loader-text" id="load-status">Initializing Star Map...</div>
@@ -426,9 +430,8 @@
 
     <div id="ion-drive"></div>
     <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
-    <div id="atmosphere"></div>
     <div id="theme-veil"></div>
-    <div id="mode-toast">WARP READY</div>
+    <div id="mode-toast">SYSTEMS ONLINE</div>
 
     <main id="viewport">
       <div id="infinite-canvas"></div>
@@ -450,7 +453,7 @@
             beep: new Audio(`${this.path}confirmation-beep.mp3`),
             enable: new Audio(`${this.path}enabled-ambience.mp3`),
             mute: new Audio(`${this.path}mute-ambience.mp3`),
-            // Ambient Layering
+            // Ambient Layers
             base: new Audio(`${this.path}master-ambient-loop.mp3`),
             pulse: new Audio(`${this.path}short-ambient-pulse.mp3`),
             wind: new Audio(`${this.path}nebula-wind-sweep.mp3`),
@@ -463,15 +466,9 @@
           this.spamTimer = null;
         }
 
-        /**
-         * play() dengan Smart Concurrency & Pulse-Damping logic
-         */
         play(key, options = {}) {
           if (!this.enabled && key !== 'enable') return;
-
-          // Priority Check: Mencegah trigger SFX ringan saat sistem sedang sibuk (Warping)
           if (this.isBusy && (key === 'hover' || key === 'scroll')) return;
-
           const s = this.sounds[key];
           if (!s) return;
 
@@ -484,7 +481,7 @@
           s.pause();
           s.currentTime = 0;
 
-          // Pitch Modulator untuk Spamming Feedback
+          // Pitch Dynamic for Spamming
           if (options.dynamicPitch) {
             this.spamCount++;
             s.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
@@ -557,9 +554,7 @@
 
         setBusy(val) {
           this.isBusy = val;
-          if (this.sounds.base) {
-            this.sounds.base.volume = val ? 0.05 : 0.12;
-          }
+          if (this.sounds.base) this.sounds.base.volume = val ? 0.05 : 0.12;
         }
       }
 
@@ -598,22 +593,19 @@
           const bar = document.getElementById('load-progress');
           const status = document.getElementById('load-status');
           const steps = [
-            { p: 20, t: 'Fetching Galactic Coordinates...' },
-            { p: 45, t: 'Synchronizing Solar Orbits...' },
-            { p: 75, t: 'Generating Nebula Structures...' },
-            { p: 100, t: 'Bridge Connection Established.' },
+            { p: 20, t: 'Mapping Star Systems...' },
+            { p: 50, t: 'Calibrating Ion Drives...' },
+            { p: 100, t: 'Bridge Established.' },
           ];
 
           for (const step of steps) {
-            await new Promise((r) => setTimeout(r, Math.random() * 400 + 200));
+            await new Promise((r) => setTimeout(r, 400));
             bar.style.width = `${step.p}%`;
             status.innerText = step.t;
           }
 
           this.#init();
-          setTimeout(() => {
-            document.getElementById('loading-screen').classList.add('hidden');
-          }, 800);
+          setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
         }
 
         async #init() {
@@ -650,29 +642,15 @@
           this.#toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
         }
 
-        #setMode(isRandom) {
-          if (this.#isRandomMode === isRandom) return;
-          this.#isRandomMode = isRandom;
-          this.#activeYears.forEach((b) => {
-            this.observer.unobserve(b);
-            b.remove();
-          });
-          this.#activeYears.clear();
-          this.#render();
-          this.#audio.play('beep');
-          this.#showToast(isRandom ? 'DYNAMIC NEBULA STRUCTURE ACTIVE' : 'MONDAY ALIGNED ORBIT RESTORED');
-        }
-
         jumpToToday(isInitial = false) {
           if (this.#isJumping) return;
-
+          this.#isJumping = true;
           this.#audio.setBusy(true);
-          this.#audio.play('jump', { dynamicPitch: true });
+          this.#audio.play('jump', { dynamicPitch: !isInitial });
 
           this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
           if (!isInitial) this.#showToast('WARPING TO LOCAL COORDINATES');
 
-          this.#isJumping = true;
           setTimeout(() => {
             const block = this.#activeYears.get(this.#today.getFullYear());
             if (block && block.classList.contains('is-scrolling')) {
@@ -751,7 +729,7 @@
             }
             if (key === 'm') {
               const active = this.#audio.toggleMaster();
-              this.#showToast(active ? 'ION DRIVE: ACTIVATED' : 'ION DRIVE: OFFLINE');
+              this.#showToast(active ? 'ION DRIVE ONLINE' : 'SILENT CRUISE MODE');
             }
             if (key === ' ') {
               e.preventDefault();
@@ -762,6 +740,19 @@
           });
 
           window.addEventListener('resize', () => location.reload());
+        }
+
+        #setMode(isRandom) {
+          if (this.#isRandomMode === isRandom) return;
+          this.#isRandomMode = isRandom;
+          this.#activeYears.forEach((b) => {
+            this.observer.unobserve(b);
+            b.remove();
+          });
+          this.#activeYears.clear();
+          this.#render();
+          this.#audio.play('beep');
+          this.#showToast(isRandom ? 'NEBULA DYNAMIC STRUCTURE ACTIVE' : 'MONDAY ALIGNED ORBIT RESTORED');
         }
 
         #applyTheme(theme) {
@@ -823,7 +814,6 @@
           const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
           const vw = window.innerWidth,
             vh = window.innerHeight;
-
           let cols, gO;
           if (this.#isRandomMode && vw >= 600) {
             cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
