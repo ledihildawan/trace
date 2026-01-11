@@ -39,6 +39,7 @@
         --text-muted: light-dark(#64748b, #64748b);
         --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
         --dust-opacity: light-dark(0.05, 0.15);
+        --ion-size: 600px;
       }
 
       [data-theme='light'] {
@@ -112,44 +113,20 @@
         transition: width 0.4s ease;
       }
 
-      /* --- CURSOR DISPLAY --- */
-      @media (pointer: fine) {
-        html,
-        body,
-        .cell {
-          cursor: none !important;
-        }
-        #cursor-wrapper,
-        #ion-drive {
-          display: block;
-        }
-      }
-      @media (pointer: coarse) {
-        #cursor-wrapper,
-        #ion-drive {
-          display: none !important;
-        }
-        html,
-        body,
-        .cell {
-          cursor: auto !important;
-        }
-      }
-
+      /* --- CURSOR ENGINE --- */
       #ion-drive {
         position: fixed;
         inset: 0;
         z-index: 5;
         pointer-events: none;
         background: radial-gradient(
-          var(--glow-size, 600px) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+          var(--ion-size) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
           var(--ion-color) 0%,
           transparent 70%
         );
         transform: translate3d(0, 0, 0);
         will-change: background;
       }
-
       #cursor-wrapper {
         position: fixed;
         top: 0;
@@ -159,41 +136,42 @@
         will-change: transform;
         transform: translate3d(0, 0, 0);
         opacity: 0;
+        transition: opacity 0.3s ease;
       }
-
       #cursor-dot {
         width: 6px;
         height: 6px;
         background: var(--accent-secondary);
         border-radius: 50%;
         box-shadow: 0 0 15px var(--accent-secondary);
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s ease;
       }
       #cursor-wrapper.is-hovering #cursor-dot {
         transform: scale(3.5);
         background: var(--accent-primary);
+        box-shadow: 0 0 20px var(--accent-primary);
       }
 
       #atmosphere {
         position: fixed;
         inset: 0;
-        z-index: 100;
+        z-index: 6;
         pointer-events: none;
         opacity: var(--dust-opacity);
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         mix-blend-mode: overlay;
-        animation: drift 30s linear infinite;
+        animation: drift 60s linear infinite;
       }
       @keyframes drift {
         from {
           background-position: 0 0;
         }
         to {
-          background-position: 200px 200px;
+          background-position: 400px 400px;
         }
       }
 
-      /* --- VIEWPORT SYSTEM --- */
+      /* --- VIEWPORT ENGINE --- */
       #viewport {
         width: 100vw;
         height: 100dvh;
@@ -242,9 +220,6 @@
         overflow-x: hidden;
         scrollbar-width: none;
       }
-      .grid-container::-webkit-scrollbar {
-        display: none;
-      }
 
       .watermark-embedded {
         position: absolute;
@@ -291,7 +266,7 @@
         opacity: 1;
       }
 
-      /* --- CELL DESIGNS --- */
+      /* --- CELL SYSTEM --- */
       .cell {
         background: var(--cell-bg);
         position: relative;
@@ -308,9 +283,8 @@
       .cell.filler .date-num {
         opacity: 0.1;
       }
-
       .cell.weekend {
-        background: linear-gradient(135deg, rgba(34, 211, 238, 0.05) 0%, transparent 100%);
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.03) 0%, transparent 100%);
       }
       .cell.week-start {
         background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
@@ -323,11 +297,11 @@
         width: 100%;
         height: 2px;
         background: linear-gradient(90deg, var(--accent-primary), transparent);
-        opacity: 0.3;
+        opacity: 0.2;
         z-index: 3;
       }
       .cell.month-start {
-        background: linear-gradient(180deg, rgba(34, 211, 238, 0.1) 0%, transparent 100%);
+        background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, transparent 100%);
         box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
       }
       .cell.month-start .info-meta.top-label {
@@ -339,7 +313,7 @@
       .cell.today {
         background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
         z-index: 10;
-        box-shadow: 0 15px 35px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
       }
       .cell.today .date-num {
         font-weight: 900;
@@ -381,7 +355,7 @@
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%) translateY(20px);
-        background: rgba(34, 211, 238, 0.1);
+        background: rgba(15, 23, 42, 0.8);
         color: var(--accent-secondary);
         backdrop-filter: blur(15px);
         -webkit-backdrop-filter: blur(15px);
@@ -427,7 +401,7 @@
     <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
     <div id="atmosphere"></div>
     <div id="theme-veil"></div>
-    <div id="mode-toast">SYSTEMS ONLINE</div>
+    <div id="mode-toast">WARP READY</div>
 
     <main id="viewport">
       <div id="infinite-canvas"></div>
@@ -436,61 +410,51 @@
     <script type="module">
       /* --- CORE AUDIO ENGINE v3.6 --- */
       class GalacticAudio {
+        #path = 'assets/sfx/';
+        #sounds = new Map();
+        #lastPlayTime = new Map();
+
         constructor() {
           this.enabled = false;
           this.isBusy = false;
-          this.path = 'assets/sfx/';
-          this.sounds = {};
-          this.lastPlayTime = {};
           this.idleTimer = null;
           this.spamCount = 0;
           this.spamTimer = null;
+          this.#initSounds();
+        }
 
-          const sfxKeys = [
-            'jump',
-            'scroll',
-            'warp',
-            'hover',
-            'theme',
-            'beep',
-            'enable',
-            'mute',
-            'base',
-            'pulse',
-            'wind',
-            'engine',
-            'stellar',
-          ];
-          sfxKeys.forEach((k) => {
-            const nameMap = {
-              jump: 'jump-to-today.mp3',
-              scroll: 'year-change-scroll-transition.mp3',
-              warp: 'fast-scroll-wrap-mode.mp3',
-              hover: 'hover-over-cell.mp3',
-              theme: 'theme-toggle.mp3',
-              beep: 'confirmation-beep.mp3',
-              enable: 'enabled-ambience.mp3',
-              mute: 'mute-ambience.mp3',
-              base: 'master-ambient-loop.mp3',
-              pulse: 'short-ambient-pulse.mp3',
-              wind: 'nebula-wind-sweep.mp3',
-              engine: 'engine-idle-hum.mp3',
-              stellar: 'distant-stellar-ambience.mp3',
-            };
-            this.sounds[k] = new Audio(`${this.path}${nameMap[k]}`);
-            this.sounds[k].preload = 'auto';
+        #initSounds() {
+          const sfx = {
+            jump: 'jump-to-today.mp3',
+            scroll: 'year-change-scroll-transition.mp3',
+            warp: 'fast-scroll-wrap-mode.mp3',
+            hover: 'hover-over-cell.mp3',
+            theme: 'theme-toggle.mp3',
+            beep: 'confirmation-beep.mp3',
+            enable: 'enabled-ambience.mp3',
+            mute: 'mute-ambience.mp3',
+            base: 'master-ambient-loop.mp3',
+            pulse: 'short-ambient-pulse.mp3',
+            wind: 'nebula-wind-sweep.mp3',
+            engine: 'engine-idle-hum.mp3',
+            stellar: 'distant-stellar-ambience.mp3',
+          };
+          Object.entries(sfx).forEach(([key, name]) => {
+            const audio = new Audio(`${this.#path}${name}`);
+            audio.preload = 'auto';
+            this.#sounds.set(key, audio);
           });
         }
 
         play(key, options = {}) {
           if (!this.enabled && key !== 'enable') return;
           if (this.isBusy && (key === 'hover' || key === 'scroll')) return;
-          const s = this.sounds[key];
+          const s = this.#sounds.get(key);
           if (!s) return;
 
           const now = Date.now();
           const throttle = key === 'jump' ? 300 : options.throttle || 100;
-          if (this.lastPlayTime[key] && now - this.lastPlayTime[key] < throttle) return;
+          if (this.#lastPlayTime.has(key) && now - this.#lastPlayTime.get(key) < throttle) return;
 
           s.pause();
           s.currentTime = 0;
@@ -506,27 +470,29 @@
           }
 
           if (options.loop) s.loop = true;
-          s.volume = options.volume !== undefined ? options.volume : 0.4;
+          s.volume = options.volume ?? 0.4;
           s.play().catch(() => {});
-          this.lastPlayTime[key] = now;
+          this.#lastPlayTime.set(key, now);
         }
 
         toggleMaster() {
           this.enabled = !this.enabled;
           if (this.enabled) {
             this.play('enable');
-            if (this.sounds.base) {
-              this.sounds.base.loop = true;
-              this.sounds.base.volume = 0.12;
-              this.sounds.base.play().catch(() => {});
+            const base = this.#sounds.get('base');
+            if (base) {
+              base.loop = true;
+              base.volume = 0.12;
+              base.play().catch(() => {});
             }
             this.resetIdleTimer();
           } else {
             this.play('mute');
             ['base', 'pulse', 'wind', 'engine', 'stellar'].forEach((k) => {
-              if (this.sounds[k]) {
-                this.sounds[k].pause();
-                this.sounds[k].currentTime = 0;
+              const s = this.#sounds.get(k);
+              if (s) {
+                s.pause();
+                s.currentTime = 0;
               }
             });
             clearTimeout(this.idleTimer);
@@ -555,30 +521,30 @@
 
         setBusy(val) {
           this.isBusy = val;
-          if (this.sounds.base) this.sounds.base.volume = val ? 0.05 : 0.12;
+          const base = this.#sounds.get('base');
+          if (base) base.volume = val ? 0.05 : 0.12;
         }
       }
 
       class GridArchitect {
+        #activeYears = new Map();
+        #today = new Date();
+        #audio = new GalacticAudio();
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
         #cursorWrapper = document.getElementById('cursor-wrapper');
         #ionDrive = document.getElementById('ion-drive');
         #toast = document.getElementById('mode-toast');
 
-        #audio = new GalacticAudio();
-        #today = new Date();
-        #activeYears = new Map();
-        #lastScrollPos = 0;
         #currentYearIdx = null;
         #isScrolling = false;
         #isJumping = false;
         #scrollStopTimer = null;
-
         #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        #monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
-        #daysShort = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+
+        #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
+        #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
         #isRandomMode = false;
 
         constructor() {
@@ -615,13 +581,13 @@
               entries.forEach((e) => {
                 const block = e.target;
                 block.classList.toggle('active', e.isIntersecting);
-                if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
+                if (e.isIntersecting && this.#viewport.scrollTop < this.lastScrollPos) {
                   const container = block.querySelector('.grid-container');
                   if (container && block.classList.contains('is-scrolling'))
                     container.scrollTop = container.scrollHeight;
                 }
               });
-              this.#lastScrollPos = this.#viewport.scrollTop;
+              this.lastScrollPos = this.#viewport.scrollTop;
             },
             { threshold: 0.05, rootMargin: '20% 0px' }
           );
@@ -633,10 +599,10 @@
         }
 
         #showToast(msg) {
+          clearTimeout(this.toastT);
           this.#toast.innerText = msg;
           this.#toast.classList.add('active');
-          clearTimeout(this.tT);
-          this.tT = setTimeout(() => this.#toast.classList.remove('active'), 2500);
+          this.toastT = setTimeout(() => this.#toast.classList.remove('active'), 2500);
         }
 
         jumpToToday(isInitial = false) {
@@ -680,7 +646,7 @@
               const cell = e.target.closest('.cell');
               if (cell && !cell.classList.contains('filler')) {
                 this.#cursorWrapper.classList.add('is-hovering');
-                this.#ionDrive.style.setProperty('--glow-size', '800px');
+                this.#ionDrive.style.setProperty('--ion-size', '800px');
                 this.#audio.play('hover', { throttle: 120, volume: 0.25 });
               }
             },
@@ -692,7 +658,7 @@
             (e) => {
               if (e.target.closest('.cell')) {
                 this.#cursorWrapper.classList.remove('is-hovering');
-                this.#ionDrive.style.setProperty('--glow-size', '600px');
+                this.#ionDrive.style.setProperty('--ion-size', '600px');
               }
             },
             { passive: true }
@@ -712,6 +678,9 @@
                   this.#currentYearIdx = idx;
                   this.#audio.play('scroll');
                 }
+                const velocity = Math.abs(this.#viewport.scrollTop - this.lastScrollPos);
+                const glowSize = Math.max(400, 800 - velocity * 2);
+                document.documentElement.style.setProperty('--ion-size', `${glowSize}px`);
               });
               this.#scrollStopTimer = setTimeout(() => {
                 this.#isScrolling = false;
@@ -728,7 +697,7 @@
               if (k === 't') {
                 this.#audio.play('theme', { dynamicPitch: true });
                 this.#toggleTheme();
-                this.#showToast(`ATMOSPHERE ADJUSTED`);
+                this.#showToast('ATMOSPHERE ADJUSTED');
               }
               if (k === 'm') {
                 const a = this.#audio.toggleMaster();
@@ -778,11 +747,11 @@
 
         #cursorLoop() {
           if (window.matchMedia('(pointer: coarse)').matches) return;
-          this.#current.x += (this.#mouse.x - this.#current.x) * 0.18;
-          this.#current.y += (this.#mouse.y - this.#current.y) * 0.18;
+          this.#current.x += (this.#mouse.x - this.#current.x) * 0.12;
+          this.#current.y += (this.#mouse.y - this.#current.y) * 0.12;
           this.#cursorWrapper.style.transform = `translate3d(${this.#current.x}px, ${this.#current.y}px, 0)`;
-          this.#ionDrive.style.setProperty('--ion-x', this.#current.x);
-          this.#ionDrive.style.setProperty('--ion-y', this.#current.y);
+          document.documentElement.style.setProperty('--ion-x', this.#current.x);
+          document.documentElement.style.setProperty('--ion-y', this.#current.y);
           requestAnimationFrame(() => this.#cursorLoop());
         }
 
@@ -828,16 +797,25 @@
             gO = (jan1.getDay() + 6) % 7;
           }
           const rows = Math.ceil((daysInYear + gO) / cols);
-          const isSc = vh / rows < 60;
-          if (isSc) block.classList.add('is-scrolling');
+          if (vh / rows < 60) block.classList.add('is-scrolling');
 
           const itD = new Date(year, 0, 1 - gO);
           const tS = this.#today.toDateString();
-          let html = `<div class="grid-container" style="${
-            isSc ? 'overflow-y: auto;' : 'overflow-y: hidden;'
-          }"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
-            isSc ? 'auto' : '100%'
-          };">`;
+
+          const fragment = document.createDocumentFragment();
+          const container = document.createElement('div');
+          container.className = 'grid-container';
+          container.style.overflowY = block.classList.contains('is-scrolling') ? 'auto' : 'hidden';
+
+          const wm = document.createElement('div');
+          wm.className = 'watermark-embedded';
+          wm.innerText = year;
+          container.append(wm);
+
+          const grid = document.createElement('div');
+          grid.className = 'grid-layer';
+          grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+          grid.style.height = block.classList.contains('is-scrolling') ? 'auto' : '100%';
 
           for (let s = 0; s < cols * rows; s++) {
             const isM = itD.getFullYear() === year,
@@ -845,22 +823,24 @@
             const dD = itD.getDate(),
               dM = itD.getMonth(),
               dY = itD.getDay();
-            let cls = `cell ${!isM ? 'filler' : ''} ${isT ? 'today' : ''}`;
-            if (isM) {
-              if (dD === 1) cls += ' month-start';
-              if (dY === 0 || dY === 6) cls += ' weekend';
-              if (dY === 1) cls += ' week-start';
-            }
-            const shM = isM && (dD === 1 || s === gO);
-            html += `<div class="${cls}"><div class="cell-content"><span class="info-meta ${
-              dD === 1 && isM ? 'top-label' : ''
-            }">${shM ? this.#monthsShort[dM] : ''}</span><span class="date-num">${dD}</span><span class="info-meta">${
-              isM ? this.#daysShort[dY] : ''
-            }</span></div></div>`;
+            const cell = document.createElement('div');
+            cell.className = `cell ${!isM ? 'filler' : ''} ${isT ? 'today' : ''} ${
+              isM && dD === 1 ? 'month-start' : ''
+            } ${isM && (dY === 0 || dY === 6) ? 'weekend' : ''} ${isM && dY === 1 ? 'week-start' : ''}`;
+
+            const showMonth = isM && (dD === 1 || s === gO);
+            cell.innerHTML = `<div class="cell-content"><span class="info-meta ${dD === 1 && isM ? 'top-label' : ''}">${
+              showMonth ? this.#months[dM] : ''
+            }</span><span class="date-num">${dD}</span><span class="info-meta">${
+              isM ? this.#days[dY] : ''
+            }</span></div>`;
+            grid.append(cell);
             itD.setDate(dD + 1);
           }
-          block.innerHTML = html + `</div></div>`;
-          this.#canvas.appendChild(block);
+
+          container.append(grid);
+          block.append(container);
+          this.#canvas.append(block);
           this.#activeYears.set(year, block);
           this.observer.observe(block);
         }
