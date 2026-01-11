@@ -55,7 +55,6 @@
         margin: 0;
         padding: 0;
         -webkit-font-smoothing: antialiased;
-        /* MPV2: Clean Interaction */
         user-select: none;
         -webkit-user-drag: none;
         -webkit-tap-highlight-color: transparent;
@@ -83,7 +82,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1), visibility 1s;
+        transition: opacity 0.8s ease-out, visibility 0.8s;
       }
       #loading-screen.hidden {
         opacity: 0;
@@ -110,7 +109,7 @@
         height: 100%;
         width: 0%;
         background: var(--accent-secondary);
-        transition: width 0.4s;
+        transition: width 0.4s ease;
       }
 
       /* --- CURSOR DISPLAY --- */
@@ -184,7 +183,6 @@
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         mix-blend-mode: overlay;
         animation: drift 30s linear infinite;
-        will-change: transform;
       }
       @keyframes drift {
         from {
@@ -195,7 +193,7 @@
         }
       }
 
-      /* --- VIEWPORT ENGINE --- */
+      /* --- VIEWPORT SYSTEM --- */
       #viewport {
         width: 100vw;
         height: 100dvh;
@@ -228,10 +226,10 @@
         contain-intrinsic-size: 100vw 100dvh;
         transform-origin: center center;
         transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
-        will-change: transform, filter, opacity;
+        will-change: transform, opacity, filter;
       }
       .year-block:not(.active) {
-        transform: scale(var(--warp-scale)) translateZ(-150px);
+        transform: scale(var(--warp-scale)) translate3d(0, 0, -150px);
         filter: blur(10px);
         opacity: 0.35;
       }
@@ -248,7 +246,6 @@
         display: none;
       }
 
-      /* --- WATERMARK YEAR (FIXED MPV2) --- */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -294,17 +291,16 @@
         opacity: 1;
       }
 
-      /* --- CELL SYSTEM --- */
+      /* --- CELL DESIGNS --- */
       .cell {
         background: var(--cell-bg);
         position: relative;
-        contain: strict;
         box-shadow: inset 0 0 0 0.5px var(--border);
         min-height: 60px;
-        will-change: background;
         display: flex;
         flex-direction: column;
         transition: background 0.4s ease;
+        contain: layout;
       }
       .cell.filler {
         background: transparent;
@@ -330,7 +326,6 @@
         opacity: 0.3;
         z-index: 3;
       }
-
       .cell.month-start {
         background: linear-gradient(180deg, rgba(34, 211, 238, 0.1) 0%, transparent 100%);
         box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
@@ -380,7 +375,7 @@
         color: var(--text-main);
       }
 
-      /* --- GLOBAL TOAST --- */
+      /* --- UI COMPONENTS --- */
       #mode-toast {
         position: fixed;
         bottom: 30px;
@@ -430,6 +425,7 @@
 
     <div id="ion-drive"></div>
     <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
+    <div id="atmosphere"></div>
     <div id="theme-veil"></div>
     <div id="mode-toast">SYSTEMS ONLINE</div>
 
@@ -438,32 +434,52 @@
     </main>
 
     <script type="module">
-      /* --- INTEGRATED AUDIO ENGINE v3.6 --- */
+      /* --- CORE AUDIO ENGINE v3.6 --- */
       class GalacticAudio {
         constructor() {
           this.enabled = false;
           this.isBusy = false;
           this.path = 'assets/sfx/';
-          this.sounds = {
-            jump: new Audio(`${this.path}jump-to-today.mp3`),
-            scroll: new Audio(`${this.path}year-change-scroll-transition.mp3`),
-            warp: new Audio(`${this.path}fast-scroll-wrap-mode.mp3`),
-            hover: new Audio(`${this.path}hover-over-cell.mp3`),
-            theme: new Audio(`${this.path}theme-toggle.mp3`),
-            beep: new Audio(`${this.path}confirmation-beep.mp3`),
-            enable: new Audio(`${this.path}enabled-ambience.mp3`),
-            mute: new Audio(`${this.path}mute-ambience.mp3`),
-            // Ambient Layers
-            base: new Audio(`${this.path}master-ambient-loop.mp3`),
-            pulse: new Audio(`${this.path}short-ambient-pulse.mp3`),
-            wind: new Audio(`${this.path}nebula-wind-sweep.mp3`),
-            engine: new Audio(`${this.path}engine-idle-hum.mp3`),
-            stellar: new Audio(`${this.path}distant-stellar-ambience.mp3`),
-          };
+          this.sounds = {};
           this.lastPlayTime = {};
           this.idleTimer = null;
           this.spamCount = 0;
           this.spamTimer = null;
+
+          const sfxKeys = [
+            'jump',
+            'scroll',
+            'warp',
+            'hover',
+            'theme',
+            'beep',
+            'enable',
+            'mute',
+            'base',
+            'pulse',
+            'wind',
+            'engine',
+            'stellar',
+          ];
+          sfxKeys.forEach((k) => {
+            const nameMap = {
+              jump: 'jump-to-today.mp3',
+              scroll: 'year-change-scroll-transition.mp3',
+              warp: 'fast-scroll-wrap-mode.mp3',
+              hover: 'hover-over-cell.mp3',
+              theme: 'theme-toggle.mp3',
+              beep: 'confirmation-beep.mp3',
+              enable: 'enabled-ambience.mp3',
+              mute: 'mute-ambience.mp3',
+              base: 'master-ambient-loop.mp3',
+              pulse: 'short-ambient-pulse.mp3',
+              wind: 'nebula-wind-sweep.mp3',
+              engine: 'engine-idle-hum.mp3',
+              stellar: 'distant-stellar-ambience.mp3',
+            };
+            this.sounds[k] = new Audio(`${this.path}${nameMap[k]}`);
+            this.sounds[k].preload = 'auto';
+          });
         }
 
         play(key, options = {}) {
@@ -474,14 +490,10 @@
 
           const now = Date.now();
           const throttle = key === 'jump' ? 300 : options.throttle || 100;
-
           if (this.lastPlayTime[key] && now - this.lastPlayTime[key] < throttle) return;
 
-          // Smart Reset
           s.pause();
           s.currentTime = 0;
-
-          // Pitch Dynamic for Spamming
           if (options.dynamicPitch) {
             this.spamCount++;
             s.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
@@ -495,7 +507,6 @@
 
           if (options.loop) s.loop = true;
           s.volume = options.volume !== undefined ? options.volume : 0.4;
-
           s.play().catch(() => {});
           this.lastPlayTime[key] = now;
         }
@@ -504,31 +515,23 @@
           this.enabled = !this.enabled;
           if (this.enabled) {
             this.play('enable');
-            this.#startAmbientBase();
+            if (this.sounds.base) {
+              this.sounds.base.loop = true;
+              this.sounds.base.volume = 0.12;
+              this.sounds.base.play().catch(() => {});
+            }
             this.resetIdleTimer();
           } else {
             this.play('mute');
-            this.#stopAllAmbient();
+            ['base', 'pulse', 'wind', 'engine', 'stellar'].forEach((k) => {
+              if (this.sounds[k]) {
+                this.sounds[k].pause();
+                this.sounds[k].currentTime = 0;
+              }
+            });
+            clearTimeout(this.idleTimer);
           }
           return this.enabled;
-        }
-
-        #startAmbientBase() {
-          const b = this.sounds.base;
-          if (!b) return;
-          b.loop = true;
-          b.volume = 0.12;
-          b.play().catch(() => {});
-        }
-
-        #stopAllAmbient() {
-          Object.keys(this.sounds).forEach((k) => {
-            if (['base', 'pulse', 'wind', 'engine', 'stellar'].includes(k)) {
-              this.sounds[k].pause();
-              this.sounds[k].currentTime = 0;
-            }
-          });
-          clearTimeout(this.idleTimer);
         }
 
         resetIdleTimer() {
@@ -540,16 +543,14 @@
         #triggerRandomIdleClip() {
           if (!this.enabled || this.isBusy) return;
           const clips = [
-            { key: 'pulse', vol: 0.15 },
-            { key: 'wind', vol: 0.2 },
-            { key: 'engine', vol: 0.15 },
-            { key: 'stellar', vol: 0.2 },
+            { k: 'pulse', v: 0.15 },
+            { k: 'wind', v: 0.2 },
+            { k: 'engine', v: 0.15 },
+            { k: 'stellar', v: 0.2 },
           ];
-          const clip = clips[Math.floor(Math.random() * clips.length)];
-          this.play(clip.key, { volume: clip.vol });
-
-          const nextDelay = Math.random() * 15000 + 10000;
-          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), nextDelay);
+          const c = clips[Math.floor(Math.random() * clips.length)];
+          this.play(c.k, { volume: c.v });
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), Math.random() * 15000 + 10000);
         }
 
         setBusy(val) {
@@ -564,7 +565,6 @@
         #cursorWrapper = document.getElementById('cursor-wrapper');
         #ionDrive = document.getElementById('ion-drive');
         #toast = document.getElementById('mode-toast');
-        #toastTimer = null;
 
         #audio = new GalacticAudio();
         #today = new Date();
@@ -577,7 +577,6 @@
 
         #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-
         #monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
         #daysShort = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
         #isRandomMode = false;
@@ -593,17 +592,15 @@
           const bar = document.getElementById('load-progress');
           const status = document.getElementById('load-status');
           const steps = [
-            { p: 20, t: 'Mapping Star Systems...' },
-            { p: 50, t: 'Calibrating Ion Drives...' },
-            { p: 100, t: 'Bridge Established.' },
+            { p: 30, t: 'Syncing Orbits...' },
+            { p: 75, t: 'Calibrating Drives...' },
+            { p: 100, t: 'Ready.' },
           ];
-
-          for (const step of steps) {
+          for (const s of steps) {
             await new Promise((r) => setTimeout(r, 400));
-            bar.style.width = `${step.p}%`;
-            status.innerText = step.t;
+            bar.style.width = `${s.p}%`;
+            status.innerText = s.t;
           }
-
           this.#init();
           setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
         }
@@ -626,7 +623,7 @@
               });
               this.#lastScrollPos = this.#viewport.scrollTop;
             },
-            { threshold: 0.1, rootMargin: '10% 0px' }
+            { threshold: 0.05, rootMargin: '20% 0px' }
           );
 
           this.#setupListeners();
@@ -636,10 +633,10 @@
         }
 
         #showToast(msg) {
-          clearTimeout(this.#toastTimer);
           this.#toast.innerText = msg;
           this.#toast.classList.add('active');
-          this.#toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
+          clearTimeout(this.tT);
+          this.tT = setTimeout(() => this.#toast.classList.remove('active'), 2500);
         }
 
         jumpToToday(isInitial = false) {
@@ -647,13 +644,11 @@
           this.#isJumping = true;
           this.#audio.setBusy(true);
           this.#audio.play('jump', { dynamicPitch: !isInitial });
-
           this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
-          if (!isInitial) this.#showToast('WARPING TO LOCAL COORDINATES');
-
+          if (!isInitial) this.#showToast('WARPING TO LOCAL TIME');
           setTimeout(() => {
             const block = this.#activeYears.get(this.#today.getFullYear());
-            if (block && block.classList.contains('is-scrolling')) {
+            if (block) {
               const todayCell = block.querySelector('.cell.today');
               const container = block.querySelector('.grid-container');
               if (todayCell && container)
@@ -667,7 +662,6 @@
 
         #setupListeners() {
           const resetIdle = () => this.#audio.resetIdleTimer();
-
           window.addEventListener(
             'pointermove',
             (e) => {
@@ -679,22 +673,30 @@
             { passive: true }
           );
 
-          document.addEventListener('mouseover', (e) => {
-            if (this.#isScrolling || this.#isJumping) return;
-            const cell = e.target.closest('.cell');
-            if (cell && !cell.classList.contains('filler')) {
-              this.#cursorWrapper.classList.add('is-hovering');
-              this.#ionDrive.style.setProperty('--glow-size', '800px');
-              this.#audio.play('hover', { throttle: 120, volume: 0.25 });
-            }
-          });
+          document.addEventListener(
+            'mouseover',
+            (e) => {
+              if (this.#isScrolling || this.#isJumping) return;
+              const cell = e.target.closest('.cell');
+              if (cell && !cell.classList.contains('filler')) {
+                this.#cursorWrapper.classList.add('is-hovering');
+                this.#ionDrive.style.setProperty('--glow-size', '800px');
+                this.#audio.play('hover', { throttle: 120, volume: 0.25 });
+              }
+            },
+            { passive: true }
+          );
 
-          document.addEventListener('mouseout', (e) => {
-            if (e.target.closest('.cell')) {
-              this.#cursorWrapper.classList.remove('is-hovering');
-              this.#ionDrive.style.setProperty('--glow-size', '600px');
-            }
-          });
+          document.addEventListener(
+            'mouseout',
+            (e) => {
+              if (e.target.closest('.cell')) {
+                this.#cursorWrapper.classList.remove('is-hovering');
+                this.#ionDrive.style.setProperty('--glow-size', '600px');
+              }
+            },
+            { passive: true }
+          );
 
           this.#viewport.addEventListener(
             'scroll',
@@ -718,28 +720,31 @@
             { passive: true }
           );
 
-          window.addEventListener('keydown', (e) => {
-            const key = e.key.toLowerCase();
-            resetIdle();
-            if (key === 't') {
-              this.#audio.play('theme', { dynamicPitch: true });
-              this.#toggleTheme();
-              const current = document.documentElement.getAttribute('data-theme');
-              this.#showToast(`ADJUSTING ATMOSPHERIC LIGHT: ${current === 'dark' ? 'LIGHT' : 'DARK'}`);
-            }
-            if (key === 'm') {
-              const active = this.#audio.toggleMaster();
-              this.#showToast(active ? 'ION DRIVE ONLINE' : 'SILENT CRUISE MODE');
-            }
-            if (key === ' ') {
-              e.preventDefault();
-              this.jumpToToday();
-            }
-            if (key === 'r') this.#setMode(true);
-            if (key === 's') this.#setMode(false);
-          });
+          window.addEventListener(
+            'keydown',
+            (e) => {
+              const k = e.key.toLowerCase();
+              resetIdle();
+              if (k === 't') {
+                this.#audio.play('theme', { dynamicPitch: true });
+                this.#toggleTheme();
+                this.#showToast(`ATMOSPHERE ADJUSTED`);
+              }
+              if (k === 'm') {
+                const a = this.#audio.toggleMaster();
+                this.#showToast(a ? 'ION DRIVE ONLINE' : 'SILENT CRUISE');
+              }
+              if (k === ' ') {
+                e.preventDefault();
+                this.jumpToToday();
+              }
+              if (k === 'r') this.#setMode(true);
+              if (k === 's') this.#setMode(false);
+            },
+            { passive: false }
+          );
 
-          window.addEventListener('resize', () => location.reload());
+          window.addEventListener('resize', () => location.reload(), { passive: true });
         }
 
         #setMode(isRandom) {
@@ -752,7 +757,7 @@
           this.#activeYears.clear();
           this.#render();
           this.#audio.play('beep');
-          this.#showToast(isRandom ? 'NEBULA DYNAMIC STRUCTURE ACTIVE' : 'MONDAY ALIGNED ORBIT RESTORED');
+          this.#showToast(isRandom ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
         }
 
         #applyTheme(theme) {
@@ -828,15 +833,15 @@
 
           const itD = new Date(year, 0, 1 - gO);
           const tS = this.#today.toDateString();
-          let html = `<div class="grid-container" style="${isSc ? 'overflow-y: auto;' : 'overflow-y: hidden;'}">
-                        <div class="watermark-embedded">${year}</div>
-                        <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
+          let html = `<div class="grid-container" style="${
+            isSc ? 'overflow-y: auto;' : 'overflow-y: hidden;'
+          }"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr); height: ${
             isSc ? 'auto' : '100%'
           };">`;
 
           for (let s = 0; s < cols * rows; s++) {
-            const isM = itD.getFullYear() === year;
-            const isT = itD.toDateString() === tS && isM;
+            const isM = itD.getFullYear() === year,
+              isT = itD.toDateString() === tS && isM;
             const dD = itD.getDate(),
               dM = itD.getMonth(),
               dY = itD.getDay();
@@ -847,13 +852,11 @@
               if (dY === 1) cls += ' week-start';
             }
             const shM = isM && (dD === 1 || s === gO);
-            html += `<div class="${cls}"><div class="cell-content">
-                        <span class="info-meta ${dD === 1 && isM ? 'top-label' : ''}">${
-              shM ? this.#monthsShort[dM] : ''
-            }</span>
-                        <span class="date-num">${dD}</span>
-                        <span class="info-meta">${isM ? this.#daysShort[dY] : ''}</span>
-                      </div></div>`;
+            html += `<div class="${cls}"><div class="cell-content"><span class="info-meta ${
+              dD === 1 && isM ? 'top-label' : ''
+            }">${shM ? this.#monthsShort[dM] : ''}</span><span class="date-num">${dD}</span><span class="info-meta">${
+              isM ? this.#daysShort[dY] : ''
+            }</span></div></div>`;
             itD.setDate(dD + 1);
           }
           block.innerHTML = html + `</div></div>`;
