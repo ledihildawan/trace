@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey MPV2 - Even Row Unified Engine</title>
+    <title>Galactic Odyssey MPV2 - Square Structured</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -557,8 +557,8 @@
           const bar = document.getElementById('load-progress');
           const status = document.getElementById('load-status');
           const steps = [
-            { p: 30, t: 'Syncing Orbits...' },
-            { p: 75, t: 'Calibrating Drives...' },
+            { p: 30, t: 'Syncing Orbits Standard...' },
+            { p: 75, t: 'Calibrating Grid Square...' },
             { p: 100, t: 'Ready.' },
           ];
           for (const s of steps) {
@@ -787,15 +787,22 @@
           const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
           const vw = window.innerWidth,
             vh = window.innerHeight;
+
           let cols, gO;
 
-          if (this.#isRandomMode && vw >= 600) {
-            cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
-            gO = Math.floor(jan1.getTime() / 86400000) % cols;
+          // DINAMIS: Menghitung kolom agar mendekati kotak (SQUARE) berdasarkan aspek rasio viewport
+          // Formula: Akar dari jumlah hari (365) dikali perbandingan lebar/tinggi
+          if (vw >= 600) {
+            cols = Math.ceil(Math.sqrt((daysInYear + 7) * (vw / vh)));
+            // Pastikan tidak terlalu sedikit kolom pada layar lebar
+            cols = Math.max(cols, vw < 1200 ? 10 : 15);
           } else {
-            cols = vw < 600 ? 7 : vw < 1200 ? 14 : 21;
-            gO = (jan1.getDay() + 6) % 7;
+            cols = 7; // Mobile tetap 7 demi keterbacaan
           }
+
+          // Offset hari pertama (Monday-Aligned)
+          gO = (jan1.getDay() + 6) % 7;
+
           const rows = Math.ceil((daysInYear + gO) / cols);
           const isSc = vh / rows < 60;
           if (isSc) block.classList.add('is-scrolling');
@@ -815,7 +822,6 @@
 
           const grid = document.createElement('div');
           grid.className = 'grid-layer';
-          // Perubahan Utama: Menggunakan 1fr untuk baris agar tinggi terbagi rata (Even Rows)
           grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
           grid.style.gridTemplateRows = isSc ? `repeat(${rows}, minmax(60px, 1fr))` : `repeat(${rows}, 1fr)`;
           grid.style.height = isSc ? 'auto' : '100%';
