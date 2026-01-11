@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey MPV2 - Square Structured</title>
+    <title>Galactic Odyssey MPV2 - Unified Visuals</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -11,7 +11,7 @@
     />
 
     <style>
-      /* --- MODERN CSS ENGINE (2026) --- */
+      /* --- CORE CSS ENGINE --- */
       @property --ion-x {
         syntax: '<number>';
         inherits: true;
@@ -266,7 +266,7 @@
         opacity: 1;
       }
 
-      /* --- CELL SYSTEM --- */
+      /* --- CELL DESIGNS --- */
       .cell {
         background: var(--cell-bg);
         position: relative;
@@ -310,17 +310,17 @@
       }
 
       .cell.today {
-        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
         z-index: 10;
         box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
       }
       .cell.today .date-num {
         font-weight: 900;
-        color: #fff !important;
+        color: #fff;
         text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
       }
       .cell.today .info-meta {
-        color: rgba(255, 255, 255, 0.9) !important;
+        color: rgba(255, 255, 255, 0.9);
         font-weight: 700;
       }
 
@@ -557,8 +557,8 @@
           const bar = document.getElementById('load-progress');
           const status = document.getElementById('load-status');
           const steps = [
-            { p: 30, t: 'Syncing Orbits Standard...' },
-            { p: 75, t: 'Calibrating Grid Square...' },
+            { p: 30, t: 'Syncing Space-Time...' },
+            { p: 75, t: 'Calibrating Dynamic Grid...' },
             { p: 100, t: 'Ready.' },
           ];
           for (const s of steps) {
@@ -790,18 +790,20 @@
 
           let cols, gO;
 
-          // DINAMIS: Menghitung kolom agar mendekati kotak (SQUARE) berdasarkan aspek rasio viewport
-          // Formula: Akar dari jumlah hari (365) dikali perbandingan lebar/tinggi
+          // DINAMIS: Menghitung kolom agar mendekati kotak (SQUARE)
           if (vw >= 600) {
             cols = Math.ceil(Math.sqrt((daysInYear + 7) * (vw / vh)));
-            // Pastikan tidak terlalu sedikit kolom pada layar lebar
             cols = Math.max(cols, vw < 1200 ? 10 : 15);
           } else {
-            cols = 7; // Mobile tetap 7 demi keterbacaan
+            cols = 7;
           }
 
-          // Offset hari pertama (Monday-Aligned)
-          gO = (jan1.getDay() + 6) % 7;
+          // OFFSET LOGIC
+          if (this.#isRandomMode && vw >= 600) {
+            gO = Math.floor(jan1.getTime() / 86400000) % cols; // Centering filler
+          } else {
+            gO = (jan1.getDay() + 6) % 7; // Monday-Aligned
+          }
 
           const rows = Math.ceil((daysInYear + gO) / cols);
           const isSc = vh / rows < 60;
@@ -833,11 +835,18 @@
               dM = itD.getMonth(),
               dY = itD.getDay();
             const cell = document.createElement('div');
-            cell.className = `cell ${!isM ? 'filler' : ''} ${isT ? 'today' : ''} ${
-              isM && dD === 1 ? 'month-start' : ''
-            } ${isM && (dY === 0 || dY === 6) ? 'weekend' : ''} ${isM && dY === 1 ? 'week-start' : ''}`;
+
+            // Visual Dynamics: Tetap tampilkan styling hari di semua mode
+            let cls = `cell ${!isM ? 'filler' : ''} ${isT ? 'today' : ''}`;
+            if (isM) {
+              if (dD === 1) cls += ' month-start';
+              if (dY === 0 || dY === 6) cls += ' weekend';
+              if (dY === 1) cls += ' week-start';
+            }
+            cell.className = cls;
 
             const showMonth = isM && (dD === 1 || s === gO);
+            // Visual Dynamics: Nama hari tetap ditampilkan agar navigasi tetap jelas
             cell.innerHTML = `<div class="cell-content">
                                 <span class="info-meta ${dD === 1 && isM ? 'top-label' : ''}">${
               showMonth ? this.#months[dM] : ''
