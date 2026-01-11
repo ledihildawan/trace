@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey v3.5 - Deep System Integration</title>
+    <title>Galactic Odyssey v3.6 - Infinite Immersion</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -244,6 +244,7 @@
         display: none;
       }
 
+      /* --- WATERMARK YEAR (FIXED v2.9.3 STYLE) --- */
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -307,6 +308,7 @@
       .cell.filler .date-num {
         opacity: 0.1;
       }
+
       .cell.weekend {
         background: linear-gradient(135deg, rgba(34, 211, 238, 0.05) 0%, transparent 100%);
       }
@@ -324,6 +326,7 @@
         opacity: 0.3;
         z-index: 3;
       }
+
       .cell.month-start {
         background: linear-gradient(180deg, rgba(34, 211, 238, 0.1) 0%, transparent 100%);
         box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
@@ -423,97 +426,140 @@
 
     <div id="ion-drive"></div>
     <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
+    <div id="atmosphere"></div>
     <div id="theme-veil"></div>
-    <div id="mode-toast">SYSTEMS ONLINE</div>
+    <div id="mode-toast">WARP READY</div>
 
     <main id="viewport">
       <div id="infinite-canvas"></div>
     </main>
 
     <script type="module">
-      /* --- INTEGRATED SYSTEM AUDIO ENGINE v3.5 --- */
+      /* --- INTEGRATED AUDIO ENGINE v3.6 --- */
       class GalacticAudio {
         constructor() {
           this.enabled = false;
           this.isBusy = false;
-          this.basePath = 'assets/sfx/';
+          this.path = 'assets/sfx/';
           this.sounds = {
-            jump: new Audio(`${this.basePath}jump-to-today.mp3`),
-            scroll: new Audio(`${this.basePath}year-change-scroll-transition.mp3`),
-            warp: new Audio(`${this.basePath}fast-scroll-wrap-mode.mp3`),
-            hover: new Audio(`${this.basePath}hover-over-cell.mp3`),
-            theme: new Audio(`${this.basePath}theme-toggle.mp3`),
-            beep: new Audio(`${this.basePath}confirmation-beep.mp3`),
-            enable: new Audio(`${this.basePath}enabled-ambience.mp3`),
-            mute: new Audio(`${this.basePath}mute-ambience.mp3`),
+            jump: new Audio(`${this.path}jump-to-today.mp3`),
+            scroll: new Audio(`${this.path}year-change-scroll-transition.mp3`),
+            warp: new Audio(`${this.path}fast-scroll-wrap-mode.mp3`),
+            hover: new Audio(`${this.path}hover-over-cell.mp3`),
+            theme: new Audio(`${this.path}theme-toggle.mp3`),
+            beep: new Audio(`${this.path}confirmation-beep.mp3`),
+            enable: new Audio(`${this.path}enabled-ambience.mp3`),
+            mute: new Audio(`${this.path}mute-ambience.mp3`),
+            // Ambient Layering
+            base: new Audio(`${this.path}master-ambient-loop.mp3`),
+            pulse: new Audio(`${this.path}short-ambient-pulse.mp3`),
+            wind: new Audio(`${this.path}nebula-wind-sweep.mp3`),
+            engine: new Audio(`${this.path}engine-idle-hum.mp3`),
+            stellar: new Audio(`${this.path}distant-stellar-ambience.mp3`),
           };
           this.lastPlayTime = {};
+          this.idleTimer = null;
           this.spamCount = 0;
           this.spamTimer = null;
         }
 
         /**
-         * play() dengan Deep Integration logic
-         * Menangani prioritas aksi dan modulasi nada dinamis
+         * play() dengan Smart Concurrency & Pulse-Damping logic
          */
         play(key, options = {}) {
           if (!this.enabled && key !== 'enable') return;
 
-          // Audio-System Integration: Mencegah interferensi saat sistem sedang sibuk (Warping)
+          // Priority Check: Mencegah trigger SFX ringan saat sistem sedang sibuk (Warping)
           if (this.isBusy && (key === 'hover' || key === 'scroll')) return;
 
           const s = this.sounds[key];
           if (!s) return;
 
           const now = Date.now();
-          // Logic Pulse-Damping (v3.4) yang diperluas
-          const minInterval = key === 'jump' ? 300 : options.throttle || 100;
+          const throttle = key === 'jump' ? 300 : options.throttle || 100;
 
-          if (this.lastPlayTime[key] && now - this.lastPlayTime[key] < minInterval) {
-            return;
-          }
+          if (this.lastPlayTime[key] && now - this.lastPlayTime[key] < throttle) return;
 
-          // Smart Reset & Concurrency Management
+          // Smart Reset
           s.pause();
           s.currentTime = 0;
 
-          // Pitch Dynamic Integration
+          // Pitch Modulator untuk Spamming Feedback
           if (options.dynamicPitch) {
-            this.#handleSpamPitch(s);
+            this.spamCount++;
+            s.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
+            clearTimeout(this.spamTimer);
+            this.spamTimer = setTimeout(() => {
+              this.spamCount = 0;
+            }, 500);
           } else {
             s.playbackRate = options.playbackRate || 1.0;
           }
 
-          if (options.volume !== undefined) s.volume = options.volume;
+          if (options.loop) s.loop = true;
+          s.volume = options.volume !== undefined ? options.volume : 0.4;
 
-          s.play().catch(() => {
-            console.warn(`Audio system: Interaction required to play [${key}]`);
-          });
+          s.play().catch(() => {});
           this.lastPlayTime[key] = now;
-        }
-
-        #handleSpamPitch(audio) {
-          this.spamCount++;
-          // Berikan feedback audio sistem yang semakin panas/cepat saat spamming
-          audio.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
-          clearTimeout(this.spamTimer);
-          this.spamTimer = setTimeout(() => {
-            this.spamCount = 0;
-          }, 500);
-        }
-
-        setBusy(val) {
-          this.isBusy = val;
-          // Jika sistem sibuk (Jump), redupkan volume ambient secara otomatis jika ada
-          if (this.sounds.enable) {
-            this.sounds.enable.volume = val ? 0.1 : 0.4;
-          }
         }
 
         toggleMaster() {
           this.enabled = !this.enabled;
-          this.play(this.enabled ? 'enable' : 'mute');
+          if (this.enabled) {
+            this.play('enable');
+            this.#startAmbientBase();
+            this.resetIdleTimer();
+          } else {
+            this.play('mute');
+            this.#stopAllAmbient();
+          }
           return this.enabled;
+        }
+
+        #startAmbientBase() {
+          const b = this.sounds.base;
+          if (!b) return;
+          b.loop = true;
+          b.volume = 0.12;
+          b.play().catch(() => {});
+        }
+
+        #stopAllAmbient() {
+          Object.keys(this.sounds).forEach((k) => {
+            if (['base', 'pulse', 'wind', 'engine', 'stellar'].includes(k)) {
+              this.sounds[k].pause();
+              this.sounds[k].currentTime = 0;
+            }
+          });
+          clearTimeout(this.idleTimer);
+        }
+
+        resetIdleTimer() {
+          if (!this.enabled) return;
+          clearTimeout(this.idleTimer);
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), 30000);
+        }
+
+        #triggerRandomIdleClip() {
+          if (!this.enabled || this.isBusy) return;
+          const clips = [
+            { key: 'pulse', vol: 0.15 },
+            { key: 'wind', vol: 0.2 },
+            { key: 'engine', vol: 0.15 },
+            { key: 'stellar', vol: 0.2 },
+          ];
+          const clip = clips[Math.floor(Math.random() * clips.length)];
+          this.play(clip.key, { volume: clip.vol });
+
+          const nextDelay = Math.random() * 15000 + 10000;
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), nextDelay);
+        }
+
+        setBusy(val) {
+          this.isBusy = val;
+          if (this.sounds.base) {
+            this.sounds.base.volume = val ? 0.05 : 0.12;
+          }
         }
       }
 
@@ -531,8 +577,8 @@
         #lastScrollPos = 0;
         #currentYearIdx = null;
         #isScrolling = false;
-        #scrollStopTimer = null;
         #isJumping = false;
+        #scrollStopTimer = null;
 
         #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
@@ -554,6 +600,7 @@
           const steps = [
             { p: 20, t: 'Fetching Galactic Coordinates...' },
             { p: 45, t: 'Synchronizing Solar Orbits...' },
+            { p: 75, t: 'Generating Nebula Structures...' },
             { p: 100, t: 'Bridge Connection Established.' },
           ];
 
@@ -564,7 +611,9 @@
           }
 
           this.#init();
-          setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 800);
+          setTimeout(() => {
+            document.getElementById('loading-screen').classList.add('hidden');
+          }, 800);
         }
 
         async #init() {
@@ -611,20 +660,19 @@
           this.#activeYears.clear();
           this.#render();
           this.#audio.play('beep');
-          this.#showToast(isRandom ? 'NEBULA DYNAMIC STRUCTURE ACTIVE' : 'MONDAY ALIGNED ORBIT RESTORED');
+          this.#showToast(isRandom ? 'DYNAMIC NEBULA STRUCTURE ACTIVE' : 'MONDAY ALIGNED ORBIT RESTORED');
         }
 
         jumpToToday(isInitial = false) {
           if (this.#isJumping) return;
 
-          this.#isJumping = true;
-          // Audio System Integration: Beritahu audio engine sistem sedang sibuk melakukan Warp
           this.#audio.setBusy(true);
           this.#audio.play('jump', { dynamicPitch: true });
 
           this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
           if (!isInitial) this.#showToast('WARPING TO LOCAL COORDINATES');
 
+          this.#isJumping = true;
           setTimeout(() => {
             const block = this.#activeYears.get(this.#today.getFullYear());
             if (block && block.classList.contains('is-scrolling')) {
@@ -634,31 +682,32 @@
                 container.scrollTo({ top: todayCell.offsetTop - window.innerHeight / 3, behavior: 'smooth' });
             }
             this.#audio.play('beep');
-            // Kembalikan audio ambient ke volume normal
             this.#audio.setBusy(false);
             this.#isJumping = false;
           }, 850);
         }
 
         #setupListeners() {
+          const resetIdle = () => this.#audio.resetIdleTimer();
+
           window.addEventListener(
             'pointermove',
             (e) => {
               this.#mouse.x = e.clientX;
               this.#mouse.y = e.clientY;
               if (e.pointerType === 'mouse') this.#cursorWrapper.style.opacity = '1';
+              resetIdle();
             },
             { passive: true }
           );
 
           document.addEventListener('mouseover', (e) => {
-            // Integration Logic: Mencegah trigger audio hover saat layar sedang bergerak cepat
             if (this.#isScrolling || this.#isJumping) return;
             const cell = e.target.closest('.cell');
             if (cell && !cell.classList.contains('filler')) {
               this.#cursorWrapper.classList.add('is-hovering');
               this.#ionDrive.style.setProperty('--glow-size', '800px');
-              this.#audio.play('hover', { throttle: 120 });
+              this.#audio.play('hover', { throttle: 120, volume: 0.25 });
             }
           });
 
@@ -673,6 +722,7 @@
             'scroll',
             () => {
               this.#isScrolling = true;
+              resetIdle();
               clearTimeout(this.#scrollStopTimer);
               requestAnimationFrame(() => {
                 this.#render();
@@ -680,7 +730,6 @@
                 const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
                 if (this.#currentYearIdx !== idx && !this.#isJumping) {
                   this.#currentYearIdx = idx;
-                  // Modulasi nada scroll berdasarkan kecepatan (Deep Integration)
                   this.#audio.play('scroll');
                 }
               });
@@ -693,6 +742,7 @@
 
           window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
+            resetIdle();
             if (key === 't') {
               this.#audio.play('theme', { dynamicPitch: true });
               this.#toggleTheme();
