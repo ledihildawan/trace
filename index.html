@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey v2.8 - Refined Synergy</title>
+    <title>Galactic Odyssey v2.9.3 - Global Toast Edition</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -69,7 +69,7 @@
         overscroll-behavior: none;
       }
 
-      /* --- CURSOR DISPLAY LOGIC --- */
+      /* --- GPU OPTIMIZED CURSOR --- */
       @media (pointer: fine) {
         html,
         body,
@@ -151,7 +151,6 @@
         }
       }
 
-      /* --- VIEWPORT ENGINE --- */
       #viewport {
         width: 100vw;
         height: 100dvh;
@@ -249,7 +248,7 @@
         opacity: 1;
       }
 
-      /* --- CELL SYSTEM v2.8 (AESTHETIC SYNERGY) --- */
+      /* --- CELL SYSTEM --- */
       .cell {
         background: var(--cell-bg);
         position: relative;
@@ -272,7 +271,6 @@
       .cell.weekend {
         background: linear-gradient(135deg, rgba(34, 211, 238, 0.05) 0%, transparent 100%);
       }
-
       .cell.week-start {
         background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
       }
@@ -320,11 +318,9 @@
         justify-content: space-between;
         align-items: center;
         padding: 12px 4px;
-        text-align: center;
-        pointer-events: none;
         z-index: 2;
+        pointer-events: none;
       }
-
       .info-meta {
         font-size: clamp(7px, 0.9dvh, 8px);
         text-transform: uppercase;
@@ -332,12 +328,39 @@
         color: var(--text-muted);
         letter-spacing: 0.1em;
       }
-
       .date-num {
         font-size: clamp(18px, 3dvh, 26px);
         font-weight: 300;
         line-height: 1;
         color: var(--text-main);
+      }
+
+      /* --- GLOBAL TOAST SYSTEM --- */
+      #mode-toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(34, 211, 238, 0.15);
+        color: var(--accent-secondary);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 10px 24px;
+        border-radius: 40px;
+        font-weight: 900;
+        font-size: 11px;
+        z-index: 99999;
+        opacity: 0;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      #mode-toast.active {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
       }
 
       #theme-veil {
@@ -359,6 +382,7 @@
     <div id="cursor-wrapper"><div id="cursor-dot"></div></div>
     <div id="atmosphere"></div>
     <div id="theme-veil"></div>
+    <div id="mode-toast">WARP READY</div>
 
     <main id="viewport">
       <div id="infinite-canvas"></div>
@@ -370,6 +394,8 @@
         #canvas = document.getElementById('infinite-canvas');
         #cursorWrapper = document.getElementById('cursor-wrapper');
         #ionDrive = document.getElementById('ion-drive');
+        #toast = document.getElementById('mode-toast');
+        #toastTimer = null;
 
         #today = new Date();
         #activeYears = new Map();
@@ -380,6 +406,8 @@
 
         #monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
         #daysShort = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+
+        #isRandomMode = false;
 
         constructor() {
           this.totalYears = 2000;
@@ -396,19 +424,16 @@
 
           this.observer = new IntersectionObserver(
             (entries) => {
-              for (let i = 0; i < entries.length; i++) {
-                const e = entries[i];
+              entries.forEach((e) => {
                 const block = e.target;
                 block.classList.toggle('active', e.isIntersecting);
-
                 if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
                   const container = block.querySelector('.grid-container');
-                  if (container && block.classList.contains('is-scrolling')) {
+                  if (container && block.classList.contains('is-scrolling'))
                     container.scrollTop = container.scrollHeight;
-                  }
                 }
-              }
-              this.#lastScrollPos = this.#viewport.scrollTop;
+                this.#lastScrollPos = this.#viewport.scrollTop;
+              });
             },
             { threshold: 0.1, rootMargin: '10% 0px' }
           );
@@ -417,11 +442,34 @@
           this.#cursorLoop();
           this.#render();
 
-          setTimeout(() => this.jumpToToday(), 150);
+          setTimeout(() => {
+            this.jumpToToday();
+            this.#showToast('SYNCING ORBIT: SUCCESS');
+          }, 200);
+        }
+
+        #showToast(msg) {
+          clearTimeout(this.#toastTimer);
+          this.#toast.innerText = msg;
+          this.#toast.classList.add('active');
+          this.#toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
+        }
+
+        #setMode(isRandom) {
+          if (this.#isRandomMode === isRandom) return;
+          this.#isRandomMode = isRandom;
+          this.#activeYears.forEach((b) => {
+            this.observer.unobserve(b);
+            b.remove();
+          });
+          this.#activeYears.clear();
+          this.#render();
+          this.#showToast(`GRID MODE: ${isRandom ? 'RANDOM' : 'STRUCTURED'}`);
         }
 
         jumpToToday() {
           this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
+          this.#showToast('INITIATING JUMP TO TODAY');
           setTimeout(() => {
             const block = this.#activeYears.get(this.#today.getFullYear());
             if (block && block.classList.contains('is-scrolling')) {
@@ -448,28 +496,20 @@
             { passive: true }
           );
 
-          document.addEventListener(
-            'mouseover',
-            (e) => {
-              const cell = e.target.closest('.cell');
-              if (cell && !cell.classList.contains('filler')) {
-                this.#cursorWrapper.classList.add('is-hovering');
-                this.#ionDrive.style.setProperty('--glow-size', '800px');
-              }
-            },
-            { passive: true }
-          );
+          document.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('.cell');
+            if (cell && !cell.classList.contains('filler')) {
+              this.#cursorWrapper.classList.add('is-hovering');
+              this.#ionDrive.style.setProperty('--glow-size', '800px');
+            }
+          });
 
-          document.addEventListener(
-            'mouseout',
-            (e) => {
-              if (e.target.closest('.cell')) {
-                this.#cursorWrapper.classList.remove('is-hovering');
-                this.#ionDrive.style.setProperty('--glow-size', '600px');
-              }
-            },
-            { passive: true }
-          );
+          document.addEventListener('mouseout', (e) => {
+            if (e.target.closest('.cell')) {
+              this.#cursorWrapper.classList.remove('is-hovering');
+              this.#ionDrive.style.setProperty('--glow-size', '600px');
+            }
+          });
 
           this.#viewport.addEventListener(
             'scroll',
@@ -483,24 +523,21 @@
           );
 
           window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 't') this.#toggleTheme();
-            if (e.key === ' ') {
+            const key = e.key.toLowerCase();
+            if (key === 't') {
+              this.#toggleTheme();
+              const current = document.documentElement.getAttribute('data-theme');
+              this.#showToast(`THEME: ${current === 'dark' ? 'LIGHT' : 'DARK'}`);
+            }
+            if (key === ' ') {
               e.preventDefault();
               this.jumpToToday();
             }
+            if (key === 'r') this.#setMode(true);
+            if (key === 's') this.#setMode(false);
           });
 
-          window.addEventListener(
-            'resize',
-            () => {
-              this.yearHeight = window.innerHeight;
-              this.startY = (this.totalYears / 2) * this.yearHeight;
-              this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
-              this.#viewport.scrollTop = this.startY;
-              this.#render();
-            },
-            { passive: true }
-          );
+          window.addEventListener('resize', () => location.reload());
         }
 
         #applyTheme(theme) {
@@ -562,9 +599,17 @@
           const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
           const vw = window.innerWidth,
             vh = window.innerHeight;
-          let cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / vh)));
-          const msPerDay = 86400000;
-          const globalOffset = Math.floor(jan1.getTime() / msPerDay) % cols;
+
+          let cols, globalOffset;
+
+          if (this.#isRandomMode && vw >= 600) {
+            cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
+            globalOffset = Math.floor(jan1.getTime() / 86400000) % cols;
+          } else {
+            cols = vw < 600 ? 7 : vw < 1200 ? 14 : 21;
+            globalOffset = (jan1.getDay() + 6) % 7;
+          }
+
           let rows = Math.ceil((daysInYear + globalOffset) / cols);
           const isOverflowing = vh / rows < 60;
           if (isOverflowing) block.classList.add('is-scrolling');
@@ -594,12 +639,12 @@
             }
             const showMonth = isMain && (dDate === 1 || s === globalOffset);
             html += `<div class="${cls}"><div class="cell-content">
-              <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
+                        <span class="info-meta ${dDate === 1 && isMain ? 'top-label' : ''}">${
               showMonth ? this.#monthsShort[dMonth] : ''
             }</span>
-              <span class="date-num">${dDate}</span>
-              <span class="info-meta">${isMain ? this.#daysShort[dDay] : ''}</span>
-            </div></div>`;
+                        <span class="date-num">${dDate}</span>
+                        <span class="info-meta">${isMain ? this.#daysShort[dDay] : ''}</span>
+                      </div></div>`;
             iterDate.setDate(dDate + 1);
           }
           block.innerHTML = html + `</div></div>`;
