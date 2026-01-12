@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey PRO - Quantum Audio & Visuals</title>
+    <title>Galactic Odyssey MPV2 - Synchronized & Immersive</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -31,6 +31,11 @@
         inherits: true;
         initial-value: 700px;
       }
+      @property --chroma-dist {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
 
       :root {
         --accent-primary: #fbbf24;
@@ -41,8 +46,10 @@
         --cell-bg: light-dark(#ffffff, #020617);
         --text-main: light-dark(#0f172a, #f1f5f9);
         --text-muted: light-dark(#64748b, #64748b);
+        --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
         --dust-opacity: light-dark(0.05, 0.15);
         --ion-glow: 700px;
+        --cursor-scale: 1;
       }
 
       [data-theme='light'] {
@@ -121,7 +128,7 @@
         }
       }
 
-      /* ── ION DRIVE V2 ── */
+      /* ── ION DRIVE (WITH CHROMATIC ABERRATION DYNAMICS) ── */
       #ion-drive {
         position: fixed;
         inset: 0;
@@ -139,7 +146,7 @@
           );
         opacity: 0.85;
         mix-blend-mode: screen;
-        transition: opacity 0.5s ease, background 0.3s ease, --ion-glow 0.2s ease-out; /* Faster glow transition for velocity response */
+        transition: opacity 0.5s ease, background 0.3s ease, --ion-glow 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         will-change: transform;
         transform: translateZ(0);
       }
@@ -158,30 +165,11 @@
       }
       @keyframes ion-burst {
         0% {
-          transform: scale(1.2) translate(0, 0);
-          opacity: 0.95;
+          transform: scale(var(--p-scale, 1.2)) translate(0, 0);
+          opacity: var(--p-opacity, 0.95);
         }
         100% {
           transform: scale(0) translate(var(--dx), var(--dy));
-          opacity: 0;
-        }
-      }
-
-      /* Exhaust particles (smaller, faster fade) */
-      .exhaust {
-        position: fixed;
-        width: 2px;
-        height: 2px;
-        border-radius: 50%;
-        pointer-events: none;
-        z-index: 9000;
-        background: var(--accent-secondary);
-        opacity: 0.6;
-        animation: exhaust-fade 0.5s linear forwards;
-      }
-      @keyframes exhaust-fade {
-        to {
-          transform: scale(0);
           opacity: 0;
         }
       }
@@ -226,7 +214,6 @@
         contain: layout;
       }
 
-      /* ── VISUAL DEPTH & DISTORTION ── */
       .year-block {
         position: absolute;
         left: 0;
@@ -240,26 +227,35 @@
         content-visibility: auto;
         contain-intrinsic-size: 100vw 100dvh;
         transform-origin: center center;
-        /* Enhanced Transition */
         transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease, opacity 0.8s ease;
         will-change: transform, opacity, filter;
         contain: strict;
       }
+
+      /* CHROMATIC ABERRATION & ADAPTIVE TYPO */
       .year-block:not(.active) {
         transform: scale(0.8) translate3d(0, 0, -600px);
-        filter: blur(20px);
+        filter: blur(20px) grayscale(0.5);
         opacity: 0.15;
       }
+
+      /* Data Stream Effect (Tipografi Merespons Kedalaman) */
+      .year-block:not(.active) .date-num {
+        background: var(--text-muted);
+        color: transparent !important;
+        height: 1px;
+        width: 40%;
+        margin: 10px auto;
+        opacity: 0.5;
+      }
+      .year-block:not(.active) .info-meta {
+        opacity: 0;
+      }
+
       .year-block.active {
         transform: scale(1) translate3d(0, 0, 0);
         filter: blur(0px);
         opacity: 1;
-      }
-
-      /* CHROMATIC ABERRATION & WARP DISTORTION */
-      .year-block.warp-distort {
-        filter: blur(2px) contrast(1.2) hue-rotate(10deg);
-        transform: scale(0.95) translateZ(-100px) rotateX(2deg);
       }
 
       .grid-container {
@@ -269,7 +265,11 @@
         background: var(--bg);
         overflow-x: hidden;
         scrollbar-width: none;
+        /* Lens Distortion / Chromatic aberration filter */
+        filter: drop-shadow(calc(var(--chroma-dist) * -1px) 0 0 rgba(255, 0, 0, 0.2))
+          drop-shadow(calc(var(--chroma-dist) * 1px) 0 0 rgba(0, 255, 255, 0.2));
       }
+
       .watermark-embedded {
         position: absolute;
         top: 0;
@@ -294,6 +294,10 @@
       .year-block.active .watermark-embedded {
         opacity: 0.15;
         transform: translate3d(0, 0, 0);
+      }
+      .year-block.is-scrolling .watermark-embedded {
+        position: fixed;
+        opacity: 0.08;
       }
 
       .grid-layer {
@@ -359,7 +363,7 @@
       }
       .cell.today .date-num {
         font-weight: 900;
-        color: #fff;
+        color: #fff !important;
         text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
       }
       .cell.today .info-meta {
@@ -367,7 +371,6 @@
         font-weight: 700;
       }
 
-      /* ADAPTIVE TYPOGRAPHY: DATA STREAM MODE */
       .cell-content {
         flex: 1;
         display: flex;
@@ -384,34 +387,14 @@
         font-weight: 600;
         color: var(--text-muted);
         letter-spacing: 0.1em;
-        transition: opacity 0.5s;
+        transition: opacity 0.4s ease;
       }
       .date-num {
         font-size: clamp(14px, 2.5dvh, 22px);
         font-weight: 300;
         line-height: 1;
         color: var(--text-main);
-        transition: all 0.8s ease;
-      }
-
-      .year-block:not(.active) .date-num {
-        color: transparent;
-        height: 2px;
-        width: 50%;
-        margin: auto;
-        background: var(--accent-secondary);
-        box-shadow: 0 0 5px var(--accent-secondary);
-        border-radius: 2px;
-      }
-      .year-block:not(.active) .info-meta {
-        opacity: 0;
-      }
-
-      /* GHOST TRAIL STYLING */
-      .ghost-cell {
-        pointer-events: none;
-        z-index: 100;
-        mix-blend-mode: screen;
+        transition: all 0.4s ease;
       }
 
       #toast {
@@ -456,7 +439,7 @@
   <body oncontextmenu="return false;">
     <div id="loading-screen">
       <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
-      <div class="loader-text" id="load-status">Initializing Quantum Core...</div>
+      <div class="loader-text" id="load-status">Synchronizing Neural Network...</div>
     </div>
     <div id="ion-drive"></div>
     <div id="atmosphere"></div>
@@ -480,129 +463,116 @@
           idleInterval: [10000, 25000],
           idleDelay: 30000,
         },
-        physics: { cursorInertia: 0.12, hoverThrottle: 120 },
+        physics: { cursorInertia: 0.12, hoverThrottle: 120, exhaustThreshold: 15 },
       };
 
-      // ── QUANTUM AUDIO ENGINE (WEB AUDIO API) ──
-      class QuantumAudio {
-        #ctx;
-        #masterGain;
-        #filter;
-        #buffers = new Map();
-        #sources = new Map();
-        #isMuted = false;
-        #ambienceNode = null;
+      class GalacticAudio {
         #path = OdysseyConfig.audio.basePath;
-
+        #sounds = new Map();
+        #lastPlayTime = new Map();
         constructor() {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.#ctx = new AudioContext();
-
-          // Signal Chain: Source -> Gain -> Filter -> Master -> Destination
-          this.#masterGain = this.#ctx.createGain();
-          this.#filter = this.#ctx.createBiquadFilter();
-
-          this.#filter.type = 'lowpass';
-          this.#filter.frequency.value = 600; // Start Muffled (Idle State)
-          this.#filter.Q.value = 1;
-
-          this.#masterGain.connect(this.#filter);
-          this.#filter.connect(this.#ctx.destination);
-
-          this.#masterGain.gain.value = OdysseyConfig.audio.masterVolume;
+          this.enabled = false;
+          this.isBusy = false;
+          this.idleTimer = null;
+          this.spamCount = 0;
+          this.#initSounds();
         }
-
-        async init() {
-          // Preload essential buffers
-          const manifest = {
+        #initSounds() {
+          const sfx = {
             jump: 'jump-to-today.mp3',
             scroll: 'year-change-scroll-transition.mp3',
             warp: 'fast-scroll-wrap-mode.mp3',
             hover: 'hover-over-cell.mp3',
             theme: 'theme-toggle.mp3',
             beep: 'confirmation-beep.mp3',
+            enable: 'enabled-ambience.mp3',
+            mute: 'mute-ambience.mp3',
             base: 'master-ambient-loop.mp3',
+            pulse: 'short-ambient-pulse.mp3',
+            wind: 'nebula-wind-sweep.mp3',
+            engine: 'engine-idle-hum.mp3',
+            stellar: 'distant-stellar-ambience.mp3',
           };
-
-          const promises = Object.entries(manifest).map(async ([key, file]) => {
-            try {
-              const response = await fetch(`${this.#path}${file}`);
-              const arrayBuffer = await response.arrayBuffer();
-              const audioBuffer = await this.#ctx.decodeAudioData(arrayBuffer);
-              this.#buffers.set(key, audioBuffer);
-            } catch (e) {
-              console.warn(`Audio missing: ${file}`);
-            }
+          Object.entries(sfx).forEach(([key, name]) => {
+            const audio = new Audio(`${this.#path}${name}`);
+            audio.preload = 'auto';
+            this.#sounds.set(key, audio);
           });
-
-          await Promise.all(promises);
-          return true;
         }
-
-        resume() {
-          if (this.#ctx.state === 'suspended') this.#ctx.resume();
-        }
-
         play(key, options = {}) {
-          if (this.#isMuted) return;
-          const buffer = this.#buffers.get(key);
-          if (!buffer) return;
+          if (!this.enabled || (this.isBusy && key === 'hover')) return;
+          const s = this.#sounds.get(key);
+          if (!s) return;
+          const now = Date.now();
+          if (this.#lastPlayTime.has(key) && now - this.#lastPlayTime.get(key) < (options.throttle || 100)) return;
+          s.pause();
+          s.currentTime = 0;
 
-          const source = this.#ctx.createBufferSource();
-          source.buffer = buffer;
-
-          const gainNode = this.#ctx.createGain();
-          gainNode.gain.value = options.volume || 1.0;
-
-          // Detune effect for Warp
-          if (options.detune) source.detune.value = options.detune;
-          if (options.playbackRate) source.playbackRate.value = options.playbackRate;
-
-          source.connect(gainNode);
-          gainNode.connect(this.#masterGain);
-
-          source.start(0);
-          if (options.loop) {
-            source.loop = true;
-            return source;
-          }
-        }
-
-        // Dynamic Environmental Audio Processing
-        setEnvironmentMode(mode) {
-          const now = this.#ctx.currentTime;
-          if (mode === 'idle') {
-            this.#filter.frequency.exponentialRampToValueAtTime(600, now + 1.0); // Muffled
-            this.#filter.Q.linearRampToValueAtTime(1, now + 1.0);
-          } else if (mode === 'active') {
-            this.#filter.frequency.exponentialRampToValueAtTime(12000, now + 0.5); // Clear
-            this.#filter.Q.linearRampToValueAtTime(2, now + 0.5);
-          } else if (mode === 'warp') {
-            this.#filter.frequency.exponentialRampToValueAtTime(20000, now + 2.0); // High Energy
-            this.#filter.Q.linearRampToValueAtTime(5, now + 1.0);
-          }
-        }
-
-        toggleMaster() {
-          this.#isMuted = !this.#isMuted;
-          if (!this.#isMuted) {
-            this.resume();
-            if (!this.#ambienceNode)
-              this.#ambienceNode = this.play('base', { volume: OdysseyConfig.audio.ambientBaseVolume, loop: true });
+          if (options.dynamicPitch) {
+            this.spamCount++;
+            s.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
+            setTimeout(() => (this.spamCount = 0), 500);
           } else {
-            if (this.#ambienceNode) {
-              this.#ambienceNode.stop();
-              this.#ambienceNode = null;
-            }
+            s.playbackRate = options.playbackRate || 1.0;
           }
-          return !this.#isMuted;
+
+          s.volume = options.volume ?? OdysseyConfig.audio.masterVolume;
+          s.play().catch(() => {});
+          this.#lastPlayTime.set(key, now);
+        }
+        toggleMaster() {
+          this.enabled = !this.enabled;
+          if (this.enabled) {
+            this.play('enable');
+            const base = this.#sounds.get('base');
+            if (base) {
+              base.loop = true;
+              base.volume = OdysseyConfig.audio.ambientBaseVolume;
+              base.play().catch(() => {});
+            }
+            this.resetIdleTimer();
+          } else {
+            this.play('mute');
+            ['base', 'pulse', 'wind', 'engine', 'stellar'].forEach((k) => {
+              const s = this.#sounds.get(k);
+              if (s) {
+                s.pause();
+                s.currentTime = 0;
+              }
+            });
+            clearTimeout(this.idleTimer);
+          }
+          return this.enabled;
+        }
+        resetIdleTimer() {
+          if (!this.enabled) return;
+          clearTimeout(this.idleTimer);
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), OdysseyConfig.audio.idleDelay);
+        }
+        #triggerRandomIdleClip() {
+          if (!this.enabled || this.isBusy) return;
+          const clips = [
+            { k: 'pulse', v: 0.15 },
+            { k: 'wind', v: 0.2 },
+            { k: 'engine', v: 0.15 },
+            { k: 'stellar', v: 0.2 },
+          ];
+          const c = clips[Math.floor(Math.random() * clips.length)];
+          this.play(c.k, { volume: c.v });
+          const [min, max] = OdysseyConfig.audio.idleInterval;
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), Math.random() * (max - min) + min);
+        }
+        setBusy(val) {
+          this.isBusy = val;
+          const base = this.#sounds.get('base');
+          if (base) base.volume = val ? 0.04 : OdysseyConfig.audio.ambientBaseVolume;
         }
       }
 
       class GridArchitect {
         #activeYears = new Map();
         #today = new Date();
-        #audio = new QuantumAudio();
+        #audio = new GalacticAudio();
         #viewport = document.getElementById('viewport');
         #canvas = document.getElementById('infinite-canvas');
         #ionDrive = document.getElementById('ion-drive');
@@ -614,8 +584,7 @@
         #isInteractingAllowed = true;
         #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        #lastX = 0;
-        #lastY = 0; // For Velocity tracking
+        #lastMouse = { x: 0, y: 0 };
         #isRandomMode = OdysseyConfig.display.defaultMode === 'random';
 
         constructor() {
@@ -627,15 +596,16 @@
 
         async #runBoot() {
           const bar = document.getElementById('load-progress');
-          bar.style.width = '30%';
-          await this.#audio.init(); // Wait for buffers
-
-          bar.style.width = '70%';
-          document.getElementById('load-status').innerText = 'Calibrating Spatial Audio...';
-          await new Promise((r) => setTimeout(r, 400));
-
-          bar.style.width = '100%';
-          document.getElementById('load-status').innerText = 'System Online.';
+          const steps = [
+            { p: 40, t: 'Binding Light Stream...' },
+            { p: 80, t: 'Synchronizing Neural Audio...' },
+            { p: 100, t: 'System Online.' },
+          ];
+          for (const s of steps) {
+            await new Promise((r) => setTimeout(r, 400));
+            bar.style.width = `${s.p}%`;
+            document.getElementById('load-status').innerText = s.t;
+          }
           this.#init();
           setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
         }
@@ -648,14 +618,17 @@
             (entries) => {
               entries.forEach((e) => {
                 const b = e.target;
+                const wasActive = b.classList.contains('active');
                 b.classList.toggle('active', e.isIntersecting);
-                if (e.isIntersecting) {
-                  if (this.#viewport.scrollTop < this.#lastScrollPos) {
-                    const c = b.querySelector('.grid-container');
-                    if (c && b.classList.contains('is-scrolling')) c.scrollTop = c.scrollHeight;
-                  }
-                  // HAPTIC FEEDBACK (Feature 5)
-                  if (navigator.vibrate && this.#isScrolling) navigator.vibrate(10);
+
+                // 5. Smooth Haptic Feedback (Mobile)
+                if (e.isIntersecting && !wasActive && 'vibrate' in navigator) {
+                  navigator.vibrate(8); // Ultra light pulse
+                }
+
+                if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
+                  const c = b.querySelector('.grid-container');
+                  if (c && b.classList.contains('is-scrolling')) c.scrollTop = c.scrollHeight;
                 }
               });
               this.#lastScrollPos = this.#viewport.scrollTop;
@@ -677,6 +650,7 @@
 
         #lockInteractions() {
           this.#isInteractingAllowed = false;
+          this.#audio.setBusy(true);
           this.#viewport.classList.add('is-locked');
           document.documentElement.style.setProperty('--ion-glow', '200px');
         }
@@ -684,9 +658,29 @@
         #unlockInteractions() {
           setTimeout(() => {
             this.#isInteractingAllowed = true;
+            this.#audio.setBusy(false);
             this.#viewport.classList.remove('is-locked');
             document.documentElement.style.setProperty('--ion-glow', '700px');
           }, 400);
+        }
+
+        #spawnParticle(x, y, isExhaust = false) {
+          const p = document.createElement('div');
+          p.className = 'particle';
+          p.style.left = `${x}px`;
+          p.style.top = `${y}px`;
+          const angle = Math.random() * Math.PI * 2;
+          const dist = isExhaust ? 5 + Math.random() * 20 : 30 + Math.random() * 40;
+
+          if (isExhaust) {
+            p.style.setProperty('--p-scale', '0.6');
+            p.style.setProperty('--p-opacity', '0.4');
+          }
+
+          p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+          p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+          document.body.appendChild(p);
+          setTimeout(() => p.remove(), 700);
         }
 
         jumpToToday(isInitial = false) {
@@ -694,14 +688,8 @@
           this.#isWarping = true;
           this.#lockInteractions();
           this.#audio.play('jump');
-          this.#audio.setEnvironmentMode('warp'); // AUDIO WARP MODE
-
-          // VISUAL DISTORTION
-          document.querySelectorAll('.year-block').forEach((el) => el.classList.add('warp-distort'));
-
           this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
           if (!isInitial) this.#showToast('WARPING TO LOCAL TIME');
-
           setTimeout(() => {
             const b = this.#activeYears.get(this.#today.getFullYear());
             if (b) {
@@ -709,33 +697,27 @@
                 c = b.querySelector('.grid-container');
               if (t && c) c.scrollTo({ top: t.offsetTop - window.innerHeight / 3, behavior: 'smooth' });
             }
-
             this.#audio.play('beep');
             this.#isWarping = false;
             this.#unlockInteractions();
-            this.#audio.setEnvironmentMode('idle'); // Back to idle
-            // REMOVE DISTORTION
-            document.querySelectorAll('.year-block').forEach((el) => el.classList.remove('warp-distort'));
           }, OdysseyConfig.display.warpDuration);
         }
 
         #setupListeners() {
-          // INITIAL AUDIO UNLOCK
-          ['click', 'keydown'].forEach((evt) =>
-            window.addEventListener(evt, () => this.#audio.resume(), { once: true })
-          );
-
           window.addEventListener(
             'pointermove',
             (e) => {
               this.#mouse.x = e.clientX;
               this.#mouse.y = e.clientY;
 
-              // ION EXHAUST SYSTEM (Feature 1)
-              const velocity = Math.hypot(e.clientX - this.#lastX, e.clientY - this.#lastY);
-              if (velocity > 15) this.#createExhaust(e.clientX, e.clientY);
-              this.#lastX = e.clientX;
-              this.#lastY = e.clientY;
+              // 1. Enhanced Ion-Drive Particle System (Exhaust)
+              const velocity = Math.sqrt(
+                Math.pow(e.clientX - this.#lastMouse.x, 2) + Math.pow(e.clientY - this.#lastMouse.y, 2)
+              );
+              if (velocity > OdysseyConfig.physics.exhaustThreshold) {
+                this.#spawnParticle(e.clientX, e.clientY, true);
+              }
+              this.#lastMouse = { x: e.clientX, y: e.clientY };
             },
             { passive: true }
           );
@@ -750,9 +732,6 @@
                 this.#ionDrive.classList.add('active');
                 document.documentElement.style.setProperty('--ion-glow', isF ? '200px' : '900px');
                 this.#audio.play('hover', { volume: isF ? 0.04 : 0.25, playbackRate: isF ? 0.5 : 1.0 });
-
-                // GHOST TRAIL (Feature 6)
-                if (!isF) this.#createGhostTrail(cell);
               }
             },
             { passive: true }
@@ -772,10 +751,7 @@
           this.#viewport.addEventListener(
             'scroll',
             () => {
-              if (!this.#isScrolling) {
-                this.#lockInteractions();
-                this.#audio.setEnvironmentMode('active'); // Open Filter
-              }
+              if (!this.#isScrolling) this.#lockInteractions();
               this.#isScrolling = true;
               clearTimeout(this.scrollStopT);
 
@@ -783,19 +759,17 @@
                 this.#render();
                 this.#handleParallax();
                 const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
-                // Calculate scroll velocity for distortion
-                const velocity = Math.abs(this.#viewport.scrollTop - this.#lastScrollPos);
-                if (velocity > 50)
-                  document.querySelectorAll('.year-block.active').forEach((b) => b.classList.add('warp-distort'));
-                else
-                  document
-                    .querySelectorAll('.year-block.warp-distort')
-                    .forEach((b) => b.classList.remove('warp-distort'));
-
                 if (this.#currentYearIdx !== idx && !this.#isWarping) {
                   this.#currentYearIdx = idx;
                   this.#audio.play('scroll');
                 }
+
+                const velocity = Math.abs(this.#viewport.scrollTop - this.#lastScrollPos);
+
+                // 2. Chromatic Aberration Implementation
+                const chromaAmount = Math.min(12, velocity / 8);
+                document.documentElement.style.setProperty('--chroma-dist', chromaAmount);
+
                 if (this.#isInteractingAllowed)
                   document.documentElement.style.setProperty('--ion-glow', `${Math.max(400, 1100 - velocity * 3)}px`);
               });
@@ -803,10 +777,7 @@
               this.scrollStopT = setTimeout(() => {
                 this.#isScrolling = false;
                 this.#unlockInteractions();
-                this.#audio.setEnvironmentMode('idle'); // Close Filter
-                document
-                  .querySelectorAll('.year-block.warp-distort')
-                  .forEach((b) => b.classList.remove('warp-distort'));
+                document.documentElement.style.setProperty('--chroma-dist', 0);
               }, 250);
             },
             { passive: true }
@@ -832,58 +803,13 @@
 
           document.addEventListener('click', (e) => {
             if (!this.#isInteractingAllowed) return;
-            // Particles Logic...
             const burst = Math.floor(Math.random() * 4) + 5;
             for (let i = 0; i < burst; i++) {
-              const p = document.createElement('div');
-              p.className = 'particle';
-              p.style.left = `${e.clientX}px`;
-              p.style.top = `${e.clientY}px`;
-              const angle = Math.random() * Math.PI * 2;
-              const dist = 30 + Math.random() * 40;
-              p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
-              p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
-              document.body.appendChild(p);
-              setTimeout(() => p.remove(), 700);
+              this.#spawnParticle(e.clientX, e.clientY);
             }
             if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
           });
           window.addEventListener('resize', () => location.reload());
-        }
-
-        #createExhaust(x, y) {
-          const p = document.createElement('div');
-          p.className = 'exhaust';
-          p.style.left = `${x}px`;
-          p.style.top = `${y}px`;
-          document.body.appendChild(p);
-          setTimeout(() => p.remove(), 500);
-        }
-
-        #createGhostTrail(cell) {
-          const clone = cell.cloneNode(true);
-          const rect = cell.getBoundingClientRect();
-          Object.assign(clone.style, {
-            position: 'fixed',
-            top: `${rect.top}px`,
-            left: `${rect.left}px`,
-            width: `${rect.width}px`,
-            height: `${rect.height}px`,
-            pointerEvents: 'none',
-            zIndex: '99',
-            border: '1px solid var(--accent-secondary)',
-            background: 'transparent',
-            transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-            opacity: '0.4',
-          });
-          clone.innerHTML = ''; // Empty content for cleaner look
-          document.body.appendChild(clone);
-          requestAnimationFrame(() => {
-            clone.style.transform = 'scale(1.15)';
-            clone.style.opacity = '0';
-            clone.style.filter = 'blur(4px)';
-          });
-          setTimeout(() => clone.remove(), 600);
         }
 
         #cursorLoop() {
