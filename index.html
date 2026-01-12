@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey MPV2 - Synchronized & Immersive</title>
+    <title>Galactic Odyssey MPV2 - Fully Immersive Spatial Audio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
@@ -128,7 +128,7 @@
         }
       }
 
-      /* ── ION DRIVE (WITH CHROMATIC ABERRATION DYNAMICS) ── */
+      /* ── ION DRIVE ── */
       #ion-drive {
         position: fixed;
         inset: 0;
@@ -440,10 +440,6 @@
         physics: { cursorInertia: 0.12, hoverThrottle: 120, exhaustThreshold: 15 },
       };
 
-      /**
-       * ENHANCED: Realistic Ion Particle Engine
-       * Menggunakan motion trails, radial gradients, dan variasi warna nebula.
-       */
       class ParticleEngine {
         constructor() {
           this.canvas = document.createElement('canvas');
@@ -451,7 +447,6 @@
           this.particles = [];
           this.init();
         }
-
         init() {
           this.canvas.style.position = 'fixed';
           this.canvas.style.inset = '0';
@@ -462,80 +457,57 @@
           window.addEventListener('resize', () => this.resize());
           this.loop();
         }
-
         resize() {
           const dpr = window.devicePixelRatio || 1;
           this.canvas.width = window.innerWidth * dpr;
           this.canvas.height = window.innerHeight * dpr;
           this.ctx.scale(dpr, dpr);
-          this.canvas.style.width = `${window.innerWidth}px`;
-          this.canvas.style.height = `${window.innerHeight}px`;
         }
-
         spawn(x, y, isExhaust = false) {
-          const count = isExhaust ? 2 : 12; // Lebih banyak partikel saat klik
+          const count = isExhaust ? 2 : 12;
           for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const force = isExhaust ? Math.random() * 1.5 + 0.5 : Math.random() * 6 + 2;
-
             this.particles.push({
               x,
               y,
               px: x,
-              py: y, // Posisi sebelumnya untuk efek trail
+              py: y,
               vx: Math.cos(angle) * force,
               vy: Math.sin(angle) * force,
               life: 1.0,
               decay: isExhaust ? 0.03 : 0.015,
               size: Math.random() * (isExhaust ? 1.5 : 4) + 1,
-              // Variasi warna antara emas ion dan biru nebula
               color: isExhaust ? { h: 45, s: 90, l: 60 } : { h: 190, s: 80, l: 70 },
             });
           }
         }
-
         loop() {
-          // Memberikan sedikit transparansi pada clearRect bisa membuat trail permanen,
-          // tapi kita gunakan line drawing untuk kontrol yang lebih tajam.
           this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
           for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
-
-            // Simpan posisi sebelumnya
             p.px = p.x;
             p.py = p.y;
-
-            // Update posisi dengan friksi ringan (0.98)
             p.x += p.vx;
             p.y += p.vy;
             p.vx *= 0.98;
             p.vy *= 0.98;
             p.life -= p.decay;
-
             if (p.life <= 0) {
               this.particles.splice(i, 1);
               continue;
             }
-
             const alpha = p.life;
-            const hue = p.color.h;
-
-            // 1. Gambar Glow (Aura Partikel)
             const gradient = this.ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
-            gradient.addColorStop(0, `hsla(${hue}, ${p.color.s}%, ${p.color.l}%, ${alpha * 0.5})`);
-            gradient.addColorStop(1, `hsla(${hue}, ${p.color.s}%, ${p.color.l}%, 0)`);
-
-            this.ctx.beginPath();
+            gradient.addColorStop(0, `hsla(${p.color.h}, ${p.color.s}%, ${p.color.l}%, ${alpha * 0.5})`);
+            gradient.addColorStop(1, `hsla(${p.color.h}, ${p.color.s}%, ${p.color.l}%, 0)`);
             this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
             this.ctx.fill();
-
-            // 2. Gambar Core & Trail (Efek Ion Terbakar)
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = `hsla(${hue}, ${p.color.s}%, 90%, ${alpha})`;
+            this.ctx.strokeStyle = `hsla(${p.color.h}, ${p.color.s}%, 90%, ${alpha})`;
             this.ctx.lineWidth = p.size * p.life;
-            this.ctx.lineCap = 'round';
+            this.ctx.beginPath();
             this.ctx.moveTo(p.px, p.py);
             this.ctx.lineTo(p.x, p.y);
             this.ctx.stroke();
@@ -544,18 +516,47 @@
         }
       }
 
+      /* ── ENHANCED SPATIAL AUDIO ENGINE ── */
       class GalacticAudio {
         #path = OdysseyConfig.audio.basePath;
         #sounds = new Map();
-        #lastPlayTime = new Map();
+        #ctx = null;
+        #masterGain = null;
+        #panner = null;
+        #ambientSources = new Map();
+
         constructor() {
           this.enabled = false;
+          this.initialized = false;
           this.isBusy = false;
           this.idleTimer = null;
-          this.spamCount = 0;
-          this.#initSounds();
+          this.#initAudioContext();
         }
-        #initSounds() {
+
+        #initAudioContext() {
+          const init = async () => {
+            if (this.initialized) return;
+            this.#ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.#masterGain = this.#ctx.createGain();
+            this.#masterGain.gain.value = OdysseyConfig.audio.masterVolume;
+
+            this.#panner = this.#ctx.createPanner();
+            this.#panner.panningModel = 'HRTF';
+            this.#panner.distanceModel = 'inverse';
+            this.#panner.refDistance = 1;
+            this.#panner.maxDistance = 10000;
+            this.#panner.rolloffFactor = 1;
+
+            this.#panner.connect(this.#masterGain);
+            this.#masterGain.connect(this.#ctx.destination);
+
+            await this.#loadAssets();
+            this.initialized = true;
+          };
+          ['click', 'touchstart', 'keydown'].forEach((e) => window.addEventListener(e, init, { once: true }));
+        }
+
+        async #loadAssets() {
           const sfx = {
             jump: 'jump-to-today.mp3',
             scroll: 'year-change-scroll-transition.mp3',
@@ -571,60 +572,70 @@
             engine: 'engine-idle-hum.mp3',
             stellar: 'distant-stellar-ambience.mp3',
           };
-          Object.entries(sfx).forEach(([key, name]) => {
-            const audio = new Audio(`${this.#path}${name}`);
-            audio.preload = 'auto';
-            this.#sounds.set(key, audio);
-          });
-        }
-        play(key, options = {}) {
-          if (!this.enabled || (this.isBusy && key === 'hover')) return;
-          const s = this.#sounds.get(key);
-          if (!s) return;
-          const now = Date.now();
-          if (this.#lastPlayTime.has(key) && now - this.#lastPlayTime.get(key) < (options.throttle || 100)) return;
-          s.pause();
-          s.currentTime = 0;
-          if (options.dynamicPitch) {
-            this.spamCount++;
-            s.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
-            setTimeout(() => (this.spamCount = 0), 500);
-          } else {
-            s.playbackRate = options.playbackRate || 1.0;
+          for (const [key, name] of Object.entries(sfx)) {
+            const res = await fetch(`${this.#path}${name}`);
+            const buf = await res.arrayBuffer();
+            this.#sounds.set(key, await this.#ctx.decodeAudioData(buf));
           }
-          s.volume = options.volume ?? OdysseyConfig.audio.masterVolume;
-          s.play().catch(() => {});
-          this.#lastPlayTime.set(key, now);
         }
+
+        updateSpatialPosition(x, y) {
+          if (!this.initialized || !this.#panner) return;
+          const px = (x / window.innerWidth) * 2 - 1;
+          const py = -(y / window.innerHeight) * 2 + 1;
+          this.#panner.positionX.setTargetAtTime(px, this.#ctx.currentTime, 0.1);
+          this.#panner.positionY.setTargetAtTime(py, this.#ctx.currentTime, 0.1);
+          this.#panner.positionZ.setTargetAtTime(0.5, this.#ctx.currentTime, 0.1);
+        }
+
+        play(key, options = {}) {
+          if (!this.enabled || !this.initialized || !this.#sounds.has(key)) return;
+          if (this.isBusy && key === 'hover') return;
+
+          const source = this.#ctx.createBufferSource();
+          source.buffer = this.#sounds.get(key);
+          const gain = this.#ctx.createGain();
+          gain.gain.value = options.volume ?? 1.0;
+          source.playbackRate.value = options.playbackRate || 1.0;
+
+          source.connect(gain);
+          // Only route non-ambient sounds through spatial panner
+          if (['hover', 'beep', 'pulse', 'wind'].includes(key)) {
+            gain.connect(this.#panner);
+          } else {
+            gain.connect(this.#masterGain);
+          }
+
+          if (options.loop) {
+            source.loop = true;
+            this.#ambientSources.set(key, source);
+          }
+          source.start(0);
+        }
+
         toggleMaster() {
+          if (!this.initialized) return false;
           this.enabled = !this.enabled;
           if (this.enabled) {
+            this.#ctx.resume();
             this.play('enable');
-            const base = this.#sounds.get('base');
-            if (base) {
-              base.loop = true;
-              base.volume = OdysseyConfig.audio.ambientBaseVolume;
-              base.play().catch(() => {});
-            }
+            this.play('base', { volume: OdysseyConfig.audio.ambientBaseVolume, loop: true });
             this.resetIdleTimer();
           } else {
             this.play('mute');
-            ['base', 'pulse', 'wind', 'engine', 'stellar'].forEach((k) => {
-              const s = this.#sounds.get(k);
-              if (s) {
-                s.pause();
-                s.currentTime = 0;
-              }
-            });
+            this.#ambientSources.forEach((s) => s.stop());
+            this.#ambientSources.clear();
             clearTimeout(this.idleTimer);
           }
           return this.enabled;
         }
+
         resetIdleTimer() {
           if (!this.enabled) return;
           clearTimeout(this.idleTimer);
           this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), OdysseyConfig.audio.idleDelay);
         }
+
         #triggerRandomIdleClip() {
           if (!this.enabled || this.isBusy) return;
           const clips = [
@@ -638,10 +649,15 @@
           const [min, max] = OdysseyConfig.audio.idleInterval;
           this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), Math.random() * (max - min) + min);
         }
+
         setBusy(val) {
           this.isBusy = val;
-          const base = this.#sounds.get('base');
-          if (base) base.volume = val ? 0.04 : OdysseyConfig.audio.ambientBaseVolume;
+          if (this.#masterGain)
+            this.#masterGain.gain.setTargetAtTime(
+              val ? 0.1 : OdysseyConfig.audio.masterVolume,
+              this.#ctx.currentTime,
+              0.5
+            );
         }
       }
 
@@ -692,9 +708,6 @@
           this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
           this.#viewport.scrollTop = this.startY;
 
-          /**
-           * IMPROVED: Aggressive Virtualization Observer
-           */
           this.observer = new IntersectionObserver(
             (entries) => {
               entries.forEach((e) => {
@@ -707,7 +720,6 @@
                   navigator.vibrate(8);
                 }
 
-                // Cleanup Logic: Hapus jika diluar radius 2 blok dari pusat tampilan saat ini
                 if (!e.isIntersecting) {
                   const currentIdx = Math.round(this.#viewport.scrollTop / this.yearHeight);
                   const currentYear = this.#today.getFullYear() + (currentIdx - this.totalYears / 2);
@@ -790,6 +802,7 @@
                 this.#particles.spawn(e.clientX, e.clientY, true);
               }
               this.#lastMouse = { x: e.clientX, y: e.clientY };
+              this.#audio.resetIdleTimer();
             },
             { passive: true }
           );
@@ -881,6 +894,9 @@
           this.#current.y += (this.#mouse.y - this.#current.y) * OdysseyConfig.physics.cursorInertia;
           document.documentElement.style.setProperty('--ion-x', this.#current.x);
           document.documentElement.style.setProperty('--ion-y', this.#current.y);
+
+          this.#audio.updateSpatialPosition(this.#current.x, this.#current.y);
+
           requestAnimationFrame(() => this.#cursorLoop());
         }
 
@@ -898,7 +914,6 @@
         #render() {
           const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
           const base = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          // Render only current, next, and previous years
           for (let i = -1; i <= 1; i++) this.#drawYear(base + i, (idx + i) * this.yearHeight);
         }
 
@@ -908,7 +923,6 @@
           block.className = 'year-block';
           block.style.top = `${yPos}px`;
           block.dataset.year = year;
-
           const jan1 = new Date(year, 0, 1);
           const days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
           const vw = window.innerWidth,
@@ -931,10 +945,6 @@
           grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
           grid.style.gridTemplateRows = isSc ? `repeat(${rows}, minmax(60px, 1fr))` : `repeat(${rows}, 1fr)`;
           grid.style.height = isSc ? 'auto' : '100%';
-
-          /**
-           * IMPROVED: Fragment Caching
-           */
           const frag = document.createDocumentFragment();
           const itD = new Date(year, 0, 1 - gO);
           for (let s = 0; s < cols * rows; s++) {
