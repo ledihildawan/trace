@@ -441,8 +441,8 @@
       };
 
       /**
-       * NEW: OffscreenCanvas Particle System
-       * Improves performance by rendering particles on a 2D context instead of DOM elements.
+       * ENHANCED: Realistic Ion Particle Engine
+       * Menggunakan motion trails, radial gradients, dan variasi warna nebula.
        */
       class ParticleEngine {
         constructor() {
@@ -451,6 +451,7 @@
           this.particles = [];
           this.init();
         }
+
         init() {
           this.canvas.style.position = 'fixed';
           this.canvas.style.inset = '0';
@@ -461,45 +462,83 @@
           window.addEventListener('resize', () => this.resize());
           this.loop();
         }
+
         resize() {
-          this.canvas.width = window.innerWidth * window.devicePixelRatio;
-          this.canvas.height = window.innerHeight * window.devicePixelRatio;
-          this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+          const dpr = window.devicePixelRatio || 1;
+          this.canvas.width = window.innerWidth * dpr;
+          this.canvas.height = window.innerHeight * dpr;
+          this.ctx.scale(dpr, dpr);
           this.canvas.style.width = `${window.innerWidth}px`;
           this.canvas.style.height = `${window.innerHeight}px`;
         }
+
         spawn(x, y, isExhaust = false) {
-          const count = isExhaust ? 1 : 8;
+          const count = isExhaust ? 2 : 12; // Lebih banyak partikel saat klik
           for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = isExhaust ? Math.random() * 2 + 1 : Math.random() * 5 + 2;
+            const force = isExhaust ? Math.random() * 1.5 + 0.5 : Math.random() * 6 + 2;
+
             this.particles.push({
               x,
               y,
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed,
+              px: x,
+              py: y, // Posisi sebelumnya untuk efek trail
+              vx: Math.cos(angle) * force,
+              vy: Math.sin(angle) * force,
               life: 1.0,
-              decay: isExhaust ? 0.04 : 0.02,
-              size: isExhaust ? 1.5 : 3,
-              color: isExhaust ? '251, 191, 36' : '34, 211, 238',
+              decay: isExhaust ? 0.03 : 0.015,
+              size: Math.random() * (isExhaust ? 1.5 : 4) + 1,
+              // Variasi warna antara emas ion dan biru nebula
+              color: isExhaust ? { h: 45, s: 90, l: 60 } : { h: 190, s: 80, l: 70 },
             });
           }
         }
+
         loop() {
+          // Memberikan sedikit transparansi pada clearRect bisa membuat trail permanen,
+          // tapi kita gunakan line drawing untuk kontrol yang lebih tajam.
           this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
           for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
+
+            // Simpan posisi sebelumnya
+            p.px = p.x;
+            p.py = p.y;
+
+            // Update posisi dengan friksi ringan (0.98)
             p.x += p.vx;
             p.y += p.vy;
+            p.vx *= 0.98;
+            p.vy *= 0.98;
             p.life -= p.decay;
+
             if (p.life <= 0) {
               this.particles.splice(i, 1);
               continue;
             }
+
+            const alpha = p.life;
+            const hue = p.color.h;
+
+            // 1. Gambar Glow (Aura Partikel)
+            const gradient = this.ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+            gradient.addColorStop(0, `hsla(${hue}, ${p.color.s}%, ${p.color.l}%, ${alpha * 0.5})`);
+            gradient.addColorStop(1, `hsla(${hue}, ${p.color.s}%, ${p.color.l}%, 0)`);
+
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-            this.ctx.fillStyle = `rgba(${p.color}, ${p.life * 0.8})`;
+            this.ctx.fillStyle = gradient;
+            this.ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
             this.ctx.fill();
+
+            // 2. Gambar Core & Trail (Efek Ion Terbakar)
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = `hsla(${hue}, ${p.color.s}%, 90%, ${alpha})`;
+            this.ctx.lineWidth = p.size * p.life;
+            this.ctx.lineCap = 'round';
+            this.ctx.moveTo(p.px, p.py);
+            this.ctx.lineTo(p.x, p.y);
+            this.ctx.stroke();
           }
           requestAnimationFrame(() => this.loop());
         }
