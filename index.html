@@ -439,17 +439,6 @@
         transform: scale(0) translateZ(0);
         transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
       }
-
-      ::view-transition-group(root) {
-        animation-duration: 0.6s;
-        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-      }
-
-      /* Membuat transisi antar grid terasa seperti partikel yang mengalir */
-      ::view-transition-old(root),
-      ::view-transition-new(root) {
-        mix-blend-mode: plus-lighter;
-      }
     </style>
   </head>
   <body oncontextmenu="return false;">
@@ -1272,7 +1261,8 @@
           this.observer.observe(block);
         }
 
-        #executeModeChange(r) {
+        #setMode(r) {
+          if (this.#isRandomMode === r) return;
           this.#isRandomMode = r;
           this.#activeYears.forEach((b) => {
             this.observer.unobserve(b);
@@ -1283,37 +1273,19 @@
           this.#audio.play('beep');
           this.#showToast(r ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
         }
-
-        #setMode(r) {
-          if (this.#isRandomMode === r) return;
-
-          // Cek apakah browser mendukung View Transition API
-          if (!document.startViewTransition) {
-            this.#executeModeChange(r);
-            return;
-          }
-
-          // Jalankan transisi visual otomatis
-          document.startViewTransition(() => {
-            this.#executeModeChange(r);
-          });
-        }
         #applyTheme(t) {
           document.documentElement.setAttribute('data-theme', t);
           document.documentElement.style.colorScheme = t;
         }
         #toggleTheme() {
-          const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-
-          if (!document.startViewTransition) {
-            this.#applyTheme(next);
-            return;
-          }
-
-          document.startViewTransition(() => {
+          const v = document.getElementById('theme-veil');
+          v.classList.add('active');
+          setTimeout(() => {
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
             this.#applyTheme(next);
             localStorage.setItem('theme', next);
-          });
+            setTimeout(() => v.classList.remove('active'), 200);
+          }, 400);
         }
       }
 
