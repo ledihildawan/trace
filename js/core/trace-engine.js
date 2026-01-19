@@ -11,27 +11,18 @@ export class TraceEngine {
    * @param {Record<number,string>} options.colorOfYearMap - Year→hex mapping
    * @param {HTMLElement} [options.viewport]
    * @param {HTMLElement} [options.watermark]
-   * @param {HTMLElement} [options.tooltip]
-   * @param {HTMLElement} [options.announcer]
-   * @param {HTMLElement} [options.srStatus]
    */
   constructor({
     themeColors = ['#F6F2EA'],
     colorOfYearMap = {},
     viewport = document.getElementById('tr-viewport'),
     watermark = document.getElementById('tr-year-watermark'),
-    tooltip = document.getElementById('tr-tooltip'),
-    announcer = document.getElementById('tr-a11y-announcer'),
-    srStatus = document.getElementById('tr-sr-status'),
   } = {}) {
     this.themeColors = themeColors;
     this.colorOfYearMap = colorOfYearMap;
 
     this.viewport = viewport;
     this.watermark = watermark;
-    this.tooltip = tooltip;
-    this.announcer = announcer;
-    this.srStatus = srStatus;
 
     this._ac = new AbortController();
     this._signal = this._ac.signal;
@@ -109,249 +100,282 @@ export class TraceEngine {
   }
 
   /**
-   * Render the calendar grid
+   * Render the calendar grid - Absolute Maximum Performance
    */
   render() {
     const localePlugin = this.plugins.get('LocalePlugin');
+    const hasLocale = !!localePlugin;
 
-    const isLeap = (this.year % 4 === 0 && this.year % 100 !== 0) || this.year % 400 === 0;
+    const year = this.year;
+    const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
     const daysInYear = isLeap ? 366 : 365;
     const layout = this.calculateGrid(window.innerWidth, window.innerHeight, daysInYear);
+    const { gapSize, cellSize, columns } = layout;
     const totalCells = layout.columns * layout.rows;
-    const startDate = new Date(Date.UTC(this.year, 0, 1, 12, 0, 0));
+
+    const startDate = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
     startDate.setUTCDate(startDate.getUTCDate() - Math.floor((totalCells - daysInYear) / 2));
 
-    this.viewport.style.cssText = `gap:${layout.gapSize}px; grid-template-columns:repeat(${layout.columns},${layout.cellSize}px); grid-template-rows:repeat(${layout.rows},${layout.cellSize}px);`;
+    // Single viewport style assignment
+    this.viewport.style.cssText = `gap:${gapSize}px;grid-template-columns:repeat(${columns},${cellSize}px);grid-template-rows:repeat(${layout.rows},${cellSize}px)`;
 
     const fragment = document.createDocumentFragment();
-    const gridCells = [];
     let todayCol = 0;
     let todayRow = 0;
     let hasToday = false;
 
-    const a11yPlugin = this.plugins.get('A11yPlugin');
+    // Pre-calculate ALL constants outside loop
+    const yearStart = Date.UTC(year, 0, 1, 12, 0, 0);
+    const todayStr = this.todayStr;
+    const todayTime = this.todayTime;
+    const dayFactor = 1 / MS_PER_DAY;
+    const opacityRate = OPACITY_DECAY_RATE;
+    const grayRate = GRAYSCALE_RATE;
 
+    // Main render loop
     for (let i = 0; i < totalCells; i++) {
       const el = document.createElement('div');
-      const isTargetYear = startDate.getUTCFullYear() === this.year;
-      const cellDayTime = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate());
+
+      // Cache ALL date properties
+      const y = startDate.getUTCFullYear();
+      const m = startDate.getUTCMonth();
+      const d = startDate.getUTCDate();
+      const wd = startDate.getUTCDay();
+      const col = i % columns;
+      const row = (i / columns) | 0;
+
+      const isTargetYear = y === year;
+      const cellTime = Date.UTC(y, m, d);
 
       let type = 'filler';
+      let diff = 0;
+
       if (isTargetYear) {
-        const currentDateStr = this.getUTCDateString(startDate);
-        if (currentDateStr === this.todayStr) type = 'today';
-        else if (cellDayTime < this.todayTime) type = 'past';
-        else type = 'future';
+        if (`${d} ${m} ${y}` === todayStr) {
+          type = 'today';
+          hasToday = true;
+          todayCol = col;
+          todayRow = row;
+        } else {
+          diff = ((todayTime - cellTime) * dayFactor + 0.5) | 0;
+          type = diff > 0 ? 'past' : 'future';
+        }
       }
 
-      el.className = `tr-day tr-day--${type}`;
-      el.style.setProperty('--tr-delay', `${((i % layout.columns) + Math.floor(i / layout.columns)) * 12}ms`);
+      // Inline className with single ternary
+      el.className = wd === 1 ? `tr-day tr-day--${type} tr-day--monday` : `tr-day tr-day--${type}`;
 
-      if (startDate.getUTCDay() === 1) el.classList.add('tr-day--monday');
+      // Ultra-optimized cssText building
+      let css = `--tr-delay:${(col + row) * 12}ms`;
 
       if (type === 'past') {
-        const diff = Math.round((this.todayTime - cellDayTime) / MS_PER_DAY);
-        el.style.opacity = Math.max(0.12, 1 - diff * OPACITY_DECAY_RATE);
-        el.style.filter = `grayscale(${Math.min(100, diff * GRAYSCALE_RATE)}%)`;
+        const op = Math.max(0.12, 1 - diff * opacityRate);
+        const gray = Math.min(100, diff * grayRate);
+        css += `;opacity:${op};filter:grayscale(${gray}%)`;
+      } else if (type === 'future') {
+        css += `;opacity:${Math.max(0.28, 0.9 + diff * 0.0016)}`;
       }
 
-      if (type === 'future') {
-        const diff = Math.max(0, Math.round((cellDayTime - this.todayTime) / MS_PER_DAY));
-        el.style.opacity = Math.max(0.28, 0.9 - diff * 0.0016);
-      }
+      el.style.cssText = css;
 
+      // Today bar creation
       if (type === 'today') {
-        hasToday = true;
-        todayCol = i % layout.columns;
-        todayRow = Math.floor(i / layout.columns);
         const bar = document.createElement('div');
         bar.className = 'tr-now-indicator';
         bar.id = 'tr-today-bar';
         el.appendChild(bar);
       }
 
-      if (isTargetYear && startDate.getUTCDate() === 1 && localePlugin) {
-        const label = localePlugin._dtfMonthLabelUTC.format(startDate).toLocaleUpperCase();
-        el.setAttribute('data-tr-ghost-label', label);
-        const diffDays = Math.round((cellDayTime - this.todayTime) / MS_PER_DAY);
-        const distance = Math.abs(diffDays);
-        const monthLabelOpacity = Math.max(0.12, 0.38 - distance * 0.0014);
-        el.style.setProperty('--tr-ghost-label-opacity', monthLabelOpacity.toFixed(3));
-      }
+      // Consolidated locale operations
+      if (isTargetYear && hasLocale) {
+        if (d === 1) {
+          el.setAttribute('data-tr-ghost-label', localePlugin._dtfMonthLabelUTC.format(startDate).toLocaleUpperCase());
+          el.style.setProperty('--tr-ghost-label-opacity', Math.max(0.12, 0.38 - Math.abs(diff) * 0.0014).toFixed(3));
+        }
 
-      if (type !== 'filler' && localePlugin) {
-        const yearStart = Date.UTC(this.year, 0, 1, 12, 0, 0);
-        const currentDate = Date.UTC(
-          startDate.getUTCFullYear(),
-          startDate.getUTCMonth(),
-          startDate.getUTCDate(),
-          12,
-          0,
-          0
-        );
-        const dayNum = Math.round((currentDate - yearStart) / MS_PER_DAY) + 1;
-        const dateLong = localePlugin._dtfLongUTC.format(startDate);
-        const infoStr = localePlugin.formatDayInfo(dayNum, daysInYear);
-        el.dataset.trDate = dateLong;
-        el.dataset.trInfo = infoStr;
-
-        // A11y setup
-        if (a11yPlugin) {
-          a11yPlugin.setupCellA11y(el, {
-            type,
-            dateLong,
-            infoStr,
-            isToday: type === 'today',
-            index: i,
-          });
+        if (type !== 'filler') {
+          el.dataset.trDate = localePlugin._dtfLongUTC.format(startDate);
+          el.dataset.trInfo = localePlugin.formatDayInfo(
+            ((cellTime - yearStart) * dayFactor + 0.5) | (0 + 1),
+            daysInYear
+          );
         }
       }
 
-      gridCells.push(el);
       fragment.appendChild(el);
-      startDate.setUTCDate(startDate.getUTCDate() + 1);
+      startDate.setUTCDate(d + 1);
     }
 
-    this.gridCells = gridCells;
-    this._currentColumns = layout.columns;
+    this._currentColumns = columns;
+    this.viewport.replaceChildren(fragment);
 
-    while (this.viewport.firstChild) {
-      this.viewport.removeChild(this.viewport.firstChild);
-    }
-    this.viewport.appendChild(fragment);
-
-    // Setup native tooltip interactions (hover and touch)
-    this._setupNativeInteractions();
-
+    // Optimized RAF with minimal calculations
     requestAnimationFrame(() => {
       const r = this.viewport.getBoundingClientRect();
-      // Round dimensions to prevent subpixel blur
-      this.watermark.style.width = `${Math.round(r.width)}px`;
-      this.watermark.style.height = `${Math.round(r.height)}px`;
-      this.watermark.style.left = `${Math.round(this.viewport.offsetLeft)}px`;
-      this.watermark.style.top = `${Math.round(this.viewport.offsetTop)}px`;
+      const w = (r.width + 0.5) | 0;
+      const h = (r.height + 0.5) | 0;
 
-      // Dynamic stroke width based on cell size
-      const strokeBase = Math.max(6, Math.min(18, layout.cellSize * 0.18));
-      document.documentElement.style.setProperty('--tr-year-stroke-width', `${Math.round(strokeBase)}px`);
+      this.watermark.style.cssText = `width:${w}px;height:${h}px;left:${(this.viewport.offsetLeft + 0.5) | 0}px;top:${
+        (this.viewport.offsetTop + 0.5) | 0
+      }px`;
+
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty('--tr-year-stroke-width', `${(Math.max(6, Math.min(18, cellSize * 0.18)) + 0.5) | 0}px`);
 
       if (hasToday) {
-        const x = (todayCol + 0.5) * (layout.cellSize + layout.gapSize) - layout.gapSize;
-        const y = (todayRow + 0.5) * (layout.cellSize + layout.gapSize) - layout.gapSize;
-        document.documentElement.style.setProperty('--tr-now-x', `${(x / r.width) * 100}%`);
-        document.documentElement.style.setProperty('--tr-now-y', `${(y / r.height) * 100}%`);
-        const radius2 = Math.max(220, Math.min(r.width, r.height) * 0.3);
-        const radius1 = Math.max(130, Math.min(r.width, r.height) * 0.12);
-        document.documentElement.style.setProperty('--tr-now-r1', `${Math.round(radius1)}px`);
-        document.documentElement.style.setProperty('--tr-now-r2', `${Math.round(radius2)}px`);
+        const x = (todayCol + 0.5) * (cellSize + gapSize) - gapSize;
+        const y = (todayRow + 0.5) * (cellSize + gapSize) - gapSize;
+        const minDim = w < h ? w : h;
+
+        rootStyle.setProperty('--tr-now-x', `${(x / w) * 100}%`);
+        rootStyle.setProperty('--tr-now-y', `${(y / h) * 100}%`);
+        rootStyle.setProperty('--tr-now-r1', `${(Math.max(130, minDim * 0.12) + 0.5) | 0}px`);
+        rootStyle.setProperty('--tr-now-r2', `${(Math.max(220, minDim * 0.3) + 0.5) | 0}px`);
       }
     });
-
-    // Notify plugins of render
-    for (const plugin of this.plugins.plugins.values()) {
-      if (typeof plugin.onRender === 'function') {
-        plugin.onRender();
-      }
-    }
   }
 
   /**
-   * Calculate optimal grid layout
+   * Grid Calculation Engine (Pure Logic - V2 Final)
+   * Fokus: Kalkulasi koordinat, distribusi sisa ruang, dan manajemen kapasitas.
    */
-  calculateGrid(viewportWidth, viewportHeight, totalDays) {
-    const scaleFactor = Math.max(viewportWidth, 240) / 1200;
-    const gapSize = Math.max(2, 10 * scaleFactor);
-    const framePadding = Math.max(25, 50 * scaleFactor);
-    const availableWidth = viewportWidth - framePadding * 2;
-    const availableHeight = viewportHeight - framePadding * 2;
-    const idealColumns = Math.sqrt((totalDays * availableWidth) / availableHeight);
-    const searchStart = Math.max(1, Math.floor(idealColumns * 0.7));
-    const searchEnd = Math.min(totalDays, Math.ceil(idealColumns * 1.3));
+  calculateGrid(viewportWidth, viewportHeight, totalItems, options = {}) {
+    const {
+      minCellSize = 24,
+      maxCellSize = 180,
+      preferredAspectRatio = null,
+      strictAspect = false,
+      referenceWidth = 1200,
+      gapMultiplier = 10,
+      paddingMultiplier = 48,
+      minGap = 4,
+      minPadding = 24,
+      // Konfigurasi Core Alignment & Limit
+      horizontalAlign = 'center', // 'start', 'center', 'end'
+      verticalAlign = 'center', // 'start', 'center', 'end'
+      lastRowAlign = 'center', // 'start', 'center'
+      maxRows = Infinity, // Membatasi jumlah baris maksimal
+    } = options;
 
-    let bestCellSize = 0;
-    let bestColumns = 1;
+    // 1. Guard Clauses & Input Sanitization
+    if (totalItems <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+      return { cellSize: 0, gapSize: minGap, columns: 0, rows: 0, capacity: 0, itemsRendered: 0 };
+    }
 
-    for (let columns = searchStart; columns <= searchEnd; columns++) {
-      const rows = Math.ceil(totalDays / columns);
-      const cellSize = Math.min(
-        Math.floor((availableWidth + gapSize) / columns) - gapSize,
-        Math.floor((availableHeight + gapSize) / rows) - gapSize
-      );
-      if (cellSize > bestCellSize) {
-        bestCellSize = cellSize;
-        bestColumns = columns;
+    // 2. Skala Fisik Berdasarkan Reference Width
+    const scale = Math.max(1, viewportWidth / referenceWidth);
+    const gapSize = Math.max(minGap, Math.round(scale * gapMultiplier));
+    const padding = Math.max(minPadding, Math.round(scale * paddingMultiplier));
+
+    const availW = Math.max(0, viewportWidth - 2 * padding);
+    const availH = Math.max(0, viewportHeight - 2 * padding);
+
+    // 3. Estimasi Target & Range Kolom
+    let targetAspect = preferredAspectRatio ?? availW / availH;
+    targetAspect = Math.max(0.45, Math.min(3.2, targetAspect));
+
+    const idealCols = Math.sqrt(totalItems * targetAspect);
+    const rangeFactor = totalItems <= 10 ? 0.85 : totalItems <= 35 ? 0.6 : 0.25;
+
+    let minCols = Math.max(1, Math.floor(idealCols * (1 - rangeFactor)));
+    let maxCols = Math.min(totalItems, Math.ceil(idealCols * (1 + rangeFactor)));
+
+    const maxPossibleCols = Math.floor((availW + gapSize) / (minCellSize + gapSize));
+    maxCols = Math.min(maxCols, maxPossibleCols, totalItems);
+
+    // 4. Optimization Loop (Mencari CellSize & Column terbaik)
+    let best = null;
+    const penaltyFactor = strictAspect ? 8000 : 4000;
+
+    for (let cols = minCols; cols <= maxCols; cols++) {
+      let rows = Math.ceil(totalItems / cols);
+
+      // Jika rows melebihi limit, hitung ulang dengan totalItems yang dipotong
+      const isRowLimited = rows > maxRows;
+      const effectiveRows = isRowLimited ? maxRows : rows;
+
+      const cellW = Math.floor((availW + gapSize) / cols) - gapSize;
+      const cellH = Math.floor((availH + gapSize) / effectiveRows) - gapSize;
+
+      let cellSize = Math.min(cellW, cellH, maxCellSize);
+      if (cellSize < minCellSize * 0.5) continue;
+
+      const currentAspect = cols / effectiveRows;
+      const aspectDiff = Math.abs(currentAspect - targetAspect);
+      const area = cellSize * cellSize;
+
+      // Skor: Luas area besar lebih baik, tapi perbedaan aspect ratio jadi penalti
+      const score = area - aspectDiff * penaltyFactor;
+
+      if (!best || score > best.score) {
+        best = {
+          cellSize,
+          columns: cols,
+          rows: effectiveRows,
+          score,
+          actualTotalItems: isRowLimited ? cols * maxRows : totalItems,
+        };
       }
     }
 
-    const cellSize = Math.floor(bestCellSize);
-    const columns = Math.floor((availableWidth + gapSize) / (cellSize + gapSize));
-    const rows = Math.floor((availableHeight + gapSize) / (cellSize + gapSize));
-    return { cellSize, gapSize, columns, rows };
-  }
-
-  /**
-   * Setup native CSS-based tooltip interactions
-   * Uses hover and touch events to show/hide tooltips
-   */
-  _setupNativeInteractions() {
-    const tooltipPlugin = this.plugins.get('TooltipPlugin');
-    if (!tooltipPlugin) return;
-
-    // Remove old listeners if they exist
-    if (this._interactionAC) {
-      this._interactionAC.abort();
-    }
-    this._interactionAC = new AbortController();
-    const signal = this._interactionAC.signal;
-
-    // Event delegation: single listener on viewport
-    const handlePointerEnter = (e) => {
-      const cell = e.target.closest('.tr-day[data-tr-date]');
-      if (cell) {
-        cell.classList.add('tr-is-touch-active');
-        tooltipPlugin.showTooltipForElement(cell, false);
-      }
+    // 5. Finalisasi Logic Data
+    const config = best || {
+      cellSize: Math.min(availW / Math.max(1, Math.round(idealCols)), maxCellSize),
+      columns: Math.max(1, Math.round(idealCols)),
+      rows: Math.min(maxRows, Math.ceil(totalItems / Math.max(1, Math.round(idealCols)))),
+      actualTotalItems: totalItems,
     };
 
-    const handlePointerLeave = (e) => {
-      const cell = e.target.closest('.tr-day[data-tr-date]');
-      if (cell) {
-        cell.classList.remove('tr-is-touch-active');
-        tooltipPlugin.hideTooltip();
-      }
+    const finalCellSize = Math.floor(config.cellSize);
+    const itemsToRender = Math.min(totalItems, config.columns * config.rows);
+
+    // 6. Kalkulasi Koordinat Global (Centering/Alignment Logic)
+    const totalGridW = config.columns * finalCellSize + (config.columns - 1) * gapSize;
+    const totalGridH = config.rows * finalCellSize + (config.rows - 1) * gapSize;
+
+    let baseOffsetX = padding;
+    if (horizontalAlign === 'center') baseOffsetX += (availW - totalGridW) / 2;
+    if (horizontalAlign === 'end') baseOffsetX += availW - totalGridW;
+
+    let baseOffsetY = padding;
+    if (verticalAlign === 'center') baseOffsetY += (availH - totalGridH) / 2;
+    if (verticalAlign === 'end') baseOffsetY += availH - totalGridH;
+
+    // Offset Baris Terakhir
+    const lastRowItems = itemsToRender % config.columns || config.columns;
+    const lastRowWidth = lastRowItems * finalCellSize + (lastRowItems - 1) * gapSize;
+    const lastRowXOffset = lastRowAlign === 'center' ? (totalGridW - lastRowWidth) / 2 : 0;
+
+    return {
+      // Hasil Dimensi
+      columns: config.columns,
+      rows: config.rows,
+      cellSize: finalCellSize,
+      gapSize,
+      padding,
+
+      // Metadata Data & Kapasitas
+      totalItemsRequested: totalItems,
+      itemsRendered: itemsToRender,
+      isOverflowing: totalItems > itemsToRender || totalGridH > availH,
+      fillRatio: (itemsToRender * finalCellSize ** 2) / (availW * availH || 1),
+
+      // Fungsi Koordinat
+      getItemPosition: (index) => {
+        if (index >= itemsToRender) return null; // Tidak perlu render jika di luar limit
+
+        const row = Math.floor(index / config.columns);
+        const col = index % config.columns;
+        const isLastRow = row === config.rows - 1;
+
+        let x = baseOffsetX + col * (finalCellSize + gapSize);
+        if (isLastRow) x += lastRowXOffset;
+
+        const y = baseOffsetY + row * (finalCellSize + gapSize);
+
+        return { x, y, row, col };
+      },
     };
-
-    // Touch: show on pointerdown, hide on pointerup
-    const handlePointerDown = (e) => {
-      const cell = e.target.closest('.tr-day[data-tr-date]');
-      if (cell && e.pointerType === 'touch') {
-        cell.classList.add('tr-is-touch-active');
-        tooltipPlugin.showTooltipForElement(cell, true);
-      }
-    };
-
-    const handlePointerUp = (e) => {
-      const cell = e.target.closest('.tr-day[data-tr-date]');
-      if (cell) {
-        cell.classList.remove('tr-is-touch-active');
-        tooltipPlugin.hideTooltip();
-      }
-    };
-
-    // Attach listeners with signal for cleanup
-    this.viewport.addEventListener('pointerenter', handlePointerEnter, { signal, capture: false });
-    this.viewport.addEventListener('pointerleave', handlePointerLeave, { signal, capture: false });
-    this.viewport.addEventListener('pointerdown', handlePointerDown, { signal, capture: false });
-    this.viewport.addEventListener('pointerup', handlePointerUp, { signal, capture: false });
-
-    // Handle when pointer leaves viewport entirely
-    this.viewport.addEventListener('pointerout', (e) => {
-      if (e.target.classList.contains('tr-day')) {
-        const cell = e.target;
-        cell.classList.remove('tr-is-touch-active');
-        tooltipPlugin.hideTooltip();
-      }
-    }, { signal, capture: false });
   }
 
   /**
@@ -360,7 +384,6 @@ export class TraceEngine {
   destroy() {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     if (this._resizeObserver) this._resizeObserver.disconnect();
-    if (this._interactionAC) this._interactionAC.abort();
     if (this._ac) this._ac.abort();
 
     // Destroy all plugins

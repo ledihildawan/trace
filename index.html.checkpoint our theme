@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Galactic Odyssey V2 - Stable Engine</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      @property --ion-x {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --ion-y {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+
+      :root[data-theme='light'] {
+        --bg: #f8fafc;
+        --grid-bg: #e2e8f0;
+        --border: #cbd5e1;
+        --cell-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --accent: #f59e0b;
+        --cyan: #0891b2;
+        --weekend-bg: #f1f5f9;
+        --weekend-text: #475569;
+        --today-bg: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+        --month-start-bg: #e2e8f0;
+        --filler-bg: #f8fafc;
+        --filler-text: #cbd5e1;
+        --dust-opacity: 0.05;
+        --ion-color: rgba(8, 145, 178, 0.1);
+      }
+      :root[data-theme='dark'] {
+        --bg: #020617;
+        --grid-bg: #0f172a;
+        --border: #1e293b;
+        --cell-bg: #020617;
+        --text-main: #f1f5f9;
+        --text-muted: #64748b;
+        --accent: #fbbf24;
+        --cyan: #22d3ee;
+        --weekend-bg: #030712;
+        --weekend-text: #94a3b8;
+        --today-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        --month-start-bg: #0f172a;
+        --filler-bg: #010409;
+        --filler-text: #1e293b;
+        --dust-opacity: 0.15;
+        --ion-color: rgba(34, 211, 238, 0.12);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif;
+        overflow: hidden;
+        overscroll-behavior: none;
+        cursor: none;
+      }
+
+      /* HUD & Cursor Elements */
+      #ion-drive {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        background: radial-gradient(
+          600px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+          var(--ion-color) 0%,
+          transparent 70%
+        );
+        will-change: background;
+      }
+      #cursor-dot {
+        position: fixed;
+        width: 4px;
+        height: 4px;
+        background: var(--cyan);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 10000;
+        translate: -50% -50%;
+        left: calc(var(--ion-x) * 1px);
+        top: calc(var(--ion-y) * 1px);
+        box-shadow: 0 0 10px var(--cyan);
+      }
+      #atmosphere {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        pointer-events: none;
+        opacity: var(--dust-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+        animation: drift 20s linear infinite;
+      }
+      @keyframes drift {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 200px 200px;
+        }
+      }
+
+      #hud-status {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        z-index: 500;
+        font-weight: 900;
+        font-size: 12px;
+        letter-spacing: 0.6em;
+        opacity: 0.4;
+      }
+
+      /* Viewport Engine */
+      #viewport {
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+      }
+      #viewport::-webkit-scrollbar {
+        display: none;
+      }
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: paint;
+      }
+
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        overflow: hidden;
+        content-visibility: auto;
+        contain-intrinsic-size: 100vw 100dvh;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+        overflow: hidden;
+      }
+
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(100px, 30dvh, 500px);
+        font-weight: 900;
+        color: transparent;
+        background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.05);
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        z-index: 4;
+        opacity: 0;
+        translate: 0 20px;
+        transition: opacity 1s ease, translate 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform, opacity;
+      }
+      .year-block.active .watermark-embedded {
+        opacity: 0.1;
+        translate: 0 0;
+      }
+
+      .grid-layer {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 1px;
+        background: var(--border);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.6s ease-in;
+      }
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      /* Visual Hierarchy - Cells */
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: background 0.2s ease;
+      }
+
+      .cell.filler {
+        background: var(--filler-bg);
+      }
+      .cell.filler .date-num {
+        color: var(--filler-text);
+        opacity: 0.2;
+        font-weight: 300;
+      }
+      .cell.filler .info-meta {
+        visibility: hidden;
+      }
+
+      .cell.weekend {
+        background: var(--weekend-bg);
+      }
+      .cell.weekend .date-num {
+        color: var(--weekend-text);
+        opacity: 0.7;
+      }
+
+      .cell.month-start {
+        background: var(--month-start-bg);
+        box-shadow: inset 3px 0 0 var(--cyan);
+      }
+      .cell.month-start .info-meta.top {
+        color: var(--cyan);
+        font-weight: 900;
+        opacity: 1;
+        letter-spacing: 0.2em;
+      }
+      .cell.month-start .date-num {
+        font-weight: 700;
+        color: var(--text-main);
+      }
+
+      .cell.today {
+        background: var(--today-bg) !important;
+        z-index: 10;
+        box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5);
+      }
+      .cell.today .date-num {
+        font-weight: 900;
+        color: #fff !important;
+      }
+      .cell.today .info-meta {
+        color: rgba(255, 255, 255, 0.6) !important;
+        font-weight: 700;
+      }
+
+      .cell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: clamp(8px, 1.5dvh, 20px);
+        text-align: center;
+        pointer-events: none;
+      }
+
+      /* Typography Scale */
+      .info-meta {
+        font-size: clamp(7px, 0.8dvh, 10px);
+        text-transform: uppercase;
+        font-weight: 500;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+      }
+      .date-num {
+        font-size: clamp(14px, 2.5dvh, 32px);
+        font-weight: 300;
+        line-height: 1;
+        color: var(--text-main);
+      }
+
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+      #theme-veil.active {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ion-drive"></div>
+    <div id="cursor-dot"></div>
+    <div id="atmosphere"></div>
+    <div id="theme-veil"></div>
+    <div id="hud-status">INIT ENGINE...</div>
+
+    <main id="viewport">
+      <div id="infinite-canvas"></div>
+    </main>
+
+    <script type="module">
+      class GridArchitect {
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #root = document.documentElement;
+        #today = new Date();
+        #yearHeight = window.innerHeight;
+        #activeYears = new Map();
+
+        #months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        #days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+        constructor() {
+          this.totalYears = 2000;
+          this.startY = (this.totalYears / 2) * this.#yearHeight;
+          this.#init();
+        }
+
+        async #init() {
+          const saved = localStorage.getItem('theme') || 'dark';
+          this.#root.setAttribute('data-theme', saved);
+          this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+
+          this.observer = new IntersectionObserver(
+            (entries) => entries.forEach((e) => e.target.classList.toggle('active', e.isIntersecting)),
+            { threshold: 0.01 }
+          );
+
+          this.#setupListeners();
+          this.#render();
+          this.#updateHUD();
+        }
+
+        #setupListeners() {
+          let ticking = false;
+          window.addEventListener(
+            'pointermove',
+            (e) => {
+              if (!ticking) {
+                requestAnimationFrame(() => {
+                  this.#root.style.setProperty('--ion-x', e.clientX);
+                  this.#root.style.setProperty('--ion-y', e.clientY);
+                  ticking = false;
+                });
+                ticking = true;
+              }
+            },
+            { passive: true }
+          );
+
+          this.#viewport.addEventListener(
+            'scroll',
+            () => {
+              requestAnimationFrame(() => {
+                this.#render();
+                this.#updateHUD();
+              });
+            },
+            { passive: true }
+          );
+
+          window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 't') this.#toggleTheme();
+            if (e.key === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
+          });
+
+          window.addEventListener('resize', () => {
+            // Debounced reload to prevent engine crash
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(() => location.reload(), 250);
+          });
+        }
+
+        #updateHUD() {
+          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          document.getElementById('hud-status').textContent = `ORBIT — ${year}`;
+
+          const block = this.#activeYears.get(year);
+          if (block) {
+            const offset = (this.#viewport.scrollTop % this.#yearHeight) - this.#yearHeight / 2;
+            const wm = block.querySelector('.watermark-embedded');
+            if (wm) wm.style.transform = `translateY(${offset * 0.06}px)`; // Slow Parallax
+          }
+        }
+
+        #render() {
+          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const baseYear = this.#today.getFullYear() + (idx - this.totalYears / 2);
+
+          for (let i = -1; i <= 1; i++) {
+            this.#drawYear(baseYear + i, (idx + i) * this.#yearHeight);
+          }
+
+          this.#activeYears.forEach((block, year) => {
+            if (Math.abs(year - baseYear) > 1) {
+              this.observer.unobserve(block);
+              block.remove();
+              this.#activeYears.delete(year);
+            }
+          });
+        }
+
+        #drawYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+
+          const firstDay = new Date(year, 0, 1).getDay();
+          const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+          const totalDays = isLeap ? 366 : 365;
+
+          const vw = window.innerWidth;
+          const cols = vw < 600 ? 7 : Math.ceil(Math.sqrt(365 * (vw / window.innerHeight)));
+          const rows = Math.ceil((totalDays + firstDay) / cols);
+
+          const cells = [];
+          const iterDate = new Date(year, 0, 1 - firstDay);
+          const todayStr = this.#today.toDateString();
+
+          for (let s = 0; s < cols * rows; s++) {
+            const isMain = iterDate.getFullYear() === year;
+            const isFirst = iterDate.getDate() === 1 && isMain;
+            const dStr = iterDate.toDateString();
+
+            let cls = ['cell'];
+            if (!isMain) cls.push('filler');
+            else {
+              if (isFirst) cls.push('month-start');
+              if ([0, 6].includes(iterDate.getDay())) cls.push('weekend');
+              if (dStr === todayStr) cls.push('today');
+            }
+
+            cells.push(`
+              <div class="${cls.join(' ')}">
+                <div class="cell-content">
+                  <span class="info-meta top">${isMain ? this.#months[iterDate.getMonth()].toUpperCase() : ''}</span>
+                  <span class="date-num">${iterDate.getDate()}</span>
+                  <span class="info-meta bottom">${isMain ? this.#days[iterDate.getDay()].toUpperCase() : ''}</span>
+                </div>
+              </div>`);
+
+            iterDate.setDate(iterDate.getDate() + 1);
+          }
+
+          block.innerHTML = `
+            <div class="grid-container">
+              <div class="watermark-embedded">${year}</div>
+              <div class="grid-layer" style="grid-template-columns:repeat(${cols},1fr)">
+                ${cells.join('')}
+              </div>
+            </div>`;
+
+          this.#canvas.appendChild(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
+
+        #toggleTheme() {
+          const veil = document.getElementById('theme-veil');
+          veil.classList.add('active');
+          setTimeout(() => {
+            const next = this.#root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            this.#root.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            setTimeout(() => veil.classList.remove('active'), 200);
+          }, 400);
+        }
+
+        jumpToToday() {
+          this.#viewport.style.scrollBehavior = 'auto';
+          this.#viewport.scrollTop = this.startY;
+          setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
+        }
+      }
+
+      new GridArchitect();
+    </script>
+  </body>
+</html>

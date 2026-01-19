@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Grid Architect - Galactic Odyssey V1</title>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* --- THEME 01: GALACTIC ODYSSEY --- */
+      :root[data-theme='light'] {
+        --bg: #e0f2f7;
+        --grid-bg: #c5e5ee;
+        --border: #a7d9e6;
+        --cell-bg: #ffffff;
+        --text-main: #0d47a1;
+        --text-muted: #42a5f5;
+        --accent: #ff8f00;
+        --cyan: #00bcd4;
+        --weekend-bg: #e3f2fd;
+        --weekend-text: #2196f3;
+        --today-bg: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+        --month-start-bg: #bbdefb;
+        --filler-bg: #f0f8fa;
+        --filler-text: #90caf9;
+        --glow: transparent;
+        --dust-opacity: 0.12;
+        --ion-glow: radial-gradient(circle, rgba(0, 188, 212, 0.2) 0%, rgba(0, 188, 212, 0) 70%);
+      }
+
+      :root[data-theme='dark'] {
+        --bg: #0a0a1f;
+        --grid-bg: #1a1a3a;
+        --border: #2a2a5a;
+        --cell-bg: #0a0a1f;
+        --text-main: #e0e0ff;
+        --text-muted: #8080c0;
+        --accent: #ffab40;
+        --cyan: #4dd0e1;
+        --weekend-bg: #15152f;
+        --weekend-text: #7986cb;
+        --today-bg: linear-gradient(135deg, #3f51b5 0%, #64b5f6 100%);
+        --month-start-bg: #004d40;
+        --filler-bg: #050510;
+        --filler-text: #4a4a8a;
+        --glow: 0 0 8px rgba(129, 140, 248, 0.3);
+        --dust-opacity: 0.25;
+        --ion-glow: radial-gradient(circle, rgba(77, 208, 225, 0.15) 0%, rgba(77, 208, 225, 0) 75%);
+      }
+
+      /* --- SYSTEM CORE --- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif;
+        overflow: hidden;
+        overscroll-behavior: none;
+        cursor: none;
+      }
+
+      /* --- KINETIC OVERLAYS --- */
+      #ion-drive {
+        position: fixed;
+        width: 600px;
+        height: 600px;
+        background: var(--ion-glow);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 5;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        will-change: left, top;
+      }
+
+      #cursor-dot {
+        position: fixed;
+        width: 4px;
+        height: 4px;
+        background: var(--cyan);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 10000;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 10px var(--cyan);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      #atmosphere {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        pointer-events: none;
+        opacity: var(--dust-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+        animation: atmosphericShift 10s steps(8) infinite;
+      }
+
+      @keyframes atmosphericShift {
+        0%,
+        100% {
+          transform: translate(0, 0);
+        }
+        50% {
+          transform: translate(0.3%, 0.3%);
+        }
+      }
+
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+      }
+      #theme-veil.active {
+        opacity: 1;
+        transition: opacity 0.1s ease-in;
+      }
+
+      /* --- NAVIGATION --- */
+      #hud-status {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        z-index: 500;
+        font-weight: 900;
+        font-size: 18px;
+        letter-spacing: 0.4em;
+        opacity: 0.4;
+        mix-blend-mode: overlay;
+        pointer-events: none;
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+        &::-webkit-scrollbar {
+          display: none;
+        }
+      }
+
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: paints;
+      }
+
+      /* --- YEAR GRID --- */
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        overflow: hidden;
+        contain: strict;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+      }
+
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(150px, 32dvh, 450px);
+        font-weight: 900;
+        color: transparent;
+        background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        z-index: 4;
+        opacity: 0;
+        will-change: transform;
+        transition: opacity 1.5s ease;
+        .year-block.active & {
+          opacity: 0.15;
+        }
+      }
+
+      .grid-layer {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 1px;
+        background: var(--border);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        .year-block.active & {
+          opacity: 1;
+        }
+      }
+
+      /* --- CELLS --- */
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+        opacity: 0;
+        transform: translate3d(0, 15px, 0);
+        transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        .year-block.active & {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+        &:nth-child(n + 1) {
+          transition-delay: calc(var(--s-idx) * 0.002s);
+        }
+
+        &.filler {
+          background: var(--filler-bg);
+          .date-num,
+          .info-meta {
+            opacity: 0.2;
+          }
+        }
+        &.weekend {
+          background: var(--weekend-bg);
+          .date-num,
+          .info-meta {
+            color: var(--weekend-text);
+          }
+        }
+        &.month-start {
+          background: var(--month-start-bg);
+          box-shadow: inset 4px 0 0 var(--cyan);
+        }
+        &.today {
+          background: var(--today-bg) !important;
+          z-index: 10;
+          box-shadow: 0 12px 30px -5px rgba(79, 70, 229, 0.5);
+          .date-num,
+          .info-meta {
+            color: #fff !important;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+          }
+        }
+        &:hover {
+          transform: scale(1.05) translateZ(0);
+          z-index: 20;
+          background: var(--grid-bg);
+        }
+      }
+
+      .cell-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        height: 100%;
+        padding-block: 10%;
+        text-align: center;
+      }
+
+      .info-meta {
+        font-size: clamp(6px, 0.8dvh, 10px);
+        text-transform: uppercase;
+        font-weight: 800;
+        color: var(--text-muted);
+        letter-spacing: 0.2em;
+        text-shadow: var(--glow);
+      }
+      .date-num {
+        font-size: clamp(14px, 2.8dvh, 32px);
+        font-weight: 300;
+        line-height: 1;
+        text-shadow: var(--glow);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ion-drive"></div>
+    <div id="cursor-dot"></div>
+    <div id="atmosphere"></div>
+    <div id="theme-veil"></div>
+    <div id="hud-status">SYS.YEAR // 2026</div>
+
+    <main id="viewport">
+      <div id="infinite-canvas"></div>
+    </main>
+
+    <script type="module">
+      class GridArchitect {
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #veil = document.getElementById('theme-veil');
+        #ion = document.getElementById('ion-drive');
+        #dot = document.getElementById('cursor-dot');
+        #hud = document.getElementById('hud-status');
+        #months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'];
+        #days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+        #today = new Date();
+        #yearHeight = window.innerHeight;
+        #activeYears = new Map();
+
+        constructor() {
+          this.totalYears = 2000;
+          this.startY = (this.totalYears / 2) * this.#yearHeight;
+          this.#setupTheme();
+          this.#setupCore();
+          this.#setupEvents();
+          this.#render();
+        }
+
+        #setupTheme() {
+          const saved = localStorage.getItem('theme');
+          document.documentElement.setAttribute('data-theme', saved || 'dark');
+        }
+
+        #toggleTheme() {
+          this.#veil.classList.add('active');
+          setTimeout(() => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            setTimeout(() => this.#veil.classList.remove('active'), 100);
+          }, 200);
+        }
+
+        #setupCore() {
+          this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) =>
+                window.requestAnimationFrame(() => e.target.classList.toggle('active', e.isIntersecting))
+              );
+            },
+            { threshold: 0.1 }
+          );
+        }
+
+        #setupEvents() {
+          this.#viewport.addEventListener(
+            'scroll',
+            () =>
+              window.requestAnimationFrame(() => {
+                this.#render();
+                this.#updateHUD();
+              }),
+            { passive: true }
+          );
+
+          window.addEventListener('mousemove', (e) => {
+            this.#ion.style.opacity = this.#dot.style.opacity = '1';
+            this.#ion.style.left = this.#dot.style.left = e.clientX + 'px';
+            this.#ion.style.top = this.#dot.style.top = e.clientY + 'px';
+          });
+
+          window.addEventListener('keydown', (e) => {
+            if (['t', 'd'].includes(e.key.toLowerCase())) this.#toggleTheme();
+            if (e.key === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
+          });
+
+          window.addEventListener('resize', () => location.reload());
+        }
+
+        #updateHUD() {
+          const idx = Math.round(this.#viewport.scrollTop / this.#yearHeight);
+          const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          this.#hud.textContent = `SYS.YEAR // ${year}`;
+
+          const offset = this.#viewport.scrollTop % this.#yearHeight;
+          const activeBlock = this.#activeYears.get(year);
+          if (activeBlock) {
+            const wm = activeBlock.querySelector('.watermark-embedded');
+            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.4}px, 0)`;
+          }
+        }
+
+        #render() {
+          const scrollTop = this.#viewport.scrollTop;
+          const idx = Math.round(scrollTop / this.#yearHeight);
+          const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          for (let i = -1; i <= 1; i++) this.#drawYear(year + i, (idx + i) * this.#yearHeight);
+          this.#activeYears.forEach((block, y) => {
+            if (Math.abs(y - year) > 1) {
+              this.observer.unobserve(block);
+              block.remove();
+              this.#activeYears.delete(y);
+            }
+          });
+        }
+
+        #drawYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+          const firstDay = new Date(year, 0, 1).getDay();
+          const totalDays = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth;
+          const cols = Math.ceil(Math.sqrt(365 * (vw / window.innerHeight)));
+          const finalCols = vw < 500 ? Math.max(cols, 14) : cols;
+          const rows = Math.ceil((totalDays + firstDay) / finalCols);
+
+          let gridHTML = `<div class="grid-container"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns: repeat(${finalCols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">`;
+          for (let s = 0; s < finalCols * rows; s++) {
+            const date = new Date(year, 0, 1);
+            date.setDate(date.getDate() + (s - firstDay));
+            const isMain = date.getFullYear() === year;
+            let cls = ['cell'];
+            if (!isMain) cls.push('filler');
+            else {
+              if (date.getDate() === 1) cls.push('month-start');
+              if (date.getDay() === 0 || date.getDay() === 6) cls.push('weekend');
+              if (date.toDateString() === this.#today.toDateString()) cls.push('today');
+            }
+            gridHTML += `<div class="${cls.join(' ')}" style="--s-idx: ${
+              s % 60
+            }"><div class="cell-content"><span class="info-meta">${
+              this.#months[date.getMonth()]
+            }</span><span class="date-num">${date.getDate()}</span><span class="info-meta">${
+              this.#days[date.getDay()]
+            }</span></div></div>`;
+          }
+          block.innerHTML = gridHTML + `</div></div>`;
+          this.#canvas.appendChild(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
+
+        jumpToToday() {
+          this.#viewport.style.scrollBehavior = 'auto';
+          this.#viewport.scrollTop = this.startY;
+          setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
+        }
+      }
+      new GridArchitect();
+    </script>
+  </body>
+</html>

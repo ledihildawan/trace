@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="id" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Galactic Odyssey: Chronos Interface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet" />
+    <style>
+      /* --- CORE ENGINE & VARIABLES --- */
+      @property --ion-x { syntax: '<number>'; inherits: true; initial-value: 0; }
+      @property --ion-y { syntax: '<number>'; inherits: true; initial-value: 0; }
+      @property --scroll-velocity { syntax: '<number>'; inherits: true; initial-value: 0; }
+      
+      :root {
+        --c-accent: #00f0ff; /* Cyberpunk Cyan */
+        --c-secondary: #7000ff; /* Deep Nebula Purple */
+        --c-gold: #ffd700;
+        --c-bg-dark: #050505;
+        --c-bg-light: #0b0c15;
+        
+        --font-main: 'Space Grotesk', sans-serif;
+        --font-tech: 'Rajdhani', monospace;
+
+        --grid-line: rgba(0, 240, 255, 0.15);
+        --hud-color: rgba(0, 240, 255, 0.4);
+        
+        --ion-glow-size: 600px;
+      }
+
+      *, *::before, *::after {
+        box-sizing: border-box; margin: 0; padding: 0;
+        -webkit-font-smoothing: antialiased;
+        user-select: none; -webkit-tap-highlight-color: transparent;
+        cursor: none !important; /* Force Custom Cursor */
+      }
+
+      html, body {
+        height: 100dvh; width: 100vw; 
+        background-color: var(--c-bg-dark);
+        color: #fff;
+        font-family: var(--font-main);
+        overflow: hidden;
+        perspective: 1000px; /* Deep perspective */
+      }
+
+      /* --- LOADER --- */
+      #loading-screen {
+        position: fixed; inset: 0; z-index: 100000; background: #000;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: opacity 0.8s ease-out, visibility 0.8s;
+      }
+      #loading-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+      .loader-content { position: relative; width: 200px; height: 2px; background: #333; overflow: hidden; }
+      .loader-bar { 
+        position: absolute; top:0; left:0; height: 100%; width: 100%; 
+        background: var(--c-accent); 
+        transform: scaleX(0); transform-origin: left; transition: transform 0.3s ease-out;
+        box-shadow: 0 0 15px var(--c-accent);
+      }
+      .loader-text {
+        margin-top: 15px; font-family: var(--font-tech); color: var(--c-accent); font-size: 12px; letter-spacing: 0.3em;
+        text-transform: uppercase; animation: blink 1s infinite;
+      }
+
+      /* --- IMMERSIVE BACKGROUND & STARS --- */
+      #starfield {
+        position: fixed; inset: -50px; z-index: 0; pointer-events: none;
+        background-image: 
+            radial-gradient(1px 1px at 10% 10%, #fff, transparent),
+            radial-gradient(1px 1px at 20% 40%, rgba(255,255,255,0.5), transparent),
+            radial-gradient(2px 2px at 50% 50%, #fff, transparent),
+            radial-gradient(2px 2px at 80% 20%, rgba(0, 240, 255, 0.8), transparent);
+        background-size: 550px 550px;
+        opacity: 0.6;
+        /* Parallax effect based on scroll velocity */
+        transform: translateY(calc(var(--scroll-velocity) * 5px));
+        transition: transform 0.1s linear;
+        mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+      }
+
+      #nebula {
+        position: fixed; inset: 0; z-index: 1; pointer-events: none;
+        background: 
+          radial-gradient(circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px), rgba(112, 0, 255, 0.15) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(0, 240, 255, 0.05), transparent 40%);
+        mix-blend-mode: screen;
+        will-change: background;
+      }
+
+      /* --- HUD OVERLAY (The Cockpit Feel) --- */
+      #hud-layer {
+        position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+        background: 
+          linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+          linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background-size: 100% 2px, 3px 100%;
+        box-shadow: inset 0 0 150px rgba(0,0,0,0.9); /* Vignette */
+      }
+      .hud-line {
+        position: absolute; background: var(--hud-color); opacity: 0.3;
+      }
+      .hud-line.top { top: 20px; left: 20px; right: 20px; height: 1px; }
+      .hud-line.bottom { bottom: 20px; left: 20px; right: 20px; height: 1px; }
+      .hud-data {
+        position: absolute; bottom: 25px; right: 30px; 
+        font-family: var(--font-tech); font-size: 10px; color: var(--c-accent);
+        text-align: right; line-height: 1.4; opacity: 0.7;
+      }
+
+      /* --- ION CURSOR --- */
+      #cursor-system {
+        position: fixed; inset: 0; z-index: 50; pointer-events: none;
+        filter: blur(0px);
+        mix-blend-mode: screen;
+      }
+      .cursor-core {
+        position: absolute; width: 8px; height: 8px; background: #fff;
+        border-radius: 50%;
+        transform: translate3d(calc(var(--ion-x) * 1px), calc(var(--ion-y) * 1px), 0);
+        box-shadow: 0 0 20px var(--c-accent), 0 0 60px var(--c-secondary);
+        will-change: transform;
+      }
+      .cursor-ring {
+        position: absolute; width: 40px; height: 40px; border: 1px solid var(--c-accent);
+        border-radius: 50%; opacity: 0.5;
+        transform: translate3d(calc(var(--ion-x) * 1px - 16px), calc(var(--ion-y) * 1px - 16px), 0);
+        transition: width 0.2s, height 0.2s, opacity 0.2s;
+        will-change: transform;
+      }
+      body:active .cursor-ring { width: 30px; height: 30px; opacity: 1; border-color: #fff; }
+
+      /* --- VIEWPORT & GRID --- */
+      #viewport {
+        width: 100vw; height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory;
+        scrollbar-width: none; position: relative; z-index: 10;
+        /* Physics smooth scroll feel */
+        scroll-behavior: auto; 
+      }
+      #viewport::-webkit-scrollbar { display: none; }
+
+      .year-block {
+        position: absolute; left: 0; width: 100%; height: 100dvh;
+        scroll-snap-align: start; scroll-snap-stop: always;
+        display: flex; flex-direction: column; 
+        /* WARP EFFECT: Skew and Scale based on velocity */
+        transform-origin: center center;
+        transition: opacity 0.6s ease, filter 0.6s ease;
+        will-change: transform, opacity, filter;
+        perspective: 800px;
+      }
+      
+      .year-block:not(.active) { opacity: 0; pointer-events: none; }
+      
+      .active-year-container {
+        width: 100%; height: 100%;
+        /* The Velocity Warp Trick */
+        transform: scale(calc(1 - min(var(--scroll-velocity) * 0.005, 0.2))) 
+                   rotateX(calc(var(--scroll-velocity) * 0.5deg));
+        transition: transform 0.1s ease-out; /* Super fast response */
+      }
+
+      /* WATERMARK: Large holographic year */
+      .watermark-holo {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        font-size: 25vw; font-weight: 900; 
+        color: transparent; -webkit-text-stroke: 2px rgba(255,255,255,0.03);
+        z-index: 0; pointer-events: none; user-select: none;
+        font-family: var(--font-tech);
+      }
+
+      .grid-container {
+        position: relative; z-index: 2; height: 100%; width: 100%;
+        display: flex; align-items: center; justify-content: center;
+        /* Adding a bit of 3D tilt */
+        transform-style: preserve-3d;
+      }
+
+      .grid-layer {
+        display: grid; width: 95%; height: 90%; gap: 4px;
+        /* Dynamic Columns set by JS */
+        transition: opacity 0.5s;
+      }
+
+      /* --- CELL AESTHETICS --- */
+      .cell {
+        background: rgba(10, 10, 15, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        position: relative; 
+        display: flex; flex-direction: column;
+        transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        backdrop-filter: blur(2px);
+        overflow: hidden;
+      }
+
+      /* Holographic shimmer on borders */
+      .cell::before {
+        content: ''; position: absolute; inset: 0;
+        background: linear-gradient(135deg, transparent 40%, rgba(0, 240, 255, 0.1) 50%, transparent 60%);
+        background-size: 200% 200%; opacity: 0; transition: opacity 0.3s;
+        pointer-events: none;
+      }
+      .cell:hover {
+        background: rgba(0, 240, 255, 0.05);
+        border-color: rgba(0, 240, 255, 0.3);
+        box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        transform: translateZ(20px); /* 3D pop */
+        z-index: 10;
+      }
+      .cell:hover::before { opacity: 1; animation: shimmer 1.5s infinite linear; }
+
+      @keyframes shimmer { 0% { background-position: 100% 100%; } 100% { background-position: 0% 0%; } }
+
+      .cell.today {
+        background: rgba(0, 240, 255, 0.1);
+        border: 1px solid var(--c-accent);
+        box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
+        z-index: 20;
+      }
+      /* Reactor Pulse Animation for Today */
+      .cell.today::after {
+        content: ''; position: absolute; inset: 0;
+        box-shadow: inset 0 0 20px var(--c-accent);
+        animation: reactor-pulse 3s infinite ease-in-out;
+        mix-blend-mode: overlay;
+      }
+      @keyframes reactor-pulse {
+        0%, 100% { opacity: 0.5; box-shadow: inset 0 0 10px var(--c-accent); }
+        50% { opacity: 1; box-shadow: inset 0 0 30px var(--c-accent); }
+      }
+
+      .cell.filler { opacity: 0.05; border: none; }
+      
+      .cell-content { 
+        padding: 6px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; 
+        pointer-events: none;
+      }
+      
+      .date-num { 
+        font-size: clamp(14px, 2vw, 24px); color: #e2e8f0; font-weight: 300; 
+      }
+      .cell.today .date-num { font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--c-accent); }
+      
+      .meta-info { font-size: 8px; color: var(--c-accent); text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.7; }
+      .month-label { font-weight: 900; color: var(--c-secondary); font-size: 10px; }
+
+      /* --- TOAST & NOTIFICATIONS --- */
+      #toast {
+        position: fixed; bottom: 10vh; left: 50%; transform: translate(-50%, 20px);
+        background: rgba(0, 0, 0, 0.8); border: 1px solid var(--c-accent);
+        color: var(--c-accent); padding: 10px 30px;
+        font-family: var(--font-tech); text-transform: uppercase; letter-spacing: 0.3em;
+        font-size: 10px; opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        z-index: 10000;
+      }
+      #toast.active { opacity: 1; transform: translate(-50%, 0); }
+
+      /* --- ANIMATIONS --- */
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    </style>
+  </head>
+  
+  <body oncontextmenu="return false;">
+    
+    <div id="loading-screen">
+      <div class="loader-content"><div class="loader-bar" id="load-bar"></div></div>
+      <div class="loader-text" id="load-text">Initializing Chronos Link...</div>
+    </div>
+
+    <div id="starfield"></div>
+    <div id="nebula"></div>
+    
+    <div id="hud-layer">
+      <div class="hud-line top"></div>
+      <div class="hud-line bottom"></div>
+      <div class="hud-data">
+        VEL: <span id="hud-vel">0.00</span><br>
+        SEC: <span id="hud-sec">A-1</span><br>
+        SYNC: STABLE
+      </div>
+    </div>
+
+    <div id="cursor-system">
+      <div class="cursor-core"></div>
+      <div class="cursor-ring"></div>
+    </div>
+
+    <div id="toast">SYSTEM READY</div>
+
+    <main id="viewport"><div id="infinite-canvas"></div></main>
+
+    <script type="module">
+      /* * GALACTIC ODYSSEY - ENGINE v3.0 
+       * Improvements: Velocity-based Warp, Holographic HUD, Optimized DOM
+       */
+
+      const Config = {
+        years: 400, // Total years (buffer)
+        audioVol: 0.3,
+        warpSpeedThreshold: 30, // Pixel delta to trigger "warp" visuals
+        months: ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'],
+        days: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+      };
+
+      class AudioCore {
+        constructor() {
+          this.enabled = false;
+          this.ctx = null;
+          this.masterGain = null;
+        }
+        
+        async init() {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = Config.audioVol;
+          this.masterGain.connect(this.ctx.destination);
+          this.enabled = true;
+          this.playTone(400, 'sine', 0.1, 0.5); // Boot beep
+        }
+
+        playTone(freq, type, duration, vol = 1) {
+          if (!this.enabled || !this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(vol * Config.audioVol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+          osc.connect(gain); gain.connect(this.masterGain);
+          osc.start(); osc.stop(this.ctx.currentTime + duration);
+        }
+
+        uiHover() { this.playTone(800, 'sine', 0.05, 0.1); }
+        uiClick() { this.playTone(1200, 'triangle', 0.1, 0.2); }
+        warpSound() { 
+          // Simulated Warp Rise
+          if (!this.enabled) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
+          osc.connect(gain); gain.connect(this.masterGain);
+          osc.start(); osc.stop(this.ctx.currentTime + 0.5);
+        }
+      }
+
+      class ChronosEngine {
+        constructor() {
+          this.viewport = document.getElementById('viewport');
+          this.canvas = document.getElementById('infinite-canvas');
+          this.today = new Date();
+          this.audio = new AudioCore();
+          this.activeYears = new Map();
+          
+          this.yearHeight = window.innerHeight;
+          this.totalYears = Config.years;
+          this.startYearIndex = this.totalYears / 2;
+          this.scrollTop = this.startYearIndex * this.yearHeight;
+          
+          this.lastScrollY = this.scrollTop;
+          this.velocity = 0;
+          this.isWarping = false;
+          
+          this.mouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
+          this.cursor = { x: window.innerWidth/2, y: window.innerHeight/2 };
+
+          this.init();
+        }
+
+        async init() {
+          // Loader Simulation
+          const bar = document.getElementById('load-bar');
+          bar.style.transform = `scaleX(1)`;
+          await new Promise(r => setTimeout(r, 800));
+          document.getElementById('loading-screen').classList.add('hidden');
+          
+          // Setup Canvas
+          this.canvas.style.height = `${this.totalYears * this.yearHeight}px`;
+          this.viewport.scrollTop = this.scrollTop;
+
+          // Event Listeners
+          this.setupEvents();
+          
+          // Observer
+          this.observer = new IntersectionObserver(this.handleIntersect.bind(this), {
+            root: this.viewport, threshold: 0.1, rootMargin: "50% 0px"
+          });
+
+          // Start Loops
+          this.renderLoop(); // Visuals & Physics
+          this.gridManager(); // DOM Virtualization
+          
+          // Initial Jump
+          setTimeout(() => this.audio.init(), 100);
+        }
+
+        setupEvents() {
+          window.addEventListener('resize', () => location.reload());
+          
+          window.addEventListener('mousemove', e => {
+            this.mouse.x = e.clientX; this.mouse.y = e.clientY;
+          });
+          
+          document.addEventListener('click', () => {
+            this.audio.uiClick();
+            this.createShockwave(this.mouse.x, this.mouse.y);
+          });
+
+          // Track hover for sound
+          document.addEventListener('mouseover', e => {
+            if(e.target.closest('.cell')) this.audio.uiHover();
+          });
+
+          this.viewport.addEventListener('scroll', () => this.onScroll(), { passive: true });
+          
+          // Warp Key
+          window.addEventListener('keydown', e => {
+            if(e.code === 'Space') this.warpToNow();
+          });
+        }
+
+        onScroll() {
+          const currentY = this.viewport.scrollTop;
+          const delta = Math.abs(currentY - this.lastScrollY);
+          
+          // Calculate Velocity for Warp Effect
+          this.velocity = delta;
+          
+          // Update CSS Variable for Global Warp
+          document.body.style.setProperty('--scroll-velocity', Math.min(this.velocity, 100));
+
+          // Update HUD
+          document.getElementById('hud-vel').innerText = (this.velocity * 0.1).toFixed(2);
+          
+          // Trigger Sound if super fast
+          if (this.velocity > 50 && !this.isWarping) {
+             // Optional: trigger warp ambience
+          }
+
+          this.lastScrollY = currentY;
+          this.gridManager();
+        }
+
+        gridManager() {
+          const scrollY = this.viewport.scrollTop;
+          const index = Math.floor((scrollY + (this.yearHeight/2)) / this.yearHeight);
+          const centerYear = this.today.getFullYear() + (index - this.startYearIndex);
+          
+          // Update HUD Year
+          document.getElementById('hud-sec').innerText = `SEC-${centerYear}`;
+
+          // Render range: Center +/- 1
+          const range = [-1, 0, 1];
+          const neededYears = range.map(offset => centerYear + offset);
+
+          // Remove old
+          for (const [year, el] of this.activeYears) {
+            if (!neededYears.includes(year)) {
+              this.observer.unobserve(el);
+              el.remove();
+              this.activeYears.delete(year);
+            }
+          }
+
+          // Add new
+          neededYears.forEach((year, i) => {
+             if (!this.activeYears.has(year)) {
+               const offsetIndex = index + range[i];
+               this.spawnYearBlock(year, offsetIndex * this.yearHeight);
+             }
+          });
+        }
+
+        spawnYearBlock(year, topPos) {
+          const section = document.createElement('section');
+          section.className = 'year-block';
+          section.style.top = `${topPos}px`;
+          
+          const container = document.createElement('div');
+          container.className = 'active-year-container';
+          
+          // Watermark
+          const wm = document.createElement('div');
+          wm.className = 'watermark-holo';
+          wm.innerText = year;
+          container.appendChild(wm);
+
+          // Grid Logic
+          const grid = document.createElement('div');
+          grid.className = 'grid-container';
+          
+          const layer = document.createElement('div');
+          layer.className = 'grid-layer';
+          
+          // Calculate Grid Dimensions
+          const d1 = new Date(year, 0, 1);
+          const daysInYear = (year % 4 === 0) ? 366 : 365;
+          const startDay = (d1.getDay() + 6) % 7; // Mon start
+          
+          // Responsive Grid
+          const w = window.innerWidth;
+          let cols = w > 1000 ? 18 : (w > 600 ? 12 : 7);
+          const rows = Math.ceil((daysInYear + startDay) / cols);
+          
+          layer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+          layer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+          // Build Cells
+          const fragment = document.createDocumentFragment();
+          const renderDate = new Date(year, 0, 1);
+          renderDate.setDate(renderDate.getDate() - startDay); // Backtrack for filler
+
+          const totalCells = rows * cols;
+
+          for(let i=0; i<totalCells; i++) {
+            const cell = document.createElement('div');
+            const isCurrentYear = renderDate.getFullYear() === year;
+            const isToday = isCurrentYear && renderDate.toDateString() === this.today.toDateString();
+            
+            cell.className = `cell ${!isCurrentYear ? 'filler' : ''} ${isToday ? 'today' : ''}`;
+            
+            if (isCurrentYear) {
+              const m = Config.months[renderDate.getMonth()];
+              const d = renderDate.getDate();
+              const dayName = Config.days[renderDate.getDay()];
+              
+              cell.innerHTML = `
+                <div class="cell-content">
+                  <span class="meta-info">${d===1 ? `<span class="month-label">${m}</span>` : ''}</span>
+                  <span class="date-num">${d}</span>
+                  <span class="meta-info">${dayName}</span>
+                </div>
+              `;
+            }
+
+            fragment.appendChild(cell);
+            renderDate.setDate(renderDate.getDate() + 1);
+          }
+          
+          layer.appendChild(fragment);
+          grid.appendChild(layer);
+          container.appendChild(grid);
+          section.appendChild(container);
+          
+          this.canvas.appendChild(section);
+          this.activeYears.set(year, section);
+          this.observer.observe(section);
+        }
+
+        handleIntersect(entries) {
+          entries.forEach(entry => {
+            if(entry.isIntersecting) {
+              entry.target.classList.add('active');
+            } else {
+              entry.target.classList.remove('active');
+            }
+          });
+        }
+
+        warpToNow() {
+          if(this.isWarping) return;
+          this.isWarping = true;
+          this.audio.warpSound();
+          this.showToast("INITIATING WARP JUMP");
+          
+          // Visual flare
+          document.body.style.setProperty('--scroll-velocity', 200);
+
+          this.viewport.scrollTo({
+            top: this.scrollTop,
+            behavior: 'smooth'
+          });
+
+          setTimeout(() => {
+            this.isWarping = false;
+            document.body.style.setProperty('--scroll-velocity', 0);
+          }, 1000);
+        }
+
+        createShockwave(x, y) {
+          const div = document.createElement('div');
+          div.style.cssText = `
+            position: fixed; left: ${x}px; top: ${y}px;
+            width: 10px; height: 10px; border-radius: 50%;
+            border: 2px solid #fff; pointer-events: none; z-index: 99;
+            transform: translate(-50%, -50%);
+            animation: shockwave 0.5s ease-out forwards;
+          `;
+          document.body.appendChild(div);
+          setTimeout(() => div.remove(), 500);
+          
+          // Inject dynamic style if needed, or rely on CSS
+          if(!document.getElementById('shock-style')) {
+             const s = document.createElement('style');
+             s.id = 'shock-style';
+             s.innerHTML = `@keyframes shockwave { 0%{width:0;height:0;opacity:1;border-width:5px} 100%{width:100px;height:100px;opacity:0;border-width:0px} }`;
+             document.head.appendChild(s);
+          }
+        }
+
+        showToast(msg) {
+          const t = document.getElementById('toast');
+          t.innerText = msg;
+          t.classList.add('active');
+          setTimeout(() => t.classList.remove('active'), 2000);
+        }
+
+        renderLoop() {
+          // Smooth Cursor Interpolation
+          this.cursor.x += (this.mouse.x - this.cursor.x) * 0.15;
+          this.cursor.y += (this.mouse.y - this.cursor.y) * 0.15;
+          
+          document.body.style.setProperty('--ion-x', this.cursor.x);
+          document.body.style.setProperty('--ion-y', this.cursor.y);
+          
+          // Decay Velocity visual
+          if(this.velocity > 0.1) {
+            this.velocity *= 0.92;
+            document.body.style.setProperty('--scroll-velocity', this.velocity);
+            document.getElementById('hud-vel').innerText = (this.velocity * 0.1).toFixed(2);
+          }
+
+          requestAnimationFrame(this.renderLoop.bind(this));
+        }
+      }
+
+      // Initialize System
+      new ChronosEngine();
+
+    </script>
+  </body>
+</html>

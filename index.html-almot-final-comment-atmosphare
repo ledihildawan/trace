@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="id" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Galactic Odyssey MPV2 - High Performance Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* --- CORE CSS ENGINE --- */
+      @property --ion-x {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --ion-y {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --warp-scale {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0.92;
+      }
+      @property --ion-glow {
+        syntax: '<length>';
+        inherits: true;
+        initial-value: 700px;
+      }
+
+      :root {
+        --accent-primary: #fbbf24;
+        --accent-secondary: #22d3ee;
+        --today-glow: rgba(59, 130, 246, 0.6);
+        --bg: light-dark(#f8fafc, #020617);
+        --border: light-dark(#cbd5e1, #1e293b);
+        --cell-bg: light-dark(#ffffff, #020617);
+        --text-main: light-dark(#0f172a, #f1f5f9);
+        --text-muted: light-dark(#64748b, #64748b);
+        --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
+        --dust-opacity: light-dark(0.05, 0.15);
+        --ion-glow: 700px;
+      }
+
+      [data-theme='light'] {
+        color-scheme: light;
+      }
+      [data-theme='dark'] {
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-user-drag: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif;
+        overflow: hidden;
+        perspective: 1200px;
+        overscroll-behavior: none;
+        contain: strict; /* High Performance: Locks layout/paint */
+      }
+
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        background: #020617;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.8s ease-out, visibility 0.8s;
+      }
+      #loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .loader-text {
+        color: var(--accent-secondary);
+        font-size: 10px;
+        letter-spacing: 0.5em;
+        text-transform: uppercase;
+        font-weight: 900;
+        margin-top: 20px;
+        text-align: center;
+      }
+      .loader-bar {
+        width: 150px;
+        height: 1px;
+        background: rgba(34, 211, 238, 0.2);
+        position: relative;
+        overflow: hidden;
+      }
+      .loader-progress {
+        position: absolute;
+        height: 100%;
+        width: 0%;
+        background: var(--accent-secondary);
+        transition: width 0.4s ease;
+      }
+
+      @media (pointer: fine) {
+        * {
+          cursor: none !important;
+        }
+      }
+
+      #ion-drive {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        background: radial-gradient(
+            var(--ion-glow) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+            rgba(34, 211, 238, 0.15) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            50px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+            rgba(251, 191, 36, 0.6) 0%,
+            transparent 100%
+          );
+        opacity: 0.85;
+        mix-blend-mode: screen;
+        transition: opacity 0.5s ease, background 0.3s ease, --ion-glow 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: transform; /* Hardware Acceleration */
+      }
+
+      .particle {
+        position: fixed;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 9999;
+        background: linear-gradient(to bottom right, rgba(34, 211, 238, 0.9), rgba(251, 191, 36, 0.4));
+        box-shadow: 0 0 8px 2px rgba(34, 211, 238, 0.6);
+        animation: ion-burst 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      }
+      @keyframes ion-burst {
+        0% {
+          transform: scale(1.2) translate(0, 0);
+          opacity: 0.95;
+        }
+        100% {
+          transform: scale(0.3) translate(calc(var(--dx) * 1.4), calc(var(--dy) * 1.4));
+          opacity: 0;
+        }
+      }
+
+      /* #atmosphere {
+        position: fixed;
+        inset: 0;
+        z-index: 6;
+        pointer-events: none;
+        opacity: var(--dust-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+        animation: drift 60s linear infinite;
+        will-change: background-position;
+      }
+      @keyframes drift {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 400px 400px;
+        }
+      } */
+
+      #viewport {
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+        -webkit-overflow-scrolling: touch;
+      }
+      #viewport::-webkit-scrollbar {
+        display: none;
+      }
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: layout;
+      }
+
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        content-visibility: auto; /* Optimizes hidden blocks */
+        contain-intrinsic-size: 100vw 100dvh;
+        transform-origin: center center;
+        transition: transform 0.8s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s ease, opacity 0.6s ease;
+        will-change: transform, opacity;
+      }
+      .year-block:not(.active) {
+        transform: scale(var(--warp-scale)) translate3d(0, 0, -150px);
+        filter: blur(10px);
+        opacity: 0.35;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+        overflow-x: hidden;
+        scrollbar-width: none;
+      }
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(100px, 30dvh, 400px);
+        font-weight: 900;
+        color: transparent;
+        background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary), transparent);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 10;
+        transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform;
+      }
+      .year-block.active .watermark-embedded {
+        opacity: 0.15;
+        transform: translate3d(0, 0, 0);
+      }
+
+      .grid-layer {
+        display: grid;
+        width: 100.1%;
+        margin-left: -0.5px;
+        min-height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        z-index: 2;
+        gap: 0;
+        background: transparent;
+      }
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+        box-shadow: inset 0 0 0 0.5px var(--border);
+        display: flex;
+        flex-direction: column;
+        transition: background 0.4s ease, opacity 0.4s ease;
+        contain: content; /* Critical Performance Buff */
+      }
+      .cell.filler {
+        opacity: 0.15;
+        background: transparent;
+        pointer-events: auto;
+      }
+      .cell.weekend {
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.03) 0%, transparent 100%);
+      }
+      .cell.week-start {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
+      }
+      .cell.week-start::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent-primary), transparent);
+        opacity: 0.2;
+        z-index: 3;
+      }
+      .cell.month-start {
+        background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, transparent 100%);
+        box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
+      }
+      .cell.month-start .info-meta.top-label {
+        color: var(--accent-secondary);
+        font-weight: 900;
+        letter-spacing: 0.15em;
+      }
+
+      .cell.today {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        z-index: 10;
+        box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      }
+      .cell.today .date-num {
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      }
+
+      .cell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 4px;
+        z-index: 2;
+        pointer-events: none;
+      }
+      .info-meta {
+        font-size: clamp(6px, 0.8dvh, 8px);
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+      }
+      .date-num {
+        font-size: clamp(14px, 2.5dvh, 22px);
+        font-weight: 300;
+        line-height: 1;
+        color: var(--text-main);
+      }
+
+      #toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--accent-secondary);
+        backdrop-filter: blur(15px);
+        padding: 12px 28px;
+        border-radius: 40px;
+        font-weight: 900;
+        font-size: 10px;
+        z-index: 99999;
+        opacity: 0;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+      }
+      #toast.active {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+      #theme-veil.active {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-screen">
+      <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
+      <div class="loader-text" id="load-status">Activating Warp Drive...</div>
+    </div>
+    <div id="ion-drive"></div>
+    <div id="atmosphere"></div>
+    <div id="theme-veil"></div>
+    <div id="toast">READY</div>
+    <main id="viewport"><div id="infinite-canvas"></div></main>
+
+    <script type="module">
+      const OdysseyConfig = {
+        temporal: {
+          weekStart: 1,
+          totalYears: 2000,
+          monthsShort: ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'],
+          daysShort: ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'],
+        },
+        display: { defaultMode: 'structured', centerContent: true, minCols: 7, warpDuration: 850 },
+        audio: {
+          basePath: 'assets/sfx/',
+          masterVolume: 0.4,
+          ambientBaseVolume: 0.12,
+          idleInterval: [10000, 25000],
+          idleDelay: 30000,
+        },
+        physics: { cursorInertia: 0.12, hoverThrottle: 120 },
+      };
+
+      class GalacticAudio {
+        #path = OdysseyConfig.audio.basePath;
+        #sounds = new Map();
+        #lastPlayTime = new Map();
+        constructor() {
+          this.enabled = false;
+          this.isBusy = false;
+          this.#initSounds();
+        }
+        #initSounds() {
+          const sfx = {
+            jump: 'jump-to-today.mp3',
+            scroll: 'year-change-scroll-transition.mp3',
+            warp: 'fast-scroll-wrap-mode.mp3',
+            hover: 'hover-over-cell.mp3',
+            theme: 'theme-toggle.mp3',
+            beep: 'confirmation-beep.mp3',
+            enable: 'enabled-ambience.mp3',
+            mute: 'mute-ambience.mp3',
+            base: 'master-ambient-loop.mp3',
+            pulse: 'short-ambient-pulse.mp3',
+            wind: 'nebula-wind-sweep.mp3',
+            engine: 'engine-idle-hum.mp3',
+            stellar: 'distant-stellar-ambience.mp3',
+          };
+          Object.entries(sfx).forEach(([key, name]) => {
+            const audio = new Audio(`${this.#path}${name}`);
+            audio.preload = 'auto';
+            this.#sounds.set(key, audio);
+          });
+        }
+        play(key, options = {}) {
+          if (!this.enabled || (this.isBusy && key === 'hover')) return;
+          const s = this.#sounds.get(key);
+          if (!s) return;
+          const now = Date.now();
+          if (this.#lastPlayTime.has(key) && now - this.#lastPlayTime.get(key) < (options.throttle || 100)) return;
+
+          s.currentTime = 0;
+          s.playbackRate = options.playbackRate || 1.0;
+          s.volume = options.volume ?? OdysseyConfig.audio.masterVolume;
+          s.play().catch(() => {});
+          this.#lastPlayTime.set(key, now);
+        }
+        toggleMaster() {
+          this.enabled = !this.enabled;
+          const base = this.#sounds.get('base');
+          if (this.enabled) {
+            this.play('enable');
+            if (base) {
+              base.loop = true;
+              base.volume = OdysseyConfig.audio.ambientBaseVolume;
+              base.play().catch(() => {});
+            }
+            this.#startAmbient();
+          } else {
+            this.play('mute');
+            this.#sounds.forEach((s) => {
+              s.pause();
+              s.currentTime = 0;
+            });
+            clearTimeout(this.idleTimer);
+          }
+          return this.enabled;
+        }
+        #startAmbient() {
+          if (!this.enabled || this.isBusy) return;
+          const clips = [
+            { k: 'pulse', v: 0.15 },
+            { k: 'wind', v: 0.2 },
+            { k: 'engine', v: 0.15 },
+          ];
+          const c = clips[Math.floor(Math.random() * clips.length)];
+          this.play(c.k, { volume: c.v });
+          this.idleTimer = setTimeout(() => this.#startAmbient(), Math.random() * 15000 + 15000);
+        }
+        setBusy(val) {
+          this.isBusy = val;
+          const base = this.#sounds.get('base');
+          if (base) base.volume = val ? 0.04 : OdysseyConfig.audio.ambientBaseVolume;
+        }
+      }
+
+      class GridArchitect {
+        #activeYears = new Map();
+        #today = new Date();
+        #audio = new GalacticAudio();
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #ionDrive = document.getElementById('ion-drive');
+        #toast = document.getElementById('toast');
+        #lastScrollPos = 0;
+        #currentYearIdx = null;
+        #isScrolling = false;
+        #isJumping = false;
+        #mouse = { x: 0, y: 0 };
+        #current = { x: 0, y: 0 };
+        #isRandomMode = OdysseyConfig.display.defaultMode === 'random';
+
+        constructor() {
+          this.totalYears = OdysseyConfig.temporal.totalYears;
+          this.yearHeight = window.innerHeight;
+          this.startY = (this.totalYears / 2) * this.yearHeight;
+          this.#runBoot();
+        }
+
+        async #runBoot() {
+          const bar = document.getElementById('load-progress');
+          const steps = [
+            { p: 40, t: 'Synchronizing GPU layer...' },
+            { p: 80, t: 'Damping Audio Thread...' },
+            { p: 100, t: 'Neural Link Active.' },
+          ];
+          for (const s of steps) {
+            await new Promise((r) => setTimeout(r, 400));
+            bar.style.width = `${s.p}%`;
+            document.getElementById('load-status').innerText = s.t;
+          }
+          this.#init();
+          setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
+        }
+
+        #init() {
+          this.#applyTheme(localStorage.getItem('theme') || 'dark');
+          this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => {
+                const b = e.target;
+                b.classList.toggle('active', e.isIntersecting);
+                if (e.isIntersecting && this.#viewport.scrollTop < this.lastScrollPos) {
+                  const c = b.querySelector('.grid-container');
+                  if (c && b.classList.contains('is-scrolling')) c.scrollTop = c.scrollHeight;
+                }
+              });
+              this.lastScrollPos = this.#viewport.scrollTop;
+            },
+            { threshold: 0.05, rootMargin: '20% 0px' }
+          );
+
+          this.#setupListeners();
+          this.#engineLoop();
+          this.#render();
+          setTimeout(() => this.jumpToToday(true), 150);
+        }
+
+        #showToast(msg) {
+          clearTimeout(this.toastTimer);
+          this.#toast.innerText = msg;
+          this.#toast.classList.add('active');
+          this.toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
+        }
+
+        jumpToToday(isInitial = false) {
+          if (this.#isJumping) return;
+          this.#isJumping = true;
+          this.#audio.setBusy(true);
+          this.#audio.play('jump', { dynamicPitch: !isInitial });
+          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
+          if (!isInitial) this.#showToast('WARPING TO LOCAL TIME');
+          setTimeout(() => {
+            const b = this.#activeYears.get(this.#today.getFullYear());
+            if (b) {
+              const t = b.querySelector('.cell.today'),
+                c = b.querySelector('.grid-container');
+              if (t && c) c.scrollTo({ top: t.offsetTop - window.innerHeight / 3, behavior: 'smooth' });
+            }
+            this.#audio.play('beep');
+            this.#audio.setBusy(false);
+            this.#isJumping = false;
+          }, OdysseyConfig.display.warpDuration);
+        }
+
+        #setupListeners() {
+          window.addEventListener(
+            'pointermove',
+            (e) => {
+              this.#mouse.x = e.clientX;
+              this.#mouse.y = e.clientY;
+            },
+            { passive: true }
+          );
+
+          document.addEventListener(
+            'mouseover',
+            (e) => {
+              if (this.#isScrolling || this.#isJumping) return;
+              const cell = e.target.closest('.cell');
+              if (cell) {
+                const isFiller = cell.classList.contains('filler');
+                this.#ionDrive.classList.add('active');
+                document.documentElement.style.setProperty('--ion-glow', isFiller ? '200px' : '900px');
+                this.#audio.play('hover', {
+                  throttle: 120,
+                  volume: isFiller ? 0.05 : 0.25,
+                  playbackRate: isFiller ? 0.7 : 1.0,
+                });
+              }
+            },
+            { passive: true }
+          );
+
+          document.addEventListener(
+            'mouseout',
+            (e) => {
+              if (e.target.closest('.cell')) {
+                this.#ionDrive.classList.remove('active');
+                document.documentElement.style.setProperty('--ion-glow', '700px');
+              }
+            },
+            { passive: true }
+          );
+
+          this.#viewport.addEventListener(
+            'scroll',
+            () => {
+              this.#isScrolling = true;
+              clearTimeout(this.scrollStopTimer);
+              requestAnimationFrame(() => {
+                this.#render();
+                this.#handleParallax();
+                const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+                if (this.#currentYearIdx !== idx && !this.#isJumping) {
+                  this.#currentYearIdx = idx;
+                  this.#audio.play('scroll');
+                }
+                const v = Math.abs(this.#viewport.scrollTop - this.lastScrollPos);
+                document.documentElement.style.setProperty('--ion-glow', `${Math.max(500, 1100 - v * 2.5)}px`);
+              });
+              this.scrollStopTimer = setTimeout(() => {
+                this.#isScrolling = false;
+              }, 180);
+            },
+            { passive: true }
+          );
+
+          window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 't') {
+              this.#audio.play('theme', { dynamicPitch: true });
+              this.#toggleTheme();
+            }
+            if (k === 'm') {
+              const a = this.#audio.toggleMaster();
+              this.#showToast(a ? 'ION DRIVE ONLINE' : 'SILENT CRUISE');
+            }
+            if (k === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
+            if (k === 'r') this.#setMode(true);
+            if (k === 's') this.#setMode(false);
+          });
+
+          document.addEventListener('click', (e) => {
+            const burst = Math.floor(Math.random() * 4) + 4;
+            for (let i = 0; i < burst; i++) {
+              const p = document.createElement('div');
+              p.className = 'particle';
+              p.style.left = `${e.clientX}px`;
+              p.style.top = `${e.clientY}px`;
+              const angle = Math.random() * Math.PI * 2,
+                dist = 25 + Math.random() * 35;
+              p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+              p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+              document.body.appendChild(p);
+              setTimeout(() => p.remove(), 800);
+            }
+            if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
+          });
+        }
+
+        #engineLoop() {
+          // Modern RAF Loop for Smooth Cursor positioning
+          const i = OdysseyConfig.physics.cursorInertia;
+          this.#current.x += (this.#mouse.x - this.#current.x) * i;
+          this.#current.y += (this.#mouse.y - this.#current.y) * i;
+          document.documentElement.style.setProperty('--ion-x', this.#current.x);
+          document.documentElement.style.setProperty('--ion-y', this.#current.y);
+          requestAnimationFrame(() => this.#engineLoop());
+        }
+
+        #handleParallax() {
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+          const y = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          const b = this.#activeYears.get(y);
+          if (b && !b.classList.contains('is-scrolling')) {
+            const o = (this.#viewport.scrollTop % this.yearHeight) - this.yearHeight / 2;
+            const wm = b.querySelector('.watermark-embedded');
+            if (wm) wm.style.transform = `translate3d(0, ${o * 0.06}px, 0)`;
+          }
+        }
+
+        #render() {
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+          const base = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          for (let i = -1; i <= 1; i++) this.#drawYear(base + i, (idx + i) * this.yearHeight);
+          this.#activeYears.forEach((b, y) => {
+            if (Math.abs(y - base) > 1) {
+              this.observer.unobserve(b);
+              b.remove();
+              this.#activeYears.delete(y);
+            }
+          });
+        }
+
+        #drawYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+          const jan1 = new Date(year, 0, 1);
+          const daysInYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth,
+            vh = window.innerHeight;
+          let baseCols = Math.max(7, Math.ceil(Math.sqrt(373 * (vw / vh))));
+          let cols = Math.ceil(baseCols / 7) * 7;
+          let gO =
+            this.#isRandomMode && OdysseyConfig.display.centerContent
+              ? Math.floor(jan1.getTime() / 86400000) % cols
+              : (jan1.getDay() + (OdysseyConfig.temporal.weekStart === 1 ? 6 : 0)) % 7;
+          const rows = Math.ceil((daysInYear + gO) / cols);
+          const isSc = vh / rows < 60;
+          if (isSc) block.classList.add('is-scrolling');
+          const itD = new Date(year, 0, 1 - gO),
+            tS = this.#today.toDateString();
+          const frag = document.createDocumentFragment(),
+            container = document.createElement('div');
+          container.className = 'grid-container';
+          container.style.overflowY = isSc ? 'auto' : 'hidden';
+          const wm = document.createElement('div');
+          wm.className = 'watermark-embedded';
+          wm.innerText = year;
+          container.append(wm);
+          const grid = document.createElement('div');
+          grid.className = 'grid-layer';
+          grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+          grid.style.gridTemplateRows = isSc ? `repeat(${rows}, minmax(60px, 1fr))` : `repeat(${rows}, 1fr)`;
+          grid.style.height = isSc ? 'auto' : '100%';
+
+          for (let s = 0; s < cols * rows; s++) {
+            const isM = itD.getFullYear() === year,
+              isT = itD.toDateString() === tS && isM;
+            const dD = itD.getDate(),
+              dM = itD.getMonth(),
+              dY = itD.getDay();
+            const cell = document.createElement('div');
+            let fC = !isM ? (itD.getFullYear() < year ? 'filler-past' : 'filler-future') : '';
+            cell.className = `cell ${!isM ? 'filler ' + fC : ''} ${isT ? 'today' : ''} ${
+              isM && dD === 1 ? 'month-start' : ''
+            } ${isM && (dY === 0 || dY === 6) ? 'weekend' : ''} ${
+              isM && dY === OdysseyConfig.temporal.weekStart % 7 ? 'week-start' : ''
+            }`;
+            const shM = isM && (dD === 1 || s === gO);
+            cell.innerHTML = `<div class="cell-content"><span class="info-meta ${dD === 1 && isM ? 'top-label' : ''}">${
+              shM ? OdysseyConfig.temporal.monthsShort[dM] : ''
+            }</span><span class="date-num">${dD}</span><span class="info-meta">${
+              isM ? OdysseyConfig.temporal.daysShort[dY] : ''
+            }</span></div>`;
+            grid.append(cell);
+            itD.setDate(dD + 1);
+          }
+          container.append(grid);
+          block.append(container);
+          this.#canvas.append(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
+
+        #setMode(val) {
+          if (this.#isRandomMode === val) return;
+          this.#isRandomMode = val;
+          this.#activeYears.forEach((b) => {
+            this.observer.unobserve(b);
+            b.remove();
+          });
+          this.#activeYears.clear();
+          this.#render();
+          this.#audio.play('beep');
+        }
+
+        #applyTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme;
+        }
+
+        #toggleTheme() {
+          const veil = document.getElementById('theme-veil');
+          veil.classList.add('active');
+          setTimeout(() => {
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            this.#applyTheme(next);
+            localStorage.setItem('theme', next);
+            setTimeout(() => veil.classList.remove('active'), 200);
+          }, 400);
+        }
+      }
+      new GridArchitect();
+    </script>
+  </body>
+</html>

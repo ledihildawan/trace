@@ -4,4 +4,3 @@
 
 // This file is kept for plugin registration compatibility but empty.
 // All interactions are now purely CSS-based.
-

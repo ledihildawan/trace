@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grid Architect V6.7 - Final Production</title>
+    <style>
+      :root {
+        --bg: #05070a;
+        --panel: #0d1117;
+        --border: #30363d;
+        --accent: #58a6ff;
+        --cyan: #39c5bb;
+        --text: #c9d1d9;
+      }
+      * {
+        box-sizing: border-box;
+        outline: none;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'JetBrains Mono', monospace;
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+      }
+
+      /* --- UI PANEL --- */
+      #ui-panel {
+        width: 300px;
+        height: 100vh;
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        padding: 20px;
+        overflow-y: auto;
+        z-index: 100;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+      }
+      .group {
+        margin-bottom: 20px;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      .group-h {
+        font-size: 10px;
+        color: var(--accent);
+        margin-bottom: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 11px;
+      }
+      select,
+      input {
+        background: #000;
+        color: #fff;
+        border: 1px solid var(--border);
+        padding: 5px;
+        font-size: 10px;
+        width: 130px;
+        border-radius: 4px;
+      }
+
+      /* --- VIEWPORT --- */
+      #viewport {
+        flex: 1;
+        height: 100vh;
+        overflow-y: auto;
+        position: relative;
+        scroll-behavior: auto;
+      }
+      #grid {
+        position: relative;
+        width: 100%;
+        contain: layout size;
+        margin: 0 auto;
+        transition: width 0.3s ease;
+      }
+
+      .box {
+        position: absolute;
+        background: #161b22;
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        will-change: transform;
+        border-radius: 4px;
+        transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.4s, height 0.4s;
+        cursor: pointer;
+      }
+      .box:hover {
+        border-color: var(--cyan);
+        box-shadow: 0 0 15px rgba(57, 197, 187, 0.2);
+        z-index: 5;
+      }
+      .filler {
+        opacity: 0.15;
+        border-style: dashed;
+        background: transparent;
+        pointer-events: none;
+      }
+
+      #hud {
+        position: fixed;
+        bottom: 15px;
+        left: 315px;
+        font-size: 10px;
+        color: #555;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 5px 10px;
+        border-radius: 4px;
+        z-index: 1000;
+        border: 1px solid var(--border);
+      }
+    </style>
+  </head>
+  <body>
+    <aside id="ui-panel">
+      <div
+        style="
+          font-size: 12px;
+          font-weight: bold;
+          margin-bottom: 20px;
+          color: var(--cyan);
+          border-left: 3px solid var(--cyan);
+          padding-left: 10px;
+        "
+      >
+        GRID ENGINE V6.7
+      </div>
+
+      <div class="group">
+        <div class="group-h">Canvas & Screen</div>
+        <div class="row">
+          <label>Sync Mode</label
+          ><select id="sync" class="in">
+            <option value="fluid">Fluid</option>
+            <option value="phone">Phone (360p)</option>
+            <option value="hd">HD (1080p)</option>
+          </select>
+        </div>
+        <div class="row"><label>Padding</label><input type="number" id="pad" class="in" value="30" /></div>
+      </div>
+
+      <div class="group">
+        <div class="group-h">Geometry</div>
+        <div class="row">
+          <label>Strategy</label
+          ><select id="mode" class="in">
+            <option value="adaptive">Adaptive</option>
+            <option value="virtual">Virtual</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Media Ratio</label
+          ><select id="ratio" class="in">
+            <option value="1:1">1:1 Square</option>
+            <option value="9:16">9:16 TikTok</option>
+            <option value="16:9">16:9 HD</option>
+            <option value="1:1.41">A4 Paper</option>
+          </select>
+        </div>
+        <div class="row"><label>Gutter (Gap)</label><input type="number" id="gap" class="in" value="10" /></div>
+      </div>
+
+      <div class="group">
+        <div class="group-h">Filler (Adaptive)</div>
+        <div class="row">
+          <label>Auto-Fill</label
+          ><select id="fill_on" class="in">
+            <option value="on">Enabled</option>
+            <option value="off">Disabled</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Position</label
+          ><select id="fill_type" class="in">
+            <option value="both">Both (Center)</option>
+            <option value="end">End Only</option>
+            <option value="start">Start Only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-h">Engine Internals</div>
+        <div class="row"><label>Entities</label><input type="number" id="count" class="in" value="100" /></div>
+        <div class="row"><label>Threshold</label><input type="number" id="limit" class="in" value="15" /></div>
+        <div class="row">
+          <label>Inf. Scroll</label
+          ><select id="inf" class="in">
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+      </div>
+
+      <button
+        onclick="reset()"
+        style="
+          width: 100%;
+          padding: 10px;
+          background: #30363d;
+          color: white;
+          border: none;
+          cursor: pointer;
+          font-size: 10px;
+          border-radius: 4px;
+          font-weight: bold;
+        "
+      >
+        FACTORY RESET
+      </button>
+    </aside>
+
+    <main id="viewport">
+      <div id="grid"></div>
+      <div id="hud">FPS: -- | NODES: -- | GRID: --</div>
+    </main>
+
+    <script>
+      const Viewport = document.getElementById('viewport');
+      const Grid = document.getElementById('grid');
+      let state = { config: {}, calc: {}, data: [] };
+      let isFetching = false;
+
+      // --- CORE LOGIC ---
+      function sync() {
+        const config = {
+          sync: document.getElementById('sync').value,
+          mode: document.getElementById('mode').value,
+          ratio: document.getElementById('ratio').value,
+          count: parseInt(document.getElementById('count').value) || 1,
+          gap: parseInt(document.getElementById('gap').value),
+          fill: document.getElementById('fill_on').value,
+          fillType: document.getElementById('fill_type').value,
+          pad: parseInt(document.getElementById('pad').value),
+          limit: parseInt(document.getElementById('limit').value),
+          inf: document.getElementById('inf').value,
+          pool: 350,
+        };
+        state.config = config;
+
+        // PERSISTENCE: Save Config
+        localStorage.setItem('grid_v67_settings', JSON.stringify(config));
+
+        let vw = Viewport.clientWidth;
+        if (config.sync === 'phone') vw = 360;
+        if (config.sync === 'hd') vw = 1920;
+        Grid.style.width = config.sync === 'fluid' ? '100%' : vw + 'px';
+
+        const vh = Viewport.clientHeight;
+        const canvasW = vw - config.pad * 2,
+          canvasH = vh - config.pad * 2;
+        const rParts = config.ratio.split(':').map(Number);
+        const ratio = rParts[0] / rParts[1];
+
+        let cols,
+          rows,
+          cellW,
+          cellH,
+          scrollH,
+          isFB = false;
+
+        if (config.mode === 'adaptive') {
+          cols = Math.ceil(Math.sqrt((config.count * (canvasW / canvasH)) / ratio));
+          rows = Math.ceil(config.count / cols);
+          let rawW = (canvasW - config.gap * (cols - 1)) / cols;
+          let rawH = (canvasH - config.gap * (rows - 1)) / rows;
+          if (rawW < config.limit) isFB = true;
+          else {
+            rawW / rawH > ratio ? ((cellH = rawH), (cellW = rawH * ratio)) : ((cellW = rawW), (cellH = rawW / ratio));
+            scrollH = vh;
+          }
+        }
+
+        if (config.mode === 'virtual' || isFB) {
+          cols = Math.max(1, Math.floor((canvasW + config.gap) / (160 + config.gap)));
+          cellW = (canvasW - config.gap * (cols - 1)) / cols;
+          cellH = cellW / ratio;
+          rows = Math.ceil(config.count / cols);
+          scrollH = rows * cellH + (rows - 1) * config.gap + config.pad * 2;
+        }
+
+        state.calc = { cellW, cellH, cols, rows, scrollH, vw, vh, isFB };
+
+        // Process Data & Fillers
+        let raw = Array.from({ length: config.count }, (_, i) => ({ id: i + 1, fill: false }));
+        if (config.mode === 'adaptive' && config.fill === 'on' && !isFB) {
+          const total = cols * rows;
+          const fCount = total - config.count;
+          const fillers = Array.from({ length: fCount }, () => ({ id: '', fill: true }));
+          if (config.fillType === 'start') state.data = [...fillers, ...raw];
+          else if (config.fillType === 'both') {
+            const h = Math.floor(fCount / 2);
+            state.data = [...fillers.slice(0, h), ...raw, ...fillers.slice(h)];
+          } else state.data = [...raw, ...fillers];
+        } else state.data = raw;
+
+        const tPool = config.mode === 'adaptive' && !isFB ? state.data.length : config.pool;
+        if (Grid.children.length !== tPool) {
+          Grid.innerHTML = '';
+          const frag = document.createDocumentFragment();
+          for (let i = 0; i < tPool; i++) frag.appendChild(document.createElement('div')).className = 'box';
+          Grid.appendChild(frag);
+        }
+
+        Grid.style.height = scrollH + 'px';
+        render();
+      }
+
+      function render() {
+        const { cellW, cellH, cols, rows, vw, vh, isFB, scrollH } = state.calc;
+        const pool = Grid.children;
+        const config = state.config;
+        const isS = config.mode === 'virtual' || isFB;
+
+        let start = 0,
+          end = state.data.length;
+        if (isS) {
+          const rH = cellH + config.gap;
+          const sR = Math.max(0, Math.floor((Viewport.scrollTop - config.pad) / rH));
+          start = sR * cols;
+          end = Math.min(state.data.length, start + (Math.ceil(vh / rH) + 1) * cols);
+          if (config.inf === 'on' && !isFetching && Viewport.scrollTop + vh > scrollH - 100) fetchMore();
+        }
+
+        const oX = isS ? config.pad : (vw - (cols * cellW + (cols - 1) * config.gap)) / 2;
+        const oY = isS ? config.pad : (vh - (rows * cellH + (rows - 1) * config.gap)) / 2;
+
+        for (let i = 0; i < pool.length; i++) pool[i].style.display = 'none';
+
+        for (let i = start; i < end; i++) {
+          const node = pool[i % pool.length];
+          const d = state.data[i];
+          const r = Math.floor(i / cols),
+            c = i % cols;
+          if (!node) continue;
+          node.style.display = 'flex';
+          node.style.width = Math.floor(cellW) + 'px';
+          node.style.height = Math.floor(cellH) + 'px';
+          node.style.transform = `translate3d(${Math.round(oX + c * (cellW + config.gap))}px, ${Math.round(
+            oY + r * (cellH + config.gap)
+          )}px, 0)`;
+          node.className = `box ${d.fill ? 'filler' : ''}`;
+          node.innerHTML = d.fill ? '' : `<span style="opacity:0.2; font-size:8px">ITEM</span>${d.id}`;
+        }
+        document.getElementById('hud').innerText = `NODES: ${pool.length} | GRID: ${cols}x${rows} ${
+          isFB ? '(FALLBACK)' : ''
+        }`;
+      }
+
+      // --- DATA & PERSISTENCE ---
+      async function fetchMore() {
+        isFetching = true;
+        await new Promise((r) => setTimeout(r, 600)); // Latency sim
+        document.getElementById('count').value = state.config.count + 20;
+        isFetching = false;
+        sync();
+      }
+
+      function load() {
+        const savedConfig = JSON.parse(localStorage.getItem('grid_v67_settings'));
+        const savedScroll = sessionStorage.getItem('grid_last_scroll');
+
+        if (savedConfig) {
+          Object.keys(savedConfig).forEach((k) => {
+            const el = document.getElementById(k);
+            if (el) el.value = savedConfig[k];
+          });
+        }
+
+        sync();
+
+        if (savedScroll) {
+          // Delay recovery to ensure DOM is ready
+          setTimeout(() => {
+            Viewport.scrollTop = parseInt(savedScroll);
+          }, 150);
+        }
+      }
+
+      function reset() {
+        localStorage.clear();
+        sessionStorage.clear();
+        location.reload();
+      }
+
+      // --- EVENT LISTENERS ---
+      Viewport.addEventListener('scroll', () => {
+        sessionStorage.setItem('grid_last_scroll', Viewport.scrollTop);
+        window.requestAnimationFrame(render);
+      });
+
+      document.querySelectorAll('.in').forEach((i) => (i.oninput = sync));
+      window.onresize = sync;
+
+      // Run Initial Load
+      load();
+    </script>
+  </body>
+</html>

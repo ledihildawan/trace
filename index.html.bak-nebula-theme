@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Grid Architect V75 - Galactic Odyssey</title>
+    <style>
+      /* --- GALACTIC THEME SYSTEM --- */
+      :root[data-theme='light'] {
+        /* Inspirasi: Nebula Terang, Cahaya Bintang, Fajar Kosmik */
+        --bg: #e0f2f7; /* Cosmic Dawn Light Blue */
+        --grid-bg: #c5e5ee; /* Nebula Mist */
+        --border: #a7d9e6; /* Galactic Horizon */
+        --cell-bg: #ffffff; /* Starlight White */
+        --text-main: #0d47a1; /* Deep Space Blue */
+        --text-muted: #42a5f5; /* Sky Blue Accent */
+        --accent: #ff8f00; /* Supernova Orange */
+        --cyan: #00bcd4; /* Aqua Comet */
+        --weekend-bg: #e3f2fd; /* Soft Asteroid Field */
+        --weekend-text: #2196f3;
+        --today-bg: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); /* Blue Giant Core */
+        --month-start-bg: #bbdefb; /* Distant Star Cluster */
+        --filler-bg: #f0f8fa; /* Void Echo */
+        --filler-text: #90caf9; /* Faded Nebula */
+      }
+
+      :root[data-theme='dark'] {
+        /* Inspirasi: Ruang Hampa, Aurora Kosmik, Galaksi Jauh */
+        --bg: #0a0a1f; /* Deep Space Void */
+        --grid-bg: #1a1a3a; /* Dark Matter Field */
+        --border: #2a2a5a; /* Asteroid Belt */
+        --cell-bg: #0a0a1f; /* Black Hole Core */
+        --text-main: #e0e0ff; /* Stardust White */
+        --text-muted: #8080c0; /* Faint Galaxy Grey */
+        --accent: #ffab40; /* Nova Flare Orange */
+        --cyan: #4dd0e1; /* Aurora Cyan */
+        --weekend-bg: #15152f; /* Nebulous Cluster */
+        --weekend-text: #7986cb;
+        --today-bg: linear-gradient(135deg, #3f51b5 0%, #64b5f6 100%); /* Cosmic Ray Gradient */
+        --month-start-bg: #004d40; /* Emerald Galaxy */
+        --filler-bg: #050510; /* Empty Void */
+        --filler-text: #4a4a8a; /* Ghostly Remnant */
+      }
+
+      /* --- GLOBAL RESET & ARCHITECTURE --- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+        overscroll-behavior: none;
+        transition: none; /* Transition handled by Veil */
+      }
+
+      /* THE KINETIC VEIL: Optimized for Eye Comfort (Faster) */
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.6s cubic-bezier(0.19, 1, 0.22, 1); /* Sedikit lebih cepat */
+        will-change: opacity;
+      }
+      #theme-veil.active {
+        opacity: 1;
+        transition: opacity 0.1s ease-in; /* Menutup sangat cepat */
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+        transform: translate3d(0, 0, 0);
+        &::-webkit-scrollbar {
+          display: none;
+        }
+      }
+
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: paints;
+      }
+
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        overflow: hidden;
+        contain: strict;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+      }
+
+      /* --- VISUAL ELEMENTS --- */
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(150px, 32dvh, 450px);
+        font-weight: 950;
+        color: transparent;
+        background: linear-gradient(180deg, var(--accent), var(--cyan), transparent);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        z-index: 5;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translate3d(0, 30px, 0);
+        transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        .year-block.active & {
+          opacity: 0.12;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+
+      .grid-layer {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 1px;
+        background: var(--border);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        .year-block.active & {
+          opacity: 1;
+        }
+      }
+
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+        opacity: 0;
+        transform: translate3d(0, 15px, 0);
+        transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        .year-block.active & {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+        &:nth-child(n + 1) {
+          transition-delay: calc(var(--s-idx) * 0.003s);
+        }
+
+        &.filler {
+          background: var(--filler-bg);
+          .date-num,
+          .info-meta {
+            color: var(--filler-text);
+            opacity: 0.4;
+          }
+        }
+        &.weekend {
+          background: var(--weekend-bg);
+          .date-num,
+          .info-meta {
+            color: var(--weekend-text);
+          }
+        }
+        &.month-start {
+          background: var(--month-start-bg);
+          box-shadow: inset 4px 0 0 var(--cyan);
+        }
+        &.today {
+          background: var(--today-bg) !important;
+          z-index: 10;
+          box-shadow: 0 12px 30px -5px rgba(79, 70, 229, 0.5);
+          .date-num,
+          .info-meta {
+            color: #fff !important;
+          }
+        }
+      }
+
+      .cell-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        height: 100%;
+        padding-block: 10%;
+        text-align: center;
+      }
+
+      .info-meta {
+        font-size: clamp(6px, 0.8dvh, 10px);
+        text-transform: uppercase;
+        font-weight: 800;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+      }
+      .date-num {
+        font-size: clamp(14px, 2.8dvh, 32px);
+        font-weight: 900;
+        line-height: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="theme-veil"></div>
+
+    <main id="viewport">
+      <div id="infinite-canvas"></div>
+    </main>
+
+    <script type="module">
+      class GridArchitect {
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #veil = document.getElementById('theme-veil');
+        #months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        #days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        #today = new Date();
+        #yearHeight = window.innerHeight;
+        #activeYears = new Map();
+        #isRendering = false;
+        #tapCount = 0;
+
+        constructor() {
+          this.totalYears = 2000;
+          this.startY = (this.totalYears / 2) * this.#yearHeight;
+          this.#setupTheme();
+          this.#setupCore();
+          this.#setupEvents();
+          this.#render();
+        }
+
+        #setupTheme() {
+          const saved = localStorage.getItem('theme');
+          const system = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.setAttribute('data-theme', saved || (system ? 'dark' : 'light'));
+        }
+
+        #toggleTheme() {
+          this.#veil.classList.add('active');
+          setTimeout(() => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            if (navigator.vibrate) navigator.vibrate(20);
+            setTimeout(() => {
+              this.#veil.classList.remove('active');
+            }, 100); /* Sedikit lebih cepat */
+          }, 200); /* Sedikit lebih cepat */
+        }
+
+        #setupCore() {
+          this.#canvas.style.height = `${this.totalYears * this.#yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => {
+                window.requestAnimationFrame(() => {
+                  e.target.classList.toggle('active', e.isIntersecting);
+                });
+              });
+            },
+            { threshold: 0.1 }
+          );
+        }
+
+        #setupEvents() {
+          this.#viewport.addEventListener(
+            'scroll',
+            () => {
+              if (!this.#isRendering) {
+                window.requestAnimationFrame(() => {
+                  this.#render();
+                  this.#isRendering = false;
+                });
+                this.#isRendering = true;
+              }
+            },
+            { passive: true }
+          );
+
+          window.addEventListener('keydown', (e) => {
+            if (['t', 'd'].includes(e.key.toLowerCase())) this.#toggleTheme();
+            if (e.key === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
+          });
+
+          this.#viewport.addEventListener(
+            'touchstart',
+            () => {
+              this.#tapCount++;
+              setTimeout(() => {
+                this.#tapCount = 0;
+              }, 400);
+              if (this.#tapCount === 3) this.#toggleTheme();
+            },
+            { passive: true }
+          );
+
+          window.addEventListener('resize', () => location.reload());
+        }
+
+        #render() {
+          const scrollTop = this.#viewport.scrollTop;
+          const idx = Math.round(scrollTop / this.#yearHeight);
+          const year = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          for (let i = -1; i <= 1; i++) this.#drawYear(year + i, (idx + i) * this.#yearHeight);
+          this.#activeYears.forEach((block, y) => {
+            if (Math.abs(y - year) > 1) {
+              this.observer.unobserve(block);
+              block.remove();
+              this.#activeYears.delete(y);
+            }
+          });
+        }
+
+        #drawYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+          const firstDay = new Date(year, 0, 1).getDay();
+          const totalDays = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth;
+          let cols = Math.ceil(Math.sqrt(365 * (vw / window.innerHeight)));
+          if (vw < 500) cols = Math.max(cols, 14);
+          const rows = Math.ceil((totalDays + firstDay) / cols);
+
+          let gridHTML = `<div class="grid-container"><div class="watermark-embedded">${year}</div><div class="grid-layer" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">`;
+          for (let s = 0; s < cols * rows; s++) {
+            const date = new Date(year, 0, 1);
+            date.setDate(date.getDate() + (s - firstDay));
+            const isMain = date.getFullYear() === year;
+            let cls = ['cell'];
+            if (!isMain) cls.push('filler');
+            else {
+              if (date.getDate() === 1) cls.push('month-start');
+              if (date.getDay() === 0 || date.getDay() === 6) cls.push('weekend');
+              if (date.toDateString() === this.#today.toDateString()) cls.push('today');
+            }
+            gridHTML += `<div class="${cls.join(' ')}" style="--s-idx: ${
+              s % 60
+            }"><div class="cell-content"><span class="info-meta">${
+              this.#months[date.getMonth()]
+            }</span><span class="date-num">${date.getDate()}</span><span class="info-meta">${
+              this.#days[date.getDay()]
+            }</span></div></div>`;
+          }
+          block.innerHTML = gridHTML + `</div></div>`;
+          this.#canvas.appendChild(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
+
+        jumpToToday() {
+          this.#viewport.style.scrollBehavior = 'auto';
+          this.#viewport.scrollTop = this.startY;
+          setTimeout(() => (this.#viewport.style.scrollBehavior = 'smooth'), 50);
+        }
+      }
+      new GridArchitect();
+    </script>
+  </body>
+</html>

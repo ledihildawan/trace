@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Grid Architect V5.1 - Engineering Suite</title>
+    <style>
+      :root {
+        --space-black: #05070a;
+        --space-border: #21262d;
+        --space-accent: #58a6ff;
+        --space-cyan: #39c5bb;
+        --debug-cyan: #00f2ff;
+      }
+
+      body {
+        background: var(--space-black);
+        color: #c9d1d9;
+        font-family: 'JetBrains Mono', monospace;
+        margin: 0;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      #workspace-viewport {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: var(--space-border) transparent;
+      }
+
+      #entity-grid-container {
+        position: relative;
+        width: 100%;
+        contain: layout size;
+      }
+
+      .grid-entity {
+        position: absolute;
+        background: #161b22;
+        border: 1px solid var(--space-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #626e7d;
+        will-change: transform;
+        transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      /* --- THE ENGINEERING HUD --- */
+      #debug-hud {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        width: 340px;
+        background: rgba(5, 7, 10, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid #333;
+        border-left: 4px solid var(--debug-cyan);
+        padding: 15px;
+        z-index: 10000;
+        pointer-events: auto; /* Aktifkan klik */
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+
+      .hud-header {
+        font-size: 11px;
+        font-weight: 900;
+        color: var(--debug-cyan);
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .hud-section {
+        margin-bottom: 12px;
+      }
+      .hud-title {
+        font-size: 9px;
+        color: #8b949e;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        border-bottom: 1px solid #222;
+      }
+      .hud-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        line-height: 1.8;
+      }
+      .hud-label {
+        color: #58a6ff;
+      }
+      .hud-val {
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .btn-snapshot {
+        width: 100%;
+        background: var(--debug-cyan);
+        color: #000;
+        border: none;
+        padding: 6px;
+        font-size: 10px;
+        font-weight: 900;
+        cursor: pointer;
+        border-radius: 2px;
+        margin-top: 10px;
+        transition: 0.2s;
+      }
+      .btn-snapshot:hover {
+        opacity: 0.8;
+      }
+      .btn-snapshot:active {
+        transform: scale(0.98);
+      }
+
+      /* --- INSPECTOR PANEL --- */
+      #inspector-panel {
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        width: 300px;
+        background: rgba(13, 17, 23, 0.95);
+        border: 1px solid var(--space-border);
+        border-radius: 8px;
+        z-index: 9999;
+      }
+      .prop-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 15px;
+        border-bottom: 1px solid #222;
+        font-size: 10px;
+        align-items: center;
+      }
+      input,
+      select {
+        background: #000;
+        border: 1px solid #333;
+        color: #fff;
+        padding: 4px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="debug-hud">
+      <div class="hud-header">ENGINE V5.1 DIAGNOSTICS <span id="dbg-cycle" style="color: #555">#0</span></div>
+
+      <div class="hud-section">
+        <div class="hud-title">Real-time Performance</div>
+        <div class="hud-row">
+          <span class="hud-label">Frame Rate</span><span class="hud-val" id="dbg-fps">0 FPS</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">Frame Time</span><span class="hud-val" id="dbg-ftime">0ms</span>
+        </div>
+      </div>
+
+      <div class="hud-section">
+        <div class="hud-title">Spatial Data</div>
+        <div class="hud-row"><span class="hud-label">Strategy</span><span class="hud-val" id="dbg-strat">-</span></div>
+        <div class="hud-row">
+          <span class="hud-label">Matrix (CxR)</span><span class="hud-val" id="dbg-matrix">0 x 0</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">Cell Width</span><span class="hud-val" id="dbg-cell">0px</span>
+        </div>
+      </div>
+
+      <div class="hud-section">
+        <div class="hud-title">Memory & Nodes</div>
+        <div class="hud-row">
+          <span class="hud-label">Pool Capacity</span><span class="hud-val" id="dbg-pool">0</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-label">Scroll Offset</span><span class="hud-val" id="dbg-scroll">0px</span>
+        </div>
+      </div>
+
+      <button class="btn-snapshot" onclick="exportSnapshot()">COPY DEBUG SNAPSHOT (JSON)</button>
+    </div>
+
+    <main id="workspace-viewport">
+      <div id="entity-grid-container"></div>
+    </main>
+
+    <aside id="inspector-panel">
+      <div class="prop-row">
+        <label>Strategy</label
+        ><select id="strategy" class="cfg">
+          <option value="adaptive">Adaptive</option>
+          <option value="virtual">Virtual</option>
+        </select>
+      </div>
+      <div class="prop-row"><label>Entities</label><input type="number" id="count" class="cfg" value="1000" /></div>
+      <div class="prop-row"><label>Gutter</label><input type="number" id="gutter" class="cfg" value="10" /></div>
+      <div class="prop-row"><label>Pool Size</label><input type="number" id="pool" class="cfg" value="400" /></div>
+    </aside>
+
+    <script>
+      const Viewport = document.getElementById('workspace-viewport');
+      const GridRoot = document.getElementById('entity-grid-container');
+      const HUD = {
+        fps: document.getElementById('dbg-fps'),
+        ftime: document.getElementById('dbg-ftime'),
+        strat: document.getElementById('dbg-strat'),
+        matrix: document.getElementById('dbg-matrix'),
+        cell: document.getElementById('dbg-cell'),
+        scroll: document.getElementById('dbg-scroll'),
+        pool: document.getElementById('dbg-pool'),
+        cycle: document.getElementById('dbg-cycle'),
+      };
+
+      let lastTime = performance.now();
+      let frames = 0;
+      let cycleCount = 0;
+      let runtime = { entities: [], calc: {}, config: {} };
+
+      function synchronize() {
+        cycleCount++;
+        const config = {
+          strategy: document.getElementById('strategy').value,
+          gutter: parseInt(document.getElementById('gutter').value),
+          count: parseInt(document.getElementById('count').value),
+          pool: parseInt(document.getElementById('pool').value),
+        };
+        runtime.config = config;
+
+        const vw = Viewport.clientWidth,
+          vh = Viewport.clientHeight;
+        const pad = 40;
+        const canvasW = vw - pad * 2;
+
+        let cols,
+          rows,
+          cellW,
+          cellH,
+          scrollH,
+          isFB = false;
+
+        if (config.strategy === 'adaptive') {
+          cols = Math.ceil(Math.sqrt(config.count * (canvasW / vh)));
+          rows = Math.ceil(config.count / cols);
+          cellW = (canvasW - config.gutter * (cols - 1)) / cols;
+          cellH = (vh - pad * 2 - config.gutter * (rows - 1)) / rows;
+          if (cellW < 10) isFB = true;
+          scrollH = vh;
+        }
+
+        if (config.strategy === 'virtual' || isFB) {
+          cols = Math.max(1, Math.floor(canvasW / 180));
+          cellW = (canvasW - config.gutter * (cols - 1)) / cols;
+          cellH = cellW;
+          rows = Math.ceil(config.count / cols);
+          scrollH = rows * cellH + (rows - 1) * config.gutter + pad * 2;
+        }
+
+        runtime.calc = { cellW, cellH, cols, rows, scrollH, vw, vh, isFB };
+
+        const targetPool = config.strategy === 'adaptive' && !isFB ? config.count : config.pool;
+        if (GridRoot.children.length !== targetPool) {
+          GridRoot.innerHTML = '';
+          for (let i = 0; i < targetPool; i++)
+            GridRoot.appendChild(document.createElement('div')).className = 'grid-entity';
+        }
+
+        GridRoot.style.height = scrollH + 'px';
+        commit();
+
+        HUD.strat.innerText = config.strategy.toUpperCase() + (isFB ? ' (FB)' : '');
+        HUD.matrix.innerText = `${cols} x ${rows}`;
+        HUD.cell.innerText = `${Math.round(cellW)}px`;
+        HUD.pool.innerText = targetPool;
+        HUD.cycle.innerText = `#${cycleCount}`;
+      }
+
+      function commit() {
+        const { cellW, cellH, cols, isFB } = runtime.calc;
+        const strat = runtime.config.strategy;
+        const pool = GridRoot.children;
+        const count = runtime.config.count;
+        const pad = 40;
+        const gutter = runtime.config.gutter;
+
+        let start = 0,
+          end = count;
+        const isScroll = strat === 'virtual' || isFB;
+
+        if (isScroll) {
+          const rH = cellH + gutter;
+          const sR = Math.max(0, Math.floor((Viewport.scrollTop - pad) / rH));
+          const vR = Math.ceil(runtime.calc.vh / rH) + 1;
+          start = sR * cols;
+          end = Math.min(count, start + vR * cols);
+        }
+
+        const oX = isScroll ? pad : (runtime.calc.vw - (cols * cellW + (cols - 1) * gutter)) / 2;
+        const oY = isScroll
+          ? pad
+          : (runtime.calc.vh - (runtime.calc.rows * cellH + (runtime.calc.rows - 1) * gutter)) / 2;
+
+        for (let i = 0; i < pool.length; i++) pool[i].style.display = 'none';
+
+        for (let i = start; i < end; i++) {
+          const node = pool[i % pool.length];
+          if (!node) continue;
+          const r = Math.floor(i / cols),
+            c = i % cols;
+          node.style.display = 'flex';
+          node.style.width = Math.floor(cellW) + 'px';
+          node.style.height = Math.floor(cellH) + 'px';
+          node.style.transform = `translate3d(${Math.round(oX + c * (cellW + gutter))}px, ${Math.round(
+            oY + r * (cellH + gutter)
+          )}px, 0)`;
+          node.textContent = i + 1;
+        }
+        HUD.scroll.innerText = Viewport.scrollTop + 'px';
+      }
+
+      function exportSnapshot() {
+        const snapshot = {
+          timestamp: new Date().toISOString(),
+          performance: {
+            fps: HUD.fps.innerText,
+            frameTime: HUD.ftime.innerText,
+            renderCycle: cycleCount,
+          },
+          config: runtime.config,
+          calculation: runtime.calc,
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            scrollTop: Viewport.scrollTop,
+          },
+        };
+        const data = JSON.stringify(snapshot, null, 2);
+        navigator.clipboard.writeText(data).then(() => {
+          const btn = document.querySelector('.btn-snapshot');
+          const oldText = btn.innerText;
+          btn.innerText = 'COPIED TO CLIPBOARD!';
+          btn.style.background = '#4ade80';
+          setTimeout(() => {
+            btn.innerText = oldText;
+            btn.style.background = '';
+          }, 2000);
+        });
+        console.log('ENGINE SNAPSHOT:', snapshot);
+      }
+
+      Viewport.addEventListener('scroll', () => window.requestAnimationFrame(commit), { passive: true });
+      function monitor() {
+        const now = performance.now();
+        frames++;
+        if (now >= lastTime + 1000) {
+          HUD.fps.innerText = frames + ' FPS';
+          HUD.ftime.innerText = Math.round(1000 / frames) + 'ms';
+          HUD.fps.style.color = frames > 55 ? '#4ade80' : '#f87171';
+          frames = 0;
+          lastTime = now;
+        }
+        requestAnimationFrame(monitor);
+      }
+
+      document.querySelectorAll('.cfg').forEach((el) => (el.oninput = synchronize));
+      window.onresize = synchronize;
+      monitor();
+      synchronize();
+    </script>
+  </body>
+</html>

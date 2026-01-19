@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trace Engine - Ultra Seasonal</title>
+    <style>
+      :root {
+        --bg: #000;
+        --cell-past: #161b22;
+        --cell-future: #0d1117;
+        --accent: #39c5bb;
+      }
+
+      body,
+      html {
+        background: var(--bg);
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: background 1.5s ease;
+      }
+
+      #seasonal-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 5;
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2;
+      }
+
+      #grid-container {
+        position: relative;
+        will-change: transform;
+      }
+
+      .day-cell {
+        position: absolute;
+        border-radius: 1px;
+        box-sizing: border-box;
+        transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.8s;
+      }
+
+      .day-cell.today {
+        background: var(--accent) !important;
+        box-shadow: 0 0 30px var(--accent);
+        z-index: 10;
+      }
+
+      .day-cell.filler {
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="seasonal-canvas"></canvas>
+    <main id="viewport">
+      <div id="grid-container"></div>
+    </main>
+
+    <script>
+      const container = document.getElementById('grid-container');
+      const canvas = document.getElementById('seasonal-canvas');
+      const ctx = canvas.getContext('2d');
+
+      let simulatedDate = new Date();
+      let particles = [];
+      let currentSeasonType = '';
+
+      const SEASONS = {
+        WINTER: { type: 'WINTER', color: '#E0F7FA', bg: '#010409', pColor: '#FFF', count: 150 },
+        SPRING: { type: 'SPRING', color: '#FFB7C5', bg: '#050801', pColor: '#FFB7C5', count: 80 },
+        SUMMER: { type: 'SUMMER', color: '#FFD700', bg: '#0A0500', pColor: '#FFD700', count: 40 },
+        AUTUMN: { type: 'AUTUMN', color: '#E67E22', bg: '#080402', pColor: '#D35400', count: 100 },
+      };
+
+      function getSeason(date) {
+        const m = date.getMonth();
+        if (m >= 2 && m <= 4) return SEASONS.SPRING;
+        if (m >= 5 && m <= 7) return SEASONS.SUMMER;
+        if (m >= 8 && m <= 10) return SEASONS.AUTUMN;
+        return SEASONS.WINTER;
+      }
+
+      function initParticles() {
+        const season = getSeason(simulatedDate);
+        currentSeasonType = season.type;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        particles = [];
+
+        for (let i = 0; i < season.count; i++) {
+          particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * (season.type === 'WINTER' ? 3 : 6) + 2,
+            speed: Math.random() * 1 + 0.5,
+            angle: Math.random() * Math.PI * 2,
+            spin: Math.random() * 0.2 - 0.1,
+            opacity: Math.random() * 0.5 + 0.3,
+          });
+        }
+      }
+
+      function updateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const season = getSeason(simulatedDate);
+        ctx.fillStyle = season.pColor;
+
+        particles.forEach((p) => {
+          ctx.save();
+          ctx.globalAlpha = p.opacity;
+          ctx.translate(p.x, p.y);
+
+          if (currentSeasonType === 'WINTER') {
+            // SNOW: Bulat, goyang kiri kanan
+            p.y += p.speed;
+            p.x += Math.sin(p.angle) * 0.5;
+            p.angle += 0.02;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (currentSeasonType === 'SPRING') {
+            // SAKURA: Elips, jatuh miring & berputar
+            p.y += p.speed * 1.2;
+            p.x += 1;
+            p.angle += p.spin;
+            ctx.rotate(p.angle);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size, p.size / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (currentSeasonType === 'SUMMER') {
+            // HEATWAVE: Garis vertikal tipis naik ke atas
+            p.y -= p.speed * 2;
+            p.x += Math.sin(p.angle) * 0.2;
+            p.angle += 0.05;
+            ctx.fillRect(0, 0, 1, p.size * 2);
+          } else if (currentSeasonType === 'AUTUMN') {
+            // LEAVES: Kotak/segitiga, jatuh zigzag
+            p.y += p.speed * 1.5;
+            p.x += Math.cos(p.angle) * 2;
+            p.angle += 0.05;
+            ctx.rotate(p.angle);
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size / 1.5);
+          }
+
+          ctx.restore();
+
+          // Reset position
+          if (p.y > canvas.height + 20) p.y = -20;
+          if (p.y < -20) p.y = canvas.height + 20;
+          if (p.x > canvas.width + 20) p.x = -20;
+          if (p.x < -20) p.x = canvas.width + 20;
+        });
+
+        requestAnimationFrame(updateParticles);
+      }
+
+      function renderGrid() {
+        const season = getSeason(simulatedDate);
+        document.body.style.backgroundColor = season.bg;
+        document.documentElement.style.setProperty('--accent', season.color);
+
+        const year = simulatedDate.getFullYear();
+        const actualDays = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+        const todayTime = new Date(year, simulatedDate.getMonth(), simulatedDate.getDate()).getTime();
+
+        const vw = window.innerWidth * 0.94;
+        const vh = window.innerHeight * 0.94;
+        const cols = Math.ceil(Math.sqrt(actualDays * (vw / vh)));
+        const rows = Math.ceil(actualDays / cols);
+        const startFillerCount = Math.floor((cols * rows - actualDays) / 2);
+        const gap = 3;
+        const cellSize = Math.min((vw - (cols - 1) * gap) / cols, (vh - (rows - 1) * gap) / rows);
+
+        container.style.width = `${cols * (cellSize + gap) - gap}px`;
+        container.style.height = `${rows * (cellSize + gap) - gap}px`;
+        container.innerHTML = '';
+
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < cols * rows; i++) {
+          const cell = document.createElement('div');
+          cell.className = 'day-cell';
+          cell.style.width = `${cellSize}px`;
+          cell.style.height = `${cellSize}px`;
+          cell.style.transform = `translate3d(${(i % cols) * (cellSize + gap)}px, ${
+            Math.floor(i / cols) * (cellSize + gap)
+          }px, 0)`;
+
+          if (i < startFillerCount || i >= startFillerCount + actualDays) {
+            cell.classList.add('filler');
+          } else {
+            const dayIdx = i - startFillerCount;
+            const date = new Date(year, 0, 1 + dayIdx);
+            const time = date.getTime();
+            if (time === todayTime) cell.classList.add('today');
+            else if (time < todayTime) {
+              const diff = (todayTime - time) / 86400000;
+              cell.style.background = 'var(--cell-past)';
+              cell.style.opacity = Math.max(0.12, 1 - diff * 0.0035);
+              cell.style.filter = `grayscale(${Math.min(100, diff * 0.2)}%)`;
+            } else {
+              cell.style.background = 'var(--cell-future)';
+              cell.style.opacity = '0.2';
+            }
+          }
+          frag.appendChild(cell);
+        }
+        container.appendChild(frag);
+      }
+
+      // Alt + R: Random Simulation
+      window.addEventListener('keydown', (e) => {
+        if (e.altKey && e.key.toLowerCase() === 'r') {
+          const randomMonth = Math.floor(Math.random() * 12);
+          simulatedDate = new Date(2026, randomMonth, 15);
+          initParticles();
+          renderGrid();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        initParticles();
+        renderGrid();
+      });
+
+      // Inisialisasi
+      initParticles();
+      updateParticles();
+      renderGrid();
+    </script>
+  </body>
+</html>

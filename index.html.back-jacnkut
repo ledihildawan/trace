@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grid Architect V38 - Clean Infinite</title>
+    <style>
+      :root {
+        --bg: #fdfeff;
+        --grid-bg: #f1f5f9;
+        --border: #e2e8f0;
+        --cell-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --accent: #6366f1;
+        --cyan: #06b6d4;
+        --weekend-bg: #faf5ff;
+        --weekend-text: #a855f7;
+        --today-bg: #4f46e5;
+        --month-start-bg: #f0fdfa;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      html,
+      body {
+        height: 100%;
+        width: 100%;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Inter', system-ui, sans-serif;
+        overflow: hidden;
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100vh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+      }
+      #viewport::-webkit-scrollbar {
+        display: none;
+      }
+
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+      }
+
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        overflow: hidden;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+      }
+
+      /* WATERMARK: Penunjuk Tahun Utama */
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 3%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: 28vh;
+        font-weight: 950;
+        color: transparent;
+        -webkit-text-stroke: 1.5px var(--border);
+        background: linear-gradient(to bottom, var(--border), var(--text-muted), var(--border));
+        -webkit-background-clip: text;
+        opacity: 0;
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        z-index: 5;
+        letter-spacing: -1.5vh;
+        white-space: nowrap;
+        transition: all 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+        transform: scale(0.9) translateY(30px);
+      }
+
+      .year-block.active .watermark-embedded {
+        opacity: 0.25;
+        transform: scale(1) translateY(0);
+      }
+
+      .grid-layer {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 1px;
+        background: var(--grid-bg);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        transition: opacity 1s ease-out 0.3s;
+      }
+
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      .cell {
+        background: var(--cell-bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .cell-content {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .cell .date-num {
+        font-size: clamp(10px, 2vh, 18px);
+        font-weight: 700;
+        color: var(--text-main);
+      }
+      .cell .info-meta {
+        font-size: clamp(6px, 0.9vh, 8px);
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .cell.filler {
+        background: var(--bg);
+        opacity: 0.3;
+      }
+      .cell.weekend {
+        background: var(--weekend-bg);
+      }
+      .cell.weekend .date-num,
+      .cell.weekend .info-meta {
+        color: var(--weekend-text);
+      }
+      .cell.month-start {
+        background: var(--month-start-bg);
+        box-shadow: inset 4px 0 0 var(--cyan);
+      }
+
+      .cell.today {
+        background: var(--today-bg) !important;
+        z-index: 15;
+        box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+      }
+      .cell.today .date-num,
+      .cell.today .info-meta {
+        color: #fff !important;
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="viewport">
+      <div id="infinite-canvas"></div>
+    </main>
+
+    <script>
+      const Viewport = document.getElementById('viewport');
+      const Canvas = document.getElementById('infinite-canvas');
+
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+      const daysLabel = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+      const today = new Date();
+      const startVirtualYear = today.getFullYear();
+
+      const YEAR_HEIGHT = window.innerHeight;
+      const TOTAL_VIRTUAL_YEARS = 10000;
+      const START_Y = (TOTAL_VIRTUAL_YEARS / 2) * YEAR_HEIGHT;
+
+      let activeYears = new Map();
+
+      const observerOptions = { threshold: 0.4 };
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('active');
+          } else {
+            entry.target.classList.remove('active');
+          }
+        });
+      }, observerOptions);
+
+      function isLeap(y) {
+        return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+      }
+
+      function createYearBlock(year, yPos) {
+        if (activeYears.has(year)) return;
+
+        const block = document.createElement('section');
+        block.className = 'year-block';
+        block.style.top = `${yPos}px`;
+
+        const container = document.createElement('div');
+        container.className = 'grid-container';
+
+        const wm = document.createElement('div');
+        wm.className = 'watermark-embedded';
+        wm.innerText = year;
+        container.appendChild(wm);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid-layer';
+
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const cols = Math.ceil(Math.sqrt(365 * (vw / vh)));
+
+        const firstDayOfYear = new Date(year, 0, 1).getDay();
+        const totalDays = isLeap(year) ? 366 : 365;
+        const rows = Math.ceil((totalDays + firstDayOfYear) / cols);
+
+        grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+        for (let s = 0; s < cols * rows; s++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          const targetDate = new Date(year, 0, 1);
+          targetDate.setDate(targetDate.getDate() + (s - firstDayOfYear));
+
+          if (targetDate.getFullYear() !== year) {
+            cell.classList.add('filler');
+          } else {
+            if (targetDate.getDate() === 1) cell.classList.add('month-start');
+            const dayIdx = targetDate.getDay();
+            if (dayIdx === 0 || dayIdx === 6) cell.classList.add('weekend');
+            if (targetDate.toDateString() === today.toDateString()) cell.classList.add('today');
+          }
+
+          cell.innerHTML = `
+                    <div class="cell-content">
+                        <span class="info-meta">${months[targetDate.getMonth()]} · ${
+            daysLabel[targetDate.getDay()]
+          }</span>
+                        <span class="date-num">${targetDate.getDate()}</span>
+                    </div>
+                `;
+          grid.appendChild(cell);
+        }
+
+        container.appendChild(grid);
+        block.appendChild(container);
+        Canvas.appendChild(block);
+        activeYears.set(year, block);
+
+        observer.observe(block);
+      }
+
+      function updateInfinite() {
+        const scrollTop = Viewport.scrollTop;
+        const currentIdx = Math.round(scrollTop / YEAR_HEIGHT);
+        const currentYear = startVirtualYear + (currentIdx - TOTAL_VIRTUAL_YEARS / 2);
+
+        for (let i = -1; i <= 1; i++) {
+          const targetYear = currentYear + i;
+          const targetYPos = (currentIdx + i) * YEAR_HEIGHT;
+          createYearBlock(targetYear, targetYPos);
+        }
+
+        for (let [year, block] of activeYears) {
+          if (Math.abs(year - currentYear) > 2) {
+            observer.unobserve(block);
+            block.remove();
+            activeYears.delete(year);
+          }
+        }
+      }
+
+      Canvas.style.height = `${TOTAL_VIRTUAL_YEARS * YEAR_HEIGHT}px`;
+      Viewport.scrollTop = START_Y;
+
+      Viewport.addEventListener('scroll', updateInfinite);
+      window.addEventListener('resize', () => location.reload());
+      updateInfinite();
+    </script>
+  </body>
+</html>

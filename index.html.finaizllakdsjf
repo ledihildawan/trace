@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="id" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Galactic Odyssey MPV2 - Fully Immersive Spatial Audio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* --- CORE CSS ENGINE --- */
+      @property --ion-x {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --ion-y {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --warp-scale {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0.92;
+      }
+      @property --ion-glow {
+        syntax: '<length>';
+        inherits: true;
+        initial-value: 700px;
+      }
+      @property --chroma-dist {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+
+      :root {
+        --accent-primary: light-dark(#4338ca, #fbbf24);
+        --accent-secondary: light-dark(#0369a1, #22d3ee);
+        --today-glow: light-dark(rgba(67, 56, 202, 0.3), rgba(59, 130, 246, 0.6));
+        --bg: light-dark(#f8fafc, #020617);
+        --border: light-dark(#e2e8f0, #1e293b);
+        --cell-bg: light-dark(#ffffff, #020617);
+        --text-main: light-dark(#0f172a, #f1f5f9);
+        --text-muted: light-dark(#475569, #64748b);
+
+        /* Debu luar angkasa yang lebih halus */
+        --dust-opacity: light-dark(0.04, 0.12);
+
+        --ion-primary: var(--accent-primary);
+        --ion-secondary: var(--accent-secondary);
+        --ion-blend: light-dark(multiply, screen);
+        --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
+        --ion-glow: 700px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif;
+        overflow: hidden;
+        perspective: 2000px;
+        overscroll-behavior: none;
+        contain: strict;
+        /* Force GPU layer untuk smooth rendering */
+        transform: translateZ(0);
+        will-change: scroll-position;
+      }
+
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        background: #020617;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.6s ease-out, visibility 0.6s;
+      }
+      #loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .loader-text {
+        color: var(--accent-secondary);
+        font-size: 10px;
+        letter-spacing: 0.5em;
+        text-transform: uppercase;
+        font-weight: 900;
+        margin-top: 20px;
+        text-align: center;
+      }
+      .loader-bar {
+        width: 150px;
+        height: 1px;
+        background: rgba(34, 211, 238, 0.2);
+        position: relative;
+        overflow: hidden;
+      }
+      .loader-progress {
+        position: absolute;
+        height: 100%;
+        width: 0%;
+        background: var(--accent-secondary);
+        transition: width 0.4s ease;
+      }
+
+      @media (pointer: fine) {
+        * {
+          cursor: none !important;
+        }
+      }
+
+      /* ── ION DRIVE ── */
+      #ion-drive {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        background: radial-gradient(
+            var(--ion-glow) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+            color-mix(in srgb, var(--ion-secondary) 15%, transparent) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            50px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+            color-mix(in srgb, var(--ion-primary) 60%, transparent) 0%,
+            transparent 100%
+          );
+        opacity: var(--ion-opacity);
+        mix-blend-mode: var(--ion-blend);
+        /* Smoother transition dengan lebih sedikit properties */
+        transition: opacity 0.3s ease;
+        /* Force own layer */
+        transform: translateZ(0);
+        contain: strict;
+      }
+
+      #atmosphere {
+        position: fixed;
+        inset: 0;
+        z-index: 6;
+        pointer-events: none;
+        opacity: var(--dust-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+        animation: drift 60s linear infinite;
+      }
+      @keyframes drift {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 400px 400px;
+        }
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+        -webkit-overflow-scrolling: touch;
+        /* Smooth scrolling native browser */
+        scroll-behavior: smooth;
+      }
+      #viewport.is-locked {
+        pointer-events: none !important;
+      }
+      #viewport::-webkit-scrollbar {
+        display: none;
+      }
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: layout style paint;
+      }
+
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        /* Critical: content-visibility untuk lazy rendering */
+        content-visibility: auto;
+        contain-intrinsic-size: 100vw 100dvh;
+        backface-visibility: hidden;
+        transform: translateZ(0);
+        transform-origin: center center;
+        /* Smooth transition hanya untuk transform dan opacity */
+        transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease-out;
+        will-change: transform, opacity;
+        /* Strict containment untuk isolasi rendering */
+        contain: strict;
+        isolation: isolate;
+      }
+
+      .year-block:not(.active) {
+        transform: scale(0.9) translate3d(0, 0, -250px);
+        opacity: 0.1;
+      }
+
+      /* Filter blur hanya untuk settled state */
+      .year-block:not(.active):not(.transitioning) {
+        /* Gunakan backdrop-filter untuk hardware acceleration */
+        filter: blur(4px) grayscale(0.2);
+        transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease-out, filter 0.5s ease;
+      }
+
+      .year-block.active {
+        transform: scale(1) translate3d(0, 0, 0);
+        filter: none;
+        opacity: 1;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+        overflow-x: hidden;
+        scrollbar-width: none;
+        backface-visibility: hidden;
+        transform: translateZ(0);
+        contain: paint layout style;
+      }
+
+      /* Chromatic aberration dengan lighter filter */
+      .grid-container.chromatic-active {
+        filter: drop-shadow(calc(var(--chroma-dist) * -0.5px) 0 0 rgba(255, 0, 0, 0.15))
+          drop-shadow(calc(var(--chroma-dist) * 0.5px) 0 0 rgba(0, 255, 255, 0.15));
+        transition: filter 0.15s linear;
+      }
+
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(100px, 30dvh, 400px);
+        font-weight: 900;
+        color: transparent;
+        background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary), transparent);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 10;
+        transition: opacity 0.5s ease-out;
+        /* Force own layer */
+        transform: translateZ(0);
+        will-change: transform;
+      }
+      .year-block.active .watermark-embedded {
+        opacity: 0.15;
+      }
+      .year-block.is-scrolling .watermark-embedded {
+        position: fixed;
+        opacity: 0.08;
+      }
+
+      .grid-layer {
+        display: grid;
+        width: 100.1%;
+        margin-left: -0.5px;
+        min-height: 100%;
+        opacity: 0;
+        transition: opacity 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        z-index: 2;
+        gap: 0;
+        background: transparent;
+        /* Containment untuk grid */
+        contain: layout style paint;
+      }
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+        box-shadow: inset 0 0 0 0.5px var(--border);
+        display: flex;
+        flex-direction: column;
+        transition: background 0.3s ease, opacity 0.3s ease;
+        contain: layout style;
+      }
+      .cell.filler {
+        opacity: 0.15;
+        background: transparent;
+        pointer-events: auto;
+      }
+      .cell.weekend {
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.03) 0%, transparent 100%);
+      }
+      .cell.week-start {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
+      }
+      .cell.week-start::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent-primary), transparent);
+        opacity: 0.2;
+        z-index: 3;
+      }
+      .cell.month-start {
+        background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, transparent 100%);
+        box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
+      }
+      .cell.month-start .info-meta.top-label {
+        color: var(--accent-secondary);
+        font-weight: 900;
+        letter-spacing: 0.15em;
+      }
+
+      .cell.today {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        z-index: 10;
+        box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      }
+      .cell.today .date-num {
+        font-weight: 900;
+        color: #fff !important;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      }
+      .cell.today .info-meta {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 700;
+      }
+
+      .cell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 4px;
+        z-index: 2;
+        pointer-events: none;
+      }
+      .info-meta {
+        font-size: clamp(6px, 0.8dvh, 8px);
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+        transition: opacity 0.4s ease;
+      }
+      .date-num {
+        font-size: clamp(14px, 2.5dvh, 22px);
+        font-weight: 300;
+        line-height: 1;
+        color: var(--text-main);
+        transition: all 0.4s ease;
+      }
+
+      #toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--accent-secondary);
+        backdrop-filter: blur(20px) saturate(180%);
+        padding: 12px 28px;
+        border-radius: 40px;
+        font-weight: 900;
+        font-size: 10px;
+        z-index: 99999;
+        opacity: 0;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        pointer-events: none;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+      }
+      #toast.active {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+      #theme-veil.active {
+        opacity: 1;
+      }
+      /* Efek saat melakukan lompatan besar - kurangi blur untuk performa */
+      #viewport.warping-far .year-block {
+        /* Hilangkan filter blur yang berat */
+        opacity: 0;
+        transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease-out;
+      }
+
+      /* Efek lorong waktu saat lompatan jauh */
+      #viewport.warping-far #infinite-canvas {
+        transform: scale(1.2) translateZ(0);
+        filter: blur(12px) brightness(1.15);
+        transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s ease;
+        opacity: 0.6;
+      }
+
+      /* Efek getaran ringan saat warp dekat */
+      #viewport.warping-near #infinite-canvas {
+        transform: scale(1.02) translateZ(0);
+        filter: blur(2px);
+        transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.3s ease;
+      }
+
+      /* Memastikan kursor benar-benar lenyap ke titik tengah */
+      #ion-drive.jumping {
+        opacity: 0 !important;
+        transform: scale(0) translateZ(0);
+        transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+      }
+
+      /* Hide cursor saat mouse leave window */
+      html.cursor-hidden #ion-drive {
+        opacity: 0 !important;
+        transition: opacity 0.2s ease;
+      }
+    </style>
+  </head>
+  <body oncontextmenu="return false;">
+    <div id="loading-screen">
+      <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
+      <div class="loader-text" id="load-status">Synchronizing Neural Network...</div>
+    </div>
+    <div id="ion-drive"></div>
+    <div id="atmosphere"></div>
+    <div id="theme-veil"></div>
+    <div id="toast">READY</div>
+    <main id="viewport"><div id="infinite-canvas"></div></main>
+
+    <script type="module">
+      const OdysseyConfig = {
+        temporal: {
+          weekStart: 1,
+          totalYears: 2000,
+          monthsShort: ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'],
+          daysShort: ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'],
+        },
+        display: { defaultMode: 'structured', centerContent: true, minCols: 7, warpDuration: 1100 },
+        audio: {
+          basePath: 'assets/sfx/',
+          masterVolume: 0.4,
+          ambientBaseVolume: 0.12,
+          idleInterval: [10000, 25000],
+          idleDelay: 30000,
+        },
+        physics: {
+          cursorInertia: 0.15, // Slightly higher untuk smoother
+          hoverThrottle: 120,
+          exhaustThreshold: 15,
+          scrollDebounce: 80, // Lebih cepat response
+          parallaxThrottle: 8, // ~120fps untuk ultra smooth
+        },
+      };
+
+      class ParticleEngine {
+        constructor() {
+          this.canvas = document.createElement('canvas');
+          this.gl = this.canvas.getContext('webgl', {
+            alpha: true,
+            antialias: false,
+            depth: false,
+            preserveDrawingBuffer: false,
+          });
+
+          this.particles = [];
+          this.maxParticles = 1200;
+          this.isPaused = false;
+          this.init();
+        }
+
+        getCSSColor(varName) {
+          const color = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+          if (color.startsWith('#')) {
+            const r = parseInt(color.slice(1, 3), 16) / 255;
+            const g = parseInt(color.slice(3, 5), 16) / 255;
+            const b = parseInt(color.slice(5, 7), 16) / 255;
+            return [r, g, b];
+          }
+          return [0.5, 0.5, 0.5];
+        }
+
+        init() {
+          const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+          Object.assign(this.canvas.style, {
+            position: 'fixed',
+            inset: '0',
+            zIndex: '2', // Di bawah UI, di atas background
+            pointerEvents: 'none',
+            mixBlendMode: isLight ? 'normal' : 'screen',
+          });
+          document.body.appendChild(this.canvas);
+
+          if (!this.gl) return;
+
+          const gl = this.gl;
+          this.buffers = {
+            pos: gl.createBuffer(),
+            vel: gl.createBuffer(),
+            life: gl.createBuffer(),
+            size: gl.createBuffer(),
+            color: gl.createBuffer(),
+          };
+
+          const vs = `
+      attribute vec2 a_pos;
+      attribute vec2 a_vel;
+      attribute float a_life;
+      attribute float a_size;
+      attribute vec3 a_color;
+      varying float v_life;
+      varying vec3 v_color;
+      uniform vec2 u_res;
+      void main() {
+        vec2 clipSpace = (a_pos / u_res) * 2.0 - 1.0;
+        gl_Position = vec4(clipSpace.x, -clipSpace.y, 0, 1);
+        
+        // Efek Motion Stretch: Membesar saat bergerak cepat
+        float speed = length(a_vel);
+        gl_PointSize = a_size * a_life * (1.0 + speed * 0.05); 
+        
+        v_life = a_life;
+        v_color = a_color;
+      }
+    `;
+
+          const fs = `
+      precision mediump float;
+      varying float v_life;
+      varying vec3 v_color;
+      uniform float u_isLight;
+      void main() {
+        float d = distance(gl_PointCoord, vec2(0.5));
+        if (d > 0.5) discard;
+        float intensity = (u_isLight > 0.5) ? 1.8 : 2.5;
+        float glow = pow(1.0 - (d * 2.0), intensity);
+        gl_FragColor = vec4(v_color, glow * v_life);
+      }
+    `;
+
+          this.program = this.createProgram(vs, fs);
+          this.resize();
+          window.addEventListener('resize', () => this.resize());
+          this.loop();
+        }
+
+        createProgram(vsSource, fsSource) {
+          const gl = this.gl;
+          const compile = (type, src) => {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src);
+            gl.compileShader(s);
+            return s;
+          };
+          const p = gl.createProgram();
+          gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSource));
+          gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSource));
+          gl.linkProgram(p);
+          return p;
+        }
+
+        resize() {
+          const dpr = Math.min(window.devicePixelRatio, 2);
+          this.canvas.width = window.innerWidth * dpr;
+          this.canvas.height = window.innerHeight * dpr;
+          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        spawn(x, y, isExhaust = false) {
+          const dpr = Math.min(window.devicePixelRatio, 2);
+          const count = isExhaust ? 2 : 12;
+
+          // Ambil warna murni dari CSS
+          let primary = this.getCSSColor('--ion-primary');
+          let secondary = this.getCSSColor('--ion-secondary');
+
+          // Filter Khusus Light Mode: Berikan kontras ekstra agar Navy terlihat premium
+          if (document.documentElement.getAttribute('data-theme') === 'light') {
+            const contrastScale = 0.75; // Nilai ideal agar Navy tidak pecah
+            primary = primary.map((v) => v * contrastScale);
+            secondary = secondary.map((v) => v * contrastScale);
+          }
+
+          for (let i = 0; i < count; i++) {
+            if (this.particles.length >= this.maxParticles) this.particles.shift();
+            const angle = Math.random() * Math.PI * 2;
+            const force = isExhaust ? Math.random() * 2 : Math.random() * 5 + 1.5;
+
+            this.particles.push({
+              x: x * dpr,
+              y: y * dpr,
+              vx: Math.cos(angle) * force * dpr,
+              vy: Math.sin(angle) * force * dpr,
+              life: 1.0,
+              decay: isExhaust ? 0.04 : 0.015,
+              // Ukuran sedikit lebih besar di Light Mode agar terlihat solid
+              size: (isExhaust ? 8 : 22) * dpr,
+              color: isExhaust ? primary : secondary,
+            });
+          }
+        }
+
+        loop() {
+          const gl = this.gl;
+          if (!gl) return;
+
+          // Skip rendering jika paused
+          if (this.isPaused) {
+            requestAnimationFrame(() => this.loop());
+            return;
+          }
+
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+
+          if (this.particles.length === 0) {
+            requestAnimationFrame(() => this.loop());
+            return;
+          }
+
+          gl.enable(gl.BLEND);
+          const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+          // Sinkronkan visual secara real-time
+          this.canvas.style.mixBlendMode = isLight ? 'normal' : 'screen';
+          if (isLight) {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          } else {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+          }
+
+          if (!this.uniLocs) {
+            this.uniLocs = {
+              isLight: gl.getUniformLocation(this.program, 'u_isLight'),
+              res: gl.getUniformLocation(this.program, 'u_res'),
+            };
+          }
+
+          const posArr = [],
+            velArr = [],
+            lifeArr = [],
+            sizeArr = [],
+            colorArr = [];
+
+          // Logic Loop (CPU)
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.98;
+            p.vy *= 0.98;
+            p.life -= p.decay;
+
+            if (p.life <= 0) {
+              // Teknik Swap-to-back: jauh lebih cepat daripada splice
+              this.particles[i] = this.particles[this.particles.length - 1];
+              this.particles.pop();
+              continue;
+            }
+
+            posArr.push(p.x, p.y);
+            velArr.push(p.vx, p.vy);
+            lifeArr.push(p.life);
+            sizeArr.push(p.size);
+            colorArr.push(...p.color);
+          }
+
+          // Render Loop (GPU)
+          if (posArr.length > 0) {
+            gl.useProgram(this.program);
+
+            // Kirim data batch ke GPU
+            this.updateBuffer(new Float32Array(posArr), this.buffers.pos, 'a_pos', 2);
+            this.updateBuffer(new Float32Array(velArr), this.buffers.vel, 'a_vel', 2);
+            this.updateBuffer(new Float32Array(lifeArr), this.buffers.life, 'a_life', 1);
+            this.updateBuffer(new Float32Array(sizeArr), this.buffers.size, 'a_size', 1);
+            this.updateBuffer(new Float32Array(colorArr), this.buffers.color, 'a_color', 3);
+
+            gl.uniform1f(this.uniLocs.isLight, isLight ? 1.0 : 0.0);
+            gl.uniform2f(this.uniLocs.res, this.canvas.width, this.canvas.height);
+
+            gl.drawArrays(gl.POINTS, 0, posArr.length / 2);
+          }
+
+          requestAnimationFrame(() => this.loop());
+        }
+
+        pause() {
+          this.isPaused = true;
+        }
+
+        resume() {
+          this.isPaused = false;
+        }
+
+        updateBuffer(data, buffer, attrName, size) {
+          const gl = this.gl;
+          const loc = gl.getAttribLocation(this.program, attrName);
+          if (loc === -1) return;
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+          gl.enableVertexAttribArray(loc);
+          gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+        }
+      }
+
+      /* ── ENHANCED SPATIAL AUDIO ENGINE ── */
+      class GalacticAudio {
+        #path = OdysseyConfig.audio.basePath;
+        #sounds = new Map();
+        #ctx = null;
+        #masterGain = null;
+        #panner = null;
+        #ambientSources = new Map();
+
+        constructor() {
+          this.enabled = false;
+          this.initialized = false;
+          this.isBusy = false;
+          this.idleTimer = null;
+          this.#initAudioContext();
+        }
+
+        #initAudioContext() {
+          const init = async () => {
+            if (this.initialized) return;
+            this.#ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.#masterGain = this.#ctx.createGain();
+            this.#masterGain.gain.value = OdysseyConfig.audio.masterVolume;
+
+            this.#panner = this.#ctx.createPanner();
+            this.#panner.panningModel = 'HRTF';
+            this.#panner.distanceModel = 'inverse';
+            this.#panner.refDistance = 1;
+            this.#panner.maxDistance = 10000;
+            this.#panner.rolloffFactor = 1;
+
+            this.#panner.connect(this.#masterGain);
+            this.#masterGain.connect(this.#ctx.destination);
+
+            await this.#loadAssets();
+            this.initialized = true;
+          };
+          ['click', 'touchstart', 'keydown'].forEach((e) => window.addEventListener(e, init, { once: true }));
+        }
+
+        injectEnginePower(velocity) {
+          if (!this.enabled || !this.initialized) return;
+
+          const power = Math.min(velocity / 120, 1.0);
+
+          if (power > 0.15) {
+            const nowMs = Date.now();
+            // Gunakan interval 100ms agar audio terasa lebih mekanis (grainy)
+            if (!this._lastEnginePlay || nowMs - this._lastEnginePlay > 100) {
+              this.play('hover', {
+                volume: OdysseyConfig.audio.masterVolume * power * 0.3,
+                playbackRate: 0.4 + power * 1.2, // Pitch naik dari rendah ke sangat tinggi
+              });
+              this._lastEnginePlay = nowMs;
+            }
+          }
+
+          if (this.#masterGain) {
+            const targetVol = OdysseyConfig.audio.masterVolume * (1.0 + power * 0.4);
+            // Transisi volume yang sangat cepat untuk sensasi 'responsif'
+            this.#masterGain.gain.setTargetAtTime(targetVol, this.#ctx.currentTime, 0.08);
+          }
+        }
+
+        async #loadAssets() {
+          const sfx = {
+            jump: 'jump-to-today.mp3',
+            scroll: 'year-change-scroll-transition.mp3',
+            warp: 'fast-scroll-wrap-mode.mp3',
+            hover: 'hover-over-cell.mp3',
+            theme: 'theme-toggle.mp3',
+            beep: 'confirmation-beep.mp3',
+            enable: 'enabled-ambience.mp3',
+            mute: 'mute-ambience.mp3',
+            base: 'master-ambient-loop.mp3',
+            pulse: 'short-ambient-pulse.mp3',
+            wind: 'nebula-wind-sweep.mp3',
+            engine: 'engine-idle-hum.mp3',
+            stellar: 'distant-stellar-ambience.mp3',
+          };
+          for (const [key, name] of Object.entries(sfx)) {
+            const res = await fetch(`${this.#path}${name}`);
+            const buf = await res.arrayBuffer();
+            this.#sounds.set(key, await this.#ctx.decodeAudioData(buf));
+          }
+        }
+
+        updateSpatialPosition(x, y) {
+          if (!this.initialized || !this.#panner) return;
+          const px = (x / window.innerWidth) * 2 - 1;
+          const py = -(y / window.innerHeight) * 2 + 1;
+          this.#panner.positionX.setTargetAtTime(px, this.#ctx.currentTime, 0.1);
+          this.#panner.positionY.setTargetAtTime(py, this.#ctx.currentTime, 0.1);
+          this.#panner.positionZ.setTargetAtTime(0.5, this.#ctx.currentTime, 0.1);
+        }
+
+        play(key, options = {}) {
+          if (!this.enabled || !this.initialized || !this.#sounds.has(key)) return;
+          if (this.isBusy && key === 'hover') return;
+
+          const source = this.#ctx.createBufferSource();
+          source.buffer = this.#sounds.get(key);
+          const gain = this.#ctx.createGain();
+          gain.gain.value = options.volume ?? 1.0;
+          source.playbackRate.value = options.playbackRate || 1.0;
+
+          source.connect(gain);
+          // Only route non-ambient sounds through spatial panner
+          if (['hover', 'beep', 'pulse', 'wind'].includes(key)) {
+            gain.connect(this.#panner);
+          } else {
+            gain.connect(this.#masterGain);
+          }
+
+          if (options.loop) {
+            source.loop = true;
+            this.#ambientSources.set(key, source);
+          }
+          source.start(0);
+        }
+
+        toggleMaster() {
+          if (!this.initialized) return false;
+          this.enabled = !this.enabled;
+          if (this.enabled) {
+            this.#ctx.resume();
+            this.play('enable');
+            this.play('base', { volume: OdysseyConfig.audio.ambientBaseVolume, loop: true });
+            this.resetIdleTimer();
+          } else {
+            this.play('mute');
+            this.#ambientSources.forEach((s) => s.stop());
+            this.#ambientSources.clear();
+            clearTimeout(this.idleTimer);
+          }
+          return this.enabled;
+        }
+
+        resetIdleTimer() {
+          if (!this.enabled) return;
+          clearTimeout(this.idleTimer);
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), OdysseyConfig.audio.idleDelay);
+        }
+
+        #triggerRandomIdleClip() {
+          if (!this.enabled || this.isBusy) return;
+          const clips = [
+            { k: 'pulse', v: 0.15 },
+            { k: 'wind', v: 0.2 },
+            { k: 'engine', v: 0.15 },
+            { k: 'stellar', v: 0.2 },
+          ];
+          const c = clips[Math.floor(Math.random() * clips.length)];
+          this.play(c.k, { volume: c.v });
+          const [min, max] = OdysseyConfig.audio.idleInterval;
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), Math.random() * (max - min) + min);
+        }
+
+        setBusy(val) {
+          this.isBusy = val;
+          if (this.#masterGain)
+            this.#masterGain.gain.setTargetAtTime(
+              val ? 0.1 : OdysseyConfig.audio.masterVolume,
+              this.#ctx.currentTime,
+              0.5
+            );
+        }
+
+        /**
+         * Pause semua audio saat tab tidak aktif
+         */
+        pauseAll() {
+          if (!this.initialized || !this.#ctx) return;
+          if (this.#ctx.state === 'running') {
+            this.#ctx.suspend();
+          }
+          clearTimeout(this.idleTimer);
+        }
+
+        /**
+         * Resume audio saat tab aktif kembali
+         */
+        resumeAll() {
+          if (!this.initialized || !this.#ctx || !this.enabled) return;
+          if (this.#ctx.state === 'suspended') {
+            this.#ctx.resume();
+          }
+          this.resetIdleTimer();
+        }
+      }
+
+      class GridArchitect {
+        #activeYears = new Map();
+        #today = new Date();
+        #audio = new GalacticAudio();
+        #particles = new ParticleEngine();
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #ionDrive = document.getElementById('ion-drive');
+        #toast = document.getElementById('toast');
+        #lastScrollPos = 0;
+        #currentYearIdx = null;
+        #isScrolling = false;
+        #isWarping = false;
+        #isInteractingAllowed = true;
+        #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        #lastMouse = { x: 0, y: 0 };
+        #isRandomMode = OdysseyConfig.display.defaultMode === 'random';
+        #unifiedRafId = null; // Single RAF untuk semua animasi
+        #scrollVelocity = 0;
+        #chromaDebounceTimer = null;
+        #lastParallaxTime = 0;
+        #isPageVisible = true;
+        #needsRender = false;
+        #needsParallax = false;
+
+        constructor() {
+          this.totalYears = OdysseyConfig.temporal.totalYears;
+          this.yearHeight = window.innerHeight;
+          this.startY = (this.totalYears / 2) * this.yearHeight;
+          this.#runBoot();
+        }
+
+        async #runBoot() {
+          const bar = document.getElementById('load-progress');
+          const steps = [
+            { p: 40, t: 'Binding Light Stream...' },
+            { p: 80, t: 'Synchronizing Neural Audio...' },
+            { p: 100, t: 'System Online.' },
+          ];
+          for (const s of steps) {
+            await new Promise((r) => setTimeout(r, 400));
+            bar.style.width = `${s.p}%`;
+            document.getElementById('load-status').innerText = s.t;
+          }
+          this.#init();
+          setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
+        }
+
+        #init() {
+          this.#applyTheme(localStorage.getItem('theme') || 'dark');
+          this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+
+          // Optimized Intersection Observer dengan predictive loading
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => {
+                const b = e.target;
+                const year = parseInt(b.dataset.year);
+                const wasActive = b.classList.contains('active');
+                b.classList.toggle('active', e.isIntersecting);
+
+                if (e.isIntersecting && !wasActive && 'vibrate' in navigator) {
+                  navigator.vibrate(8);
+                }
+
+                if (!e.isIntersecting) {
+                  const currentIdx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+                  const currentYear = this.#today.getFullYear() + (currentIdx - this.totalYears / 2);
+                  if (Math.abs(year - currentYear) > 2) {
+                    this.#activeYears.delete(year);
+                    this.observer.unobserve(b);
+                    b.remove();
+                  }
+                }
+
+                if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
+                  const c = b.querySelector('.grid-container');
+                  if (c && b.classList.contains('is-scrolling')) c.scrollTop = c.scrollHeight;
+                }
+              });
+              this.#lastScrollPos = this.#viewport.scrollTop;
+            },
+            {
+              threshold: [0, 0.05, 0.1], // Multiple thresholds untuk smoother transition
+              rootMargin: '30% 0px', // Predictive loading lebih jauh
+            }
+          );
+
+          this.#setupListeners();
+          this.#startUnifiedAnimationLoop(); // Start single RAF loop
+          this.#render();
+          setTimeout(() => this.jumpToToday(true), 150);
+        }
+
+        #showToast(msg) {
+          clearTimeout(this.toastTimer);
+          this.#toast.innerText = msg;
+          this.#toast.classList.add('active');
+          this.toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
+        }
+
+        #lockInteractions() {
+          this.#isInteractingAllowed = false;
+          this.#audio.setBusy(true);
+          this.#viewport.classList.add('is-locked');
+          document.documentElement.style.setProperty('--ion-glow', '200px');
+        }
+
+        #unlockInteractions() {
+          setTimeout(() => {
+            this.#isInteractingAllowed = true;
+            this.#audio.setBusy(false);
+            this.#viewport.classList.remove('is-locked');
+            document.documentElement.style.setProperty('--ion-glow', '700px');
+          }, 400);
+        }
+
+        jumpToToday(isInitial = false) {
+          if (this.#isWarping) return;
+
+          const currentYear =
+            this.#today.getFullYear() + (Math.round(this.#viewport.scrollTop / this.yearHeight) - this.totalYears / 2);
+          const targetYear = this.#today.getFullYear();
+          const distance = Math.abs(targetYear - currentYear);
+
+          this.#isWarping = true;
+          this.#lockInteractions();
+
+          // 1. Sembunyikan Kursor (Ion Drive)
+          this.#ionDrive.classList.add('jumping');
+
+          // 2. Logika Jarak & Durasi
+          let warpClass = '';
+          let duration = OdysseyConfig.display.warpDuration; // Default 1100ms
+
+          if (distance > 20) {
+            warpClass = 'warping-far';
+            this.#audio.play('jump', { volume: 0.8 });
+            duration = 1800; // Lompatan jauh butuh waktu lebih lama agar suara 'jump' selesai
+
+            // Efek ledakan partikel saat mulai melompat
+            for (let i = 0; i < 15; i++) {
+              this.#particles.spawn(this.#current.x, this.#current.y, false);
+            }
+          } else if (distance >= 2) {
+            warpClass = 'warping-near';
+            this.#audio.play('warp', { volume: 0.5 });
+            duration = 1200;
+          } else {
+            this.#audio.play('scroll');
+          }
+
+          // Terapkan efek visual ke viewport
+          if (warpClass) this.#viewport.classList.add(warpClass);
+
+          // 3. Eksekusi Pergerakan Scroll
+          // Kita sesuaikan timing scroll agar sinkron dengan durasi CSS
+          this.#viewport.style.scrollBehavior = 'smooth';
+          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
+
+          if (!isInitial) this.#showToast(distance > 20 ? 'INTERSTELLAR JUMP' : 'LOCAL WARP');
+
+          setTimeout(() => {
+            // Reset visual
+            this.#viewport.classList.remove('warping-far', 'warping-near');
+            this.#ionDrive.classList.remove('jumping');
+
+            for (let i = 0; i < 3; i++) {
+              setTimeout(() => {
+                this.#particles.spawn(this.#current.x, this.#current.y, false);
+              }, i * 50);
+            }
+
+            const b = this.#activeYears.get(targetYear);
+            if (b) {
+              const t = b.querySelector('.cell.today'),
+                c = b.querySelector('.grid-container');
+              if (t && c) c.scrollTo({ top: t.offsetTop - window.innerHeight / 3, behavior: 'smooth' });
+            }
+
+            this.#audio.play('beep');
+            this.#isWarping = false;
+            this.#unlockInteractions();
+          }, duration);
+        }
+
+        #setupListeners() {
+          window.addEventListener(
+            'pointermove',
+            (e) => {
+              this.#mouse.x = e.clientX;
+              this.#mouse.y = e.clientY;
+
+              const velocity = Math.sqrt(
+                Math.pow(e.clientX - this.#lastMouse.x, 2) + Math.pow(e.clientY - this.#lastMouse.y, 2)
+              );
+
+              if (velocity > OdysseyConfig.physics.exhaustThreshold) {
+                this.#particles.spawn(e.clientX, e.clientY, true);
+              }
+
+              this.#audio.injectEnginePower(velocity);
+              this.#lastMouse = { x: e.clientX, y: e.clientY };
+              this.#audio.resetIdleTimer();
+            },
+            { passive: true }
+          );
+
+          // Hide cursor saat mouse leave window
+          document.addEventListener('mouseleave', () => {
+            document.documentElement.classList.add('cursor-hidden');
+          });
+
+          document.addEventListener('mouseenter', () => {
+            document.documentElement.classList.remove('cursor-hidden');
+          });
+
+          // Page Visibility API - Pause everything saat tab tidak aktif
+          document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+              this.#handlePageHidden();
+            } else {
+              this.#handlePageVisible();
+            }
+          });
+
+          // Fallback untuk browser compatibility
+          window.addEventListener('blur', () => {
+            if (this.#isPageVisible) {
+              this.#handlePageHidden();
+            }
+          });
+
+          window.addEventListener('focus', () => {
+            if (!this.#isPageVisible) {
+              this.#handlePageVisible();
+            }
+          });
+
+          this.#viewport.addEventListener(
+            'scroll',
+            () => {
+              if (!this.#isScrolling) {
+                this.#lockInteractions();
+                this.#audio.play('scroll');
+
+                // Tandai semua block sedang transisi
+                this.#activeYears.forEach((block) => {
+                  if (!block.classList.contains('active')) {
+                    block.classList.add('transitioning');
+                  }
+                });
+              }
+              this.#isScrolling = true;
+
+              // Hitung velocity
+              this.#scrollVelocity = Math.abs(this.#viewport.scrollTop - this.#lastScrollPos);
+
+              // Mark needs untuk unified loop
+              this.#needsRender = true;
+              this.#needsParallax = true;
+
+              // Debounced chromatic effect
+              this.#scheduleChromatic();
+
+              clearTimeout(this.scrollStopT);
+              this.scrollStopT = setTimeout(() => {
+                this.#isScrolling = false;
+                this.#unlockInteractions();
+                this.#resetChromatic();
+
+                // Hapus class transitioning setelah scroll selesai
+                setTimeout(() => {
+                  this.#activeYears.forEach((block) => {
+                    block.classList.remove('transitioning');
+                  });
+                }, 100);
+              }, 150);
+            },
+            { passive: true }
+          );
+
+          window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 't') {
+              this.#audio.play('theme');
+              this.#toggleTheme();
+            }
+            if (k === 'm') {
+              const a = this.#audio.toggleMaster();
+              this.#showToast(a ? 'ION DRIVE ONLINE' : 'SILENT CRUISE');
+            }
+            if (k === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
+            if (k === 'r') this.#setMode(true);
+            if (k === 's') this.#setMode(false);
+          });
+
+          document.addEventListener('click', (e) => {
+            if (!this.#isInteractingAllowed) return;
+            this.#particles.spawn(e.clientX, e.clientY, false);
+            if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
+          });
+          window.addEventListener('resize', () => {
+            this.yearHeight = window.innerHeight;
+            this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
+            this.#particles.resize();
+            // Re-render years yang aktif tanpa reload
+            this.#render();
+          });
+        }
+
+        /**
+         * Unified Animation Loop - Semua animasi dalam satu RAF
+         * Ini menghindari multiple RAF calls yang bisa cause jank
+         */
+        #startUnifiedAnimationLoop() {
+          const loop = () => {
+            if (!this.#isPageVisible) {
+              this.#unifiedRafId = null;
+              return;
+            }
+
+            // 1. Update cursor (smooth interpolation)
+            if (!window.matchMedia('(pointer: coarse)').matches) {
+              this.#current.x += (this.#mouse.x - this.#current.x) * OdysseyConfig.physics.cursorInertia;
+              this.#current.y += (this.#mouse.y - this.#current.y) * OdysseyConfig.physics.cursorInertia;
+
+              document.documentElement.style.setProperty('--ion-x', this.#current.x);
+              document.documentElement.style.setProperty('--ion-y', this.#current.y);
+
+              this.#audio.updateSpatialPosition(this.#current.x, this.#current.y);
+            }
+
+            // 2. Update rendering jika perlu
+            if (this.#needsRender) {
+              this.#render();
+              this.#lastScrollPos = this.#viewport.scrollTop;
+              this.#needsRender = false;
+            }
+
+            // 3. Update parallax dengan throttle
+            if (this.#needsParallax) {
+              const now = performance.now();
+              if (now - this.#lastParallaxTime >= OdysseyConfig.physics.parallaxThrottle) {
+                this.#updateParallax();
+                this.#lastParallaxTime = now;
+                this.#needsParallax = false;
+              }
+            }
+
+            this.#unifiedRafId = requestAnimationFrame(loop);
+          };
+
+          loop();
+        }
+
+        /**
+         * Pause semua animasi dan audio saat tab tidak aktif
+         */
+        #handlePageHidden() {
+          this.#isPageVisible = false;
+
+          // Pause audio
+          this.#audio.pauseAll();
+
+          // Pause particles
+          this.#particles.pause();
+
+          // Unified RAF akan berhenti otomatis karena check #isPageVisible
+
+          // Hide cursor
+          document.documentElement.classList.add('cursor-hidden');
+
+          console.log('🌙 System hibernated - conserving resources');
+        }
+
+        /**
+         * Resume semua animasi dan audio saat tab aktif kembali
+         */
+        #handlePageVisible() {
+          this.#isPageVisible = true;
+
+          // Resume audio
+          this.#audio.resumeAll();
+
+          // Resume particles
+          this.#particles.resume();
+
+          // Restart unified loop jika belum jalan
+          if (!this.#unifiedRafId) {
+            this.#startUnifiedAnimationLoop();
+          }
+
+          // Show cursor
+          document.documentElement.classList.remove('cursor-hidden');
+
+          console.log('🚀 System reactivated - full power restored');
+        }
+
+        /**
+         * Debounced chromatic aberration untuk mengurangi jank
+         */
+        #scheduleChromatic() {
+          clearTimeout(this.#chromaDebounceTimer);
+
+          this.#chromaDebounceTimer = setTimeout(() => {
+            if (this.#scrollVelocity > 2) {
+              const targetChroma = Math.min(5, this.#scrollVelocity / 20);
+              document.documentElement.style.setProperty('--chroma-dist', targetChroma.toFixed(1));
+
+              // Aktifkan chromatic effect pada grid yang terlihat
+              this.#activeYears.forEach((block) => {
+                const container = block.querySelector('.grid-container');
+                if (block.classList.contains('active') && container) {
+                  container.classList.add('chromatic-active');
+                }
+              });
+            }
+          }, OdysseyConfig.physics.scrollDebounce);
+        }
+
+        /**
+         * Update parallax hanya untuk block yang aktif
+         */
+        #updateParallax() {
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+          const y = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          const activeBlock = this.#activeYears.get(y);
+
+          if (activeBlock) {
+            const offset = (this.#viewport.scrollTop % this.yearHeight) - this.yearHeight / 2;
+            const wm = activeBlock.querySelector('.watermark-embedded');
+
+            if (wm) {
+              const parallaxOffset = offset * 0.06;
+              wm.style.transform = `translate3d(0, ${parallaxOffset}px, 0)`;
+            }
+          }
+        }
+
+        /**
+         * Reset chromatic aberration dengan smooth decay
+         */
+        #resetChromatic() {
+          const decay = () => {
+            const currentChroma = parseFloat(
+              getComputedStyle(document.documentElement).getPropertyValue('--chroma-dist') || '0'
+            );
+
+            if (currentChroma > 0.05) {
+              const newChroma = currentChroma * 0.7;
+              document.documentElement.style.setProperty('--chroma-dist', newChroma.toFixed(2));
+              requestAnimationFrame(decay);
+            } else {
+              document.documentElement.style.setProperty('--chroma-dist', '0');
+
+              // Nonaktifkan chromatic effect
+              this.#activeYears.forEach((block) => {
+                const container = block.querySelector('.grid-container');
+                if (container) {
+                  container.classList.remove('chromatic-active');
+                }
+              });
+            }
+          };
+
+          requestAnimationFrame(decay);
+        }
+
+        #render() {
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+          const base = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          for (let i = -1; i <= 1; i++) this.#drawYear(base + i, (idx + i) * this.yearHeight);
+        }
+
+        #drawYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+          block.dataset.year = year;
+          const jan1 = new Date(year, 0, 1);
+          const days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth,
+            vh = window.innerHeight;
+          let cols = vw >= 600 ? Math.ceil(Math.ceil(Math.sqrt(373 * (vw / vh))) / 7) * 7 : 7;
+          let gO = this.#isRandomMode ? Math.floor(jan1.getTime() / 86400000) % cols : (jan1.getDay() + 6) % 7;
+          const rows = Math.ceil((days + gO) / cols);
+          const isSc = vh / rows < 60;
+          if (isSc) block.classList.add('is-scrolling');
+
+          const cont = document.createElement('div');
+          cont.className = 'grid-container';
+          cont.style.overflowY = isSc ? 'auto' : 'hidden';
+          const wm = document.createElement('div');
+          wm.className = 'watermark-embedded';
+          wm.innerText = year;
+          cont.append(wm);
+          const grid = document.createElement('div');
+          grid.className = 'grid-layer';
+          grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+          grid.style.gridTemplateRows = isSc ? `repeat(${rows}, minmax(60px, 1fr))` : `repeat(${rows}, 1fr)`;
+          grid.style.height = isSc ? 'auto' : '100%';
+          const frag = document.createDocumentFragment();
+          const itD = new Date(year, 0, 1 - gO);
+          for (let s = 0; s < cols * rows; s++) {
+            const isM = itD.getFullYear() === year;
+            const cell = document.createElement('div');
+            let fC = !isM ? (itD.getFullYear() < year ? 'filler-past' : 'filler-future') : '';
+            cell.className = `cell ${!isM ? 'filler ' + fC : ''} ${
+              itD.toDateString() === this.#today.toDateString() && isM ? 'today' : ''
+            } ${isM && itD.getDate() === 1 ? 'month-start' : ''} ${
+              isM && (itD.getDay() === 0 || itD.getDay() === 6) ? 'weekend' : ''
+            } ${isM && itD.getDay() === 1 ? 'week-start' : ''}`;
+            cell.innerHTML = `<div class="cell-content"><span class="info-meta ${
+              itD.getDate() === 1 && isM ? 'top-label' : ''
+            }">${
+              isM && (itD.getDate() === 1 || s === gO) ? OdysseyConfig.temporal.monthsShort[itD.getMonth()] : ''
+            }</span><span class="date-num">${itD.getDate()}</span><span class="info-meta">${
+              isM ? OdysseyConfig.temporal.daysShort[itD.getDay()] : ''
+            }</span></div>`;
+            frag.append(cell);
+            itD.setDate(itD.getDate() + 1);
+          }
+          grid.append(frag);
+          cont.append(grid);
+          block.append(cont);
+          this.#canvas.append(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
+
+        #setMode(r) {
+          if (this.#isRandomMode === r) return;
+          this.#isRandomMode = r;
+          this.#activeYears.forEach((b) => {
+            this.observer.unobserve(b);
+            b.remove();
+          });
+          this.#activeYears.clear();
+          this.#render();
+          this.#audio.play('beep');
+          this.#showToast(r ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
+        }
+        #applyTheme(t) {
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.style.colorScheme = t;
+        }
+        #toggleTheme() {
+          const v = document.getElementById('theme-veil');
+          v.classList.add('active');
+          setTimeout(() => {
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            this.#applyTheme(next);
+            localStorage.setItem('theme', next);
+            setTimeout(() => v.classList.remove('active'), 200);
+          }, 400);
+        }
+      }
+
+      new GridArchitect();
+    </script>
+  </body>
+</html>

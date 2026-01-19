@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="id" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Galactic Odyssey MPV2 - Synchronized & Immersive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* --- CORE CSS ENGINE --- */
+      @property --ion-x {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --ion-y {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+      @property --warp-scale {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0.92;
+      }
+      @property --ion-glow {
+        syntax: '<length>';
+        inherits: true;
+        initial-value: 700px;
+      }
+      @property --chroma-dist {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+      }
+
+      :root {
+        --accent-primary: #fbbf24;
+        --accent-secondary: #22d3ee;
+        --today-glow: rgba(59, 130, 246, 0.6);
+        --bg: light-dark(#f8fafc, #020617);
+        --border: light-dark(#cbd5e1, #1e293b);
+        --cell-bg: light-dark(#ffffff, #020617);
+        --text-main: light-dark(#0f172a, #f1f5f9);
+        --text-muted: light-dark(#64748b, #64748b);
+        --ion-color: light-dark(rgba(8, 145, 178, 0.1), rgba(34, 211, 238, 0.12));
+        --dust-opacity: light-dark(0.05, 0.15);
+        --ion-glow: 700px;
+        --cursor-scale: 1;
+      }
+
+      [data-theme='light'] {
+        color-scheme: light;
+      }
+      [data-theme='dark'] {
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        height: 100dvh;
+        width: 100vw;
+        background: var(--bg);
+        color: var(--text-main);
+        font-family: 'Space Grotesk', sans-serif;
+        overflow: hidden;
+        perspective: 2000px;
+        overscroll-behavior: none;
+        contain: strict;
+      }
+
+      /* 3. Starfield Backdrop Styling */
+      #starfield-parallax {
+        position: fixed;
+        inset: -10% -10%;
+        z-index: 1;
+        pointer-events: none;
+        background-image: radial-gradient(1px 1px at 20px 30px, #fff, rgba(0, 0, 0, 0)),
+          radial-gradient(1px 1px at 40px 70px, #fff, rgba(0, 0, 0, 0)),
+          radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0, 0, 0, 0)),
+          radial-gradient(1px 1px at 90px 40px, #fff, rgba(0, 0, 0, 0));
+        background-size: 250px 250px;
+        opacity: 0.3;
+        will-change: transform;
+      }
+
+      #loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        background: #020617;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.6s ease-out, visibility 0.6s;
+      }
+      #loading-screen.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .loader-text {
+        color: var(--accent-secondary);
+        font-size: 10px;
+        letter-spacing: 0.5em;
+        text-transform: uppercase;
+        font-weight: 900;
+        margin-top: 20px;
+        text-align: center;
+      }
+      .loader-bar {
+        width: 150px;
+        height: 1px;
+        background: rgba(34, 211, 238, 0.2);
+        position: relative;
+        overflow: hidden;
+      }
+      .loader-progress {
+        position: absolute;
+        height: 100%;
+        width: 0%;
+        background: var(--accent-secondary);
+        transition: width 0.4s ease;
+      }
+
+      @media (pointer: fine) {
+        * {
+          cursor: none !important;
+        }
+      }
+
+      #ion-drive {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        background: radial-gradient(
+            var(--ion-glow) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+            rgba(34, 211, 238, 0.15) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            50px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+            rgba(251, 191, 36, 0.6) 0%,
+            transparent 100%
+          );
+        opacity: 0.85;
+        mix-blend-mode: screen;
+        transition: opacity 0.5s ease, background 0.3s ease, --ion-glow 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        will-change: transform;
+        transform: translateZ(0);
+      }
+
+      .particle {
+        position: fixed;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 9999;
+        background: linear-gradient(to bottom right, rgba(34, 211, 238, 0.9), rgba(251, 191, 36, 0.4));
+        box-shadow: 0 0 8px 2px rgba(34, 211, 238, 0.6);
+        animation: ion-burst 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        will-change: transform, opacity;
+      }
+      @keyframes ion-burst {
+        0% {
+          transform: scale(var(--p-scale, 1.2)) translate(0, 0);
+          opacity: var(--p-opacity, 0.95);
+        }
+        100% {
+          transform: scale(0) translate(var(--dx), var(--dy));
+          opacity: 0;
+        }
+      }
+
+      #atmosphere {
+        position: fixed;
+        inset: 0;
+        z-index: 6;
+        pointer-events: none;
+        opacity: var(--dust-opacity);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        mix-blend-mode: overlay;
+        animation: drift 60s linear infinite;
+      }
+      @keyframes drift {
+        from {
+          background-position: 0 0;
+        }
+        to {
+          background-position: 400px 400px;
+        }
+      }
+
+      #viewport {
+        width: 100vw;
+        height: 100dvh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+        scrollbar-width: none;
+        position: relative;
+        -webkit-overflow-scrolling: touch;
+        z-index: 10;
+      }
+      #viewport.is-locked {
+        pointer-events: none !important;
+      }
+      #viewport::-webkit-scrollbar {
+        display: none;
+      }
+      #infinite-canvas {
+        position: relative;
+        width: 100%;
+        contain: layout;
+      }
+
+      .year-block {
+        position: absolute;
+        left: 0;
+        width: 100vw;
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        content-visibility: auto;
+        contain-intrinsic-size: 100vw 100dvh;
+        transform-origin: center center;
+        transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease, opacity 0.8s ease;
+        will-change: transform, opacity, filter;
+        contain: strict;
+      }
+
+      .year-block:not(.active) {
+        transform: scale(0.8) translate3d(0, 0, -600px);
+        filter: blur(20px) grayscale(0.5);
+        opacity: 0.15;
+      }
+
+      .year-block:not(.active) .date-num {
+        background: var(--text-muted);
+        color: transparent !important;
+        height: 1px;
+        width: 40%;
+        margin: 10px auto;
+        opacity: 0.5;
+      }
+      .year-block:not(.active) .info-meta {
+        opacity: 0;
+      }
+
+      .year-block.active {
+        transform: scale(1) translate3d(0, 0, 0);
+        filter: blur(0px);
+        opacity: 1;
+      }
+
+      .grid-container {
+        position: relative;
+        flex: 1;
+        display: flex;
+        background: var(--bg);
+        overflow-x: hidden;
+        scrollbar-width: none;
+        filter: drop-shadow(calc(var(--chroma-dist) * -1px) 0 0 rgba(255, 0, 0, 0.2))
+          drop-shadow(calc(var(--chroma-dist) * 1px) 0 0 rgba(0, 255, 255, 0.2));
+      }
+
+      .watermark-embedded {
+        position: absolute;
+        top: 0;
+        right: 5%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: clamp(100px, 30dvh, 400px);
+        font-weight: 900;
+        color: transparent;
+        background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary), transparent);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
+        writing-mode: vertical-rl;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 10;
+        transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform;
+      }
+      .year-block.active .watermark-embedded {
+        opacity: 0.15;
+        transform: translate3d(0, 0, 0);
+      }
+      .year-block.is-scrolling .watermark-embedded {
+        position: fixed;
+        opacity: 0.08;
+      }
+
+      .grid-layer {
+        display: grid;
+        width: 100.1%;
+        margin-left: -0.5px;
+        min-height: 100%;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        z-index: 2;
+        gap: 0;
+        background: transparent;
+      }
+      .year-block.active .grid-layer {
+        opacity: 1;
+      }
+
+      .cell {
+        background: var(--cell-bg);
+        position: relative;
+        box-shadow: inset 0 0 0 0.5px var(--border);
+        display: flex;
+        flex-direction: column;
+        transition: background 0.4s ease, opacity 0.4s ease;
+        contain: content;
+      }
+      .cell.filler {
+        opacity: 0.15;
+        background: transparent;
+        pointer-events: auto;
+      }
+      .cell.weekend {
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.03) 0%, transparent 100%);
+      }
+      .cell.week-start {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
+      }
+      .cell.week-start::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent-primary), transparent);
+        opacity: 0.2;
+        z-index: 3;
+      }
+      .cell.month-start {
+        background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, transparent 100%);
+        box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
+      }
+      .cell.month-start .info-meta.top-label {
+        color: var(--accent-secondary);
+        font-weight: 900;
+        letter-spacing: 0.15em;
+      }
+
+      .cell.today {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        z-index: 10;
+        box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      }
+      .cell.today .date-num {
+        font-weight: 900;
+        color: #fff !important;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      }
+      .cell.today .info-meta {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 700;
+      }
+
+      .cell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 4px;
+        z-index: 2;
+        pointer-events: none;
+      }
+      .info-meta {
+        font-size: clamp(6px, 0.8dvh, 8px);
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.1em;
+        transition: opacity 0.4s ease;
+      }
+      .date-num {
+        font-size: clamp(14px, 2.5dvh, 22px);
+        font-weight: 300;
+        line-height: 1;
+        color: var(--text-main);
+        transition: all 0.4s ease;
+      }
+
+      #toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--accent-secondary);
+        backdrop-filter: blur(15px);
+        padding: 12px 28px;
+        border-radius: 40px;
+        font-weight: 900;
+        font-size: 10px;
+        z-index: 99999;
+        opacity: 0;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+      }
+      #toast.active {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      #theme-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--bg);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+      #theme-veil.active {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body oncontextmenu="return false;">
+    <div id="starfield-parallax"></div>
+    <div id="loading-screen">
+      <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
+      <div class="loader-text" id="load-status">Synchronizing Neural Network...</div>
+    </div>
+    <div id="ion-drive"></div>
+    <div id="atmosphere"></div>
+    <div id="theme-veil"></div>
+    <div id="toast">READY</div>
+    <main id="viewport"><div id="infinite-canvas"></div></main>
+
+    <script type="module">
+      const OdysseyConfig = {
+        temporal: {
+          weekStart: 1,
+          totalYears: 2000,
+          monthsShort: ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'],
+          daysShort: ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'],
+        },
+        display: { defaultMode: 'structured', centerContent: true, minCols: 7, warpDuration: 1100 },
+        audio: {
+          basePath: 'assets/sfx/',
+          masterVolume: 0.4,
+          ambientBaseVolume: 0.12,
+          idleInterval: [10000, 25000],
+          idleDelay: 30000,
+        },
+        physics: { cursorInertia: 0.12, hoverThrottle: 120, exhaustThreshold: 15, starParallaxRatio: 0.02 },
+      };
+
+      class GalacticAudio {
+        #path = OdysseyConfig.audio.basePath;
+        #sounds = new Map();
+        #lastPlayTime = new Map();
+        constructor() {
+          this.enabled = false;
+          this.isBusy = false;
+          this.idleTimer = null;
+          this.spamCount = 0;
+          this.#initSounds();
+        }
+        #initSounds() {
+          const sfx = {
+            jump: 'jump-to-today.mp3',
+            scroll: 'year-change-scroll-transition.mp3',
+            warp: 'fast-scroll-wrap-mode.mp3',
+            hover: 'hover-over-cell.mp3',
+            theme: 'theme-toggle.mp3',
+            beep: 'confirmation-beep.mp3',
+            enable: 'enabled-ambience.mp3',
+            mute: 'mute-ambience.mp3',
+            base: 'master-ambient-loop.mp3',
+            pulse: 'short-ambient-pulse.mp3',
+            wind: 'nebula-wind-sweep.mp3',
+            engine: 'engine-idle-hum.mp3',
+            stellar: 'distant-stellar-ambience.mp3',
+          };
+          Object.entries(sfx).forEach(([key, name]) => {
+            const audio = new Audio(`${this.#path}${name}`);
+            audio.preload = 'auto';
+            this.#sounds.set(key, audio);
+          });
+        }
+        play(key, options = {}) {
+          if (!this.enabled || (this.isBusy && key === 'hover')) return;
+          const s = this.#sounds.get(key);
+          if (!s) return;
+          const now = Date.now();
+          if (this.#lastPlayTime.has(key) && now - this.#lastPlayTime.get(key) < (options.throttle || 100)) return;
+          s.pause();
+          s.currentTime = 0;
+          if (options.dynamicPitch) {
+            this.spamCount++;
+            s.playbackRate = Math.min(2.0, 1 + this.spamCount * 0.08);
+            setTimeout(() => (this.spamCount = 0), 500);
+          } else {
+            s.playbackRate = options.playbackRate || 1.0;
+          }
+          s.volume = options.volume ?? OdysseyConfig.audio.masterVolume;
+          s.play().catch(() => {});
+          this.#lastPlayTime.set(key, now);
+        }
+        toggleMaster() {
+          this.enabled = !this.enabled;
+          if (this.enabled) {
+            this.play('enable');
+            const base = this.#sounds.get('base');
+            if (base) {
+              base.loop = true;
+              base.volume = OdysseyConfig.audio.ambientBaseVolume;
+              base.play().catch(() => {});
+            }
+            this.resetIdleTimer();
+          } else {
+            this.play('mute');
+            ['base', 'pulse', 'wind', 'engine', 'stellar'].forEach((k) => {
+              const s = this.#sounds.get(k);
+              if (s) {
+                s.pause();
+                s.currentTime = 0;
+              }
+            });
+            clearTimeout(this.idleTimer);
+          }
+          return this.enabled;
+        }
+        resetIdleTimer() {
+          if (!this.enabled) return;
+          clearTimeout(this.idleTimer);
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), OdysseyConfig.audio.idleDelay);
+        }
+        #triggerRandomIdleClip() {
+          if (!this.enabled || this.isBusy) return;
+          const clips = [
+            { k: 'pulse', v: 0.15 },
+            { k: 'wind', v: 0.2 },
+            { k: 'engine', v: 0.15 },
+            { k: 'stellar', v: 0.2 },
+          ];
+          const c = clips[Math.floor(Math.random() * clips.length)];
+          this.play(c.k, { volume: c.v });
+          const [min, max] = OdysseyConfig.audio.idleInterval;
+          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), Math.random() * (max - min) + min);
+        }
+        setBusy(val) {
+          this.isBusy = val;
+          const base = this.#sounds.get('base');
+          if (base) base.volume = val ? 0.04 : OdysseyConfig.audio.ambientBaseVolume;
+        }
+      }
+
+      class GridArchitect {
+        #activeYears = new Map();
+        #today = new Date();
+        #audio = new GalacticAudio();
+        #viewport = document.getElementById('viewport');
+        #canvas = document.getElementById('infinite-canvas');
+        #ionDrive = document.getElementById('ion-drive');
+        #toast = document.getElementById('toast');
+        #starfield = document.getElementById('starfield-parallax');
+        #lastScrollPos = 0;
+        #currentYearIdx = null;
+        #isScrolling = false;
+        #isWarping = false;
+        #isInteractingAllowed = true;
+        #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        #lastMouse = { x: 0, y: 0 };
+        #isRandomMode = OdysseyConfig.display.defaultMode === 'random';
+        #particlePool = []; // For simple recycling
+
+        constructor() {
+          this.totalYears = OdysseyConfig.temporal.totalYears;
+          this.yearHeight = window.innerHeight;
+          this.startY = (this.totalYears / 2) * this.yearHeight;
+          this.#runBoot();
+        }
+
+        async #runBoot() {
+          const bar = document.getElementById('load-progress');
+          const steps = [
+            { p: 40, t: 'Binding Light Stream...' },
+            { p: 80, t: 'Synchronizing Neural Audio...' },
+            { p: 100, t: 'System Online.' },
+          ];
+          for (const s of steps) {
+            await new Promise((r) => setTimeout(r, 400));
+            bar.style.width = `${s.p}%`;
+            document.getElementById('load-status').innerText = s.t;
+          }
+          this.#init();
+          setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
+        }
+
+        #init() {
+          this.#applyTheme(localStorage.getItem('theme') || 'dark');
+          this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
+          this.#viewport.scrollTop = this.startY;
+          this.observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => {
+                const b = e.target;
+                const wasActive = b.classList.contains('active');
+                b.classList.toggle('active', e.isIntersecting);
+                if (e.isIntersecting && !wasActive && 'vibrate' in navigator) navigator.vibrate(8);
+                if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
+                  const c = b.querySelector('.grid-container');
+                  if (c && b.classList.contains('is-scrolling')) c.scrollTop = c.scrollHeight;
+                }
+              });
+              this.#lastScrollPos = this.#viewport.scrollTop;
+            },
+            { threshold: 0.1, rootMargin: '10% 0px' }
+          );
+          this.#setupListeners();
+          this.#cursorLoop();
+          this.#render();
+          setTimeout(() => this.jumpToToday(true), 150);
+        }
+
+        #showToast(msg) {
+          clearTimeout(this.toastTimer);
+          this.#toast.innerText = msg;
+          this.#toast.classList.add('active');
+          this.toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
+        }
+
+        #lockInteractions() {
+          this.#isInteractingAllowed = false;
+          this.#audio.setBusy(true);
+          this.#viewport.classList.add('is-locked');
+          document.documentElement.style.setProperty('--ion-glow', '200px');
+        }
+
+        #unlockInteractions() {
+          setTimeout(() => {
+            this.#isInteractingAllowed = true;
+            this.#audio.setBusy(false);
+            this.#viewport.classList.remove('is-locked');
+            document.documentElement.style.setProperty('--ion-glow', '700px');
+          }, 400);
+        }
+
+        /* 5. Memory Management: Particle Throttling */
+        #spawnParticle(x, y, isExhaust = false) {
+          if (document.querySelectorAll('.particle').length > 50) return; // Hard limit for CPU
+          const p = document.createElement('div');
+          p.className = 'particle';
+          p.style.left = `${x}px`;
+          p.style.top = `${y}px`;
+          const angle = Math.random() * Math.PI * 2;
+          const dist = isExhaust ? 5 + Math.random() * 20 : 30 + Math.random() * 40;
+          if (isExhaust) {
+            p.style.setProperty('--p-scale', '0.6');
+            p.style.setProperty('--p-opacity', '0.4');
+          }
+          p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+          p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+          document.body.appendChild(p);
+          setTimeout(() => p.remove(), 700);
+        }
+
+        jumpToToday(isInitial = false) {
+          if (this.#isWarping) return;
+          this.#isWarping = true;
+          this.#lockInteractions();
+          this.#audio.play('jump');
+          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
+          if (!isInitial) this.#showToast('WARPING TO LOCAL TIME');
+          setTimeout(() => {
+            const b = this.#activeYears.get(this.#today.getFullYear());
+            if (b) {
+              const t = b.querySelector('.cell.today'),
+                c = b.querySelector('.grid-container');
+              if (t && c) c.scrollTo({ top: t.offsetTop - window.innerHeight / 3, behavior: 'smooth' });
+            }
+            this.#audio.play('beep');
+            this.#isWarping = false;
+            this.#unlockInteractions();
+          }, OdysseyConfig.display.warpDuration);
+        }
+
+        #setupListeners() {
+          window.addEventListener(
+            'pointermove',
+            (e) => {
+              this.#mouse.x = e.clientX;
+              this.#mouse.y = e.clientY;
+              const velocity = Math.sqrt(
+                Math.pow(e.clientX - this.#lastMouse.x, 2) + Math.pow(e.clientY - this.#lastMouse.y, 2)
+              );
+              if (velocity > OdysseyConfig.physics.exhaustThreshold) this.#spawnParticle(e.clientX, e.clientY, true);
+              this.#lastMouse = { x: e.clientX, y: e.clientY };
+            },
+            { passive: true }
+          );
+
+          document.addEventListener(
+            'mouseover',
+            (e) => {
+              if (!this.#isInteractingAllowed || this.#isWarping || this.#isScrolling) return;
+              const cell = e.target.closest('.cell');
+              if (cell) {
+                const isF = cell.classList.contains('filler');
+                this.#ionDrive.classList.add('active');
+                document.documentElement.style.setProperty('--ion-glow', isF ? '200px' : '900px');
+                this.#audio.play('hover', { volume: isF ? 0.04 : 0.25, playbackRate: isF ? 0.5 : 1.0 });
+              }
+            },
+            { passive: true }
+          );
+
+          document.addEventListener(
+            'mouseout',
+            (e) => {
+              if (e.target.closest('.cell') && this.#isInteractingAllowed) {
+                this.#ionDrive.classList.remove('active');
+                document.documentElement.style.setProperty('--ion-glow', '700px');
+              }
+            },
+            { passive: true }
+          );
+
+          this.#viewport.addEventListener(
+            'scroll',
+            () => {
+              if (!this.#isScrolling) this.#lockInteractions();
+              this.#isScrolling = true;
+              clearTimeout(this.scrollStopT);
+
+              requestAnimationFrame(() => {
+                this.#render();
+                this.#handleParallax();
+
+                /* 3. Starfield Parallax Implementation */
+                const starPos = this.#viewport.scrollTop * OdysseyConfig.physics.starParallaxRatio;
+                this.#starfield.style.transform = `translate3d(0, ${-starPos}px, 0)`;
+
+                const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+                if (this.#currentYearIdx !== idx && !this.#isWarping) {
+                  this.#currentYearIdx = idx;
+                  this.#audio.play('scroll');
+                }
+                const velocity = Math.abs(this.#viewport.scrollTop - this.#lastScrollPos);
+                const chromaAmount = Math.min(12, velocity / 8);
+                document.documentElement.style.setProperty('--chroma-dist', chromaAmount);
+                if (this.#isInteractingAllowed)
+                  document.documentElement.style.setProperty('--ion-glow', `${Math.max(400, 1100 - velocity * 3)}px`);
+              });
+
+              this.scrollStopT = setTimeout(() => {
+                this.#isScrolling = false;
+                this.#unlockInteractions();
+                document.documentElement.style.setProperty('--chroma-dist', 0);
+              }, 250);
+            },
+            { passive: true }
+          );
+
+          window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 't') {
+              this.#audio.play('theme');
+              this.#toggleTheme();
+            }
+            if (k === 'm') {
+              const a = this.#audio.toggleMaster();
+              this.#showToast(a ? 'ION DRIVE ONLINE' : 'SILENT CRUISE');
+            }
+            if (k === ' ') {
+              e.preventDefault();
+              this.jumpToToday();
+            }
+            if (k === 'r') this.#setMode(true);
+            if (k === 's') this.#setMode(false);
+          });
+
+          document.addEventListener('click', (e) => {
+            if (!this.#isInteractingAllowed) return;
+            const burst = Math.floor(Math.random() * 4) + 5;
+            for (let i = 0; i < burst; i++) this.#spawnParticle(e.clientX, e.clientY);
+            if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
+          });
+          window.addEventListener('resize', () => location.reload());
+        }
+
+        #cursorLoop() {
+          if (window.matchMedia('(pointer: coarse)').matches) return;
+          this.#current.x += (this.#mouse.x - this.#current.x) * OdysseyConfig.physics.cursorInertia;
+          this.#current.y += (this.#mouse.y - this.#current.y) * OdysseyConfig.physics.cursorInertia;
+          document.documentElement.style.setProperty('--ion-x', this.#current.x);
+          document.documentElement.style.setProperty('--ion-y', this.#current.y);
+          requestAnimationFrame(() => this.#cursorLoop());
+        }
+
+        #handleParallax() {
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+          const y = this.#today.getFullYear() + (idx - this.totalYears / 2);
+          const b = this.#activeYears.get(y);
+          if (b && !this.#isScrolling) {
+            const offset = (this.#viewport.scrollTop % this.yearHeight) - this.yearHeight / 2;
+            const wm = b.querySelector('.watermark-embedded');
+            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
+          }
+        }
+
+        /* 5. Aggressive Virtualization Management */
+        #render() {
+          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
+          const base = this.#today.getFullYear() + (idx - this.totalYears / 2);
+
+          // Render radius: Current, Prev, and Next
+          for (let i = -1; i <= 1; i++) this.#drawYear(base + i, (idx + i) * this.yearHeight);
+
+          // Agresif membersihkan DOM di luar radius 2 blok
+          this.#activeYears.forEach((block, year) => {
+            if (Math.abs(year - base) > 2) {
+              this.observer.unobserve(block);
+              block.remove();
+              this.#activeYears.delete(year);
+            }
+          });
+        }
+
+        #drawYear(year, yPos) {
+          if (this.#activeYears.has(year)) return;
+          const block = document.createElement('section');
+          block.className = 'year-block';
+          block.style.top = `${yPos}px`;
+          const jan1 = new Date(year, 0, 1);
+          const days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+          const vw = window.innerWidth,
+            vh = window.innerHeight;
+          let cols = vw >= 600 ? Math.ceil(Math.ceil(Math.sqrt(373 * (vw / vh))) / 7) * 7 : 7;
+          let gO = this.#isRandomMode ? Math.floor(jan1.getTime() / 86400000) % cols : (jan1.getDay() + 6) % 7;
+          const rows = Math.ceil((days + gO) / cols);
+          const isSc = vh / rows < 60;
+          if (isSc) block.classList.add('is-scrolling');
+          const fragment = document.createDocumentFragment();
+          const cont = document.createElement('div');
+          cont.className = 'grid-container';
+          cont.style.overflowY = isSc ? 'auto' : 'hidden';
+          const wm = document.createElement('div');
+          wm.className = 'watermark-embedded';
+          wm.innerText = year;
+          cont.append(wm);
+          const grid = document.createElement('div');
+          grid.className = 'grid-layer';
+          grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+          grid.style.gridTemplateRows = isSc ? `repeat(${rows}, minmax(60px, 1fr))` : `repeat(${rows}, 1fr)`;
+          grid.style.height = isSc ? 'auto' : '100%';
+          const itD = new Date(year, 0, 1 - gO);
+          for (let s = 0; s < cols * rows; s++) {
+            const isM = itD.getFullYear() === year;
+            const cell = document.createElement('div');
+            let fC = !isM ? (itD.getFullYear() < year ? 'filler-past' : 'filler-future') : '';
+            cell.className = `cell ${!isM ? 'filler ' + fC : ''} ${
+              itD.toDateString() === this.#today.toDateString() && isM ? 'today' : ''
+            } ${isM && itD.getDate() === 1 ? 'month-start' : ''} ${
+              isM && (itD.getDay() === 0 || itD.getDay() === 6) ? 'weekend' : ''
+            } ${isM && itD.getDay() === 1 ? 'week-start' : ''}`;
+            cell.innerHTML = `<div class="cell-content"><span class="info-meta ${
+              itD.getDate() === 1 && isM ? 'top-label' : ''
+            }">${
+              isM && (itD.getDate() === 1 || s === gO) ? OdysseyConfig.temporal.monthsShort[itD.getMonth()] : ''
+            }</span><span class="date-num">${itD.getDate()}</span><span class="info-meta">${
+              isM ? OdysseyConfig.temporal.daysShort[itD.getDay()] : ''
+            }</span></div>`;
+            grid.append(cell);
+            itD.setDate(itD.getDate() + 1);
+          }
+          cont.append(grid);
+          block.append(cont);
+          this.#canvas.append(block);
+          this.#activeYears.set(year, block);
+          this.observer.observe(block);
+        }
+        #setMode(r) {
+          if (this.#isRandomMode === r) return;
+          this.#isRandomMode = r;
+          this.#activeYears.forEach((b) => {
+            this.observer.unobserve(b);
+            b.remove();
+          });
+          this.#activeYears.clear();
+          this.#render();
+          this.#audio.play('beep');
+          this.#showToast(r ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
+        }
+        #applyTheme(t) {
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.style.colorScheme = t;
+        }
+        #toggleTheme() {
+          const v = document.getElementById('theme-veil');
+          v.classList.add('active');
+          setTimeout(() => {
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            this.#applyTheme(next);
+            localStorage.setItem('theme', next);
+            setTimeout(() => v.classList.remove('active'), 200);
+          }, 400);
+        }
+      }
+      new GridArchitect();
+    </script>
+  </body>
+</html>
