@@ -6,17 +6,29 @@ export class PositionScrubber {
   #bar;
   #thumb;
   #dragging = false;
+  // Reading scrollHeight/clientHeight forces layout. update() runs on every
+  // animation frame, so the metrics are cached and only refreshed when the
+  // geometry can actually have changed.
+  #maxScrollPx = 0;
+  #viewportHeight = 0;
 
   constructor(viewport, opts = {}) {
     this.#viewport = viewport;
     this.#opts = opts;
     this.#build();
     this.#bind();
+    this.measure();
+  }
+
+  // Recomputes the cached geometry. Call after a resize or a canvas resize.
+  measure() {
+    this.#viewportHeight = this.#viewport.clientHeight;
+    this.#maxScrollPx = Math.max(0, this.#viewport.scrollHeight - this.#viewportHeight);
   }
 
   // Move the thumb to match the current scroll position. Call on scroll/render.
   update() {
-    const max = this.#viewport.scrollHeight - this.#viewport.clientHeight;
+    const max = this.#maxScrollPx;
     if (max <= 0) return;
     const ratio = Math.max(0, Math.min(1, this.#viewport.scrollTop / max));
     this.#thumb.style.top = `${8 + ratio * 84}%`;
@@ -51,7 +63,7 @@ export class PositionScrubber {
   }
 
   #maxScroll() {
-    return Math.max(0, this.#viewport.scrollHeight - this.#viewport.clientHeight);
+    return this.#maxScrollPx;
   }
 
   #seek(clientY) {
@@ -86,7 +98,7 @@ export class PositionScrubber {
     window.addEventListener('pointercancel', onUp);
 
     this.#bar.addEventListener('keydown', (e) => {
-      const step = this.#viewport.clientHeight;
+      const step = this.#viewportHeight;
       let delta = null;
       if (e.key === 'ArrowDown' || e.key === 'PageDown') delta = step;
       else if (e.key === 'ArrowUp' || e.key === 'PageUp') delta = -step;

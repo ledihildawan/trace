@@ -62,6 +62,9 @@ export class GridArchitect {
   #touchScrollEndWillSnap = false;
   #activeYears = new Map();
   #observer = null;
+  #containers = new Map();
+  #renderRaf = null;
+  #shifting = false;
 
   #isWarping = false;
   #isAnimating = false;
@@ -108,7 +111,7 @@ export class GridArchitect {
     this.#smoothScroll = new SmoothScroll(this.#viewport, this.#yearHeight)
       .onArrive((scrollTop) => this.#handleArrival(scrollTop))
       .onVelocityChange((velocity) => this.#handleInertiaVelocity(velocity));
-    this.#cursor = new IonCursor();
+    this.#cursor = new IonCursor(this.#ionDrive);
     // Both detectors bind their own listeners on construction and are driven
     // entirely by callbacks, so there is nothing to hold on to afterwards.
     new LongPressDetector().onTrigger(() => this.#handleLongPress());
@@ -157,6 +160,7 @@ export class GridArchitect {
     this.#smoothScroll.syncTo(this.#startY);
     this.#render();
     this.#updateNavBounds();
+    this.#scrubber?.measure();
     this.#scrubber?.update();
     setTimeout(() => this.jumpToToday(true), OdysseyConfig.timing.jumpInitialDelayMs);
   }
@@ -185,6 +189,7 @@ export class GridArchitect {
 
   #deactivateYearBlock(year, block) {
     this.#activeYears.delete(year);
+    this.#containers.delete(year);
     this.#observer.unobserve(block);
     this.#pool.release(block);
   }
@@ -247,7 +252,7 @@ export class GridArchitect {
       if (cell) {
         const isFiller = cell.classList.contains(OdysseyConfig.classes.filler);
         this.#ionDrive.classList.add(OdysseyConfig.classes.active);
-        document.documentElement.style.setProperty(
+        this.#ionDrive.style.setProperty(
           glowVar,
           isFiller ? OdysseyConfig.dom.ionGlowFiller : OdysseyConfig.dom.ionGlowHover
         );
@@ -258,28 +263,15 @@ export class GridArchitect {
     document.addEventListener('mouseout', (e) => {
       if (e.target.closest(`.${OdysseyConfig.classes.cell}`) && this.#interactionsAllowed) {
         this.#ionDrive.classList.remove(OdysseyConfig.classes.active);
-        document.documentElement.style.setProperty(glowVar, defaultGlow);
+        this.#ionDrive.style.setProperty(glowVar, defaultGlow);
       }
     }, { passive: true });
 
-    let ticking = false;
+    // Both this and the inertia loop fire in the same frame; the scheduler
+    // collapses them into one render pass.
     this.#viewport.addEventListener('scroll', () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const isInternalAnim =
-            this.#smoothScroll.isAnimating() || this.#isWarping;
-          if (!isInternalAnim) {
-            this.#render();
-            this.#updateNavBounds();
-            this.#updateChroma();
-          } else {
-            this.#render();
-          }
-          this.#scrubber?.update();
-          ticking = false;
-        });
-        ticking = true;
-      }
+      this.#scheduleRender();
+      if (!this.#smoothScroll.isAnimating() && !this.#isWarping) this.#updateChroma();
     }, { passive: true });
 
     this.#installWheel();
@@ -345,6 +337,8 @@ export class GridArchitect {
       this.#lastRenderTop = -1;
       this.#render();
       this.#updateNavBounds();
+      this.#scrubber?.measure();
+      this.#scrubber?.update();
     });
 
     document.addEventListener('click', (e) => {
@@ -528,6 +522,7 @@ export class GridArchitect {
     // Snapshot first: #deactivateYearBlock mutates #activeYears as it goes.
     [...this.#activeYears].forEach(([year, block]) => this.#deactivateYearBlock(year, block));
     this.#activeYears.clear();
+    this.#containers.clear();
     this.#lastRenderTop = -1;
     this.#render();
   }
@@ -638,8 +633,7 @@ export class GridArchitect {
     this.#isAnimating = false;
     this.#isWarping = false;
     this.#ionDrive.classList.remove(OdysseyConfig.classes.jumping);
-    this.#lastChroma = 0;
-    document.documentElement.style.setProperty(OdysseyConfig.dom.chromaDistVar, 0);
+    this.#setChroma(0);
 
     if (wasWarping) {
       this.#viewport.classList.remove(
@@ -672,9 +666,21 @@ export class GridArchitect {
 
   #handleInertiaVelocity(velocity) {
     if (this.#isWarping || this.#isAnimating) return;
-    this.#render();
+    this.#scheduleRender();
     this.#updateChroma(velocity);
     this.#updateNavBounds();
+  }
+
+  // The scroll event and the inertia loop both fire in the same frame; without
+  // coalescing they each ran a full render pass.
+  #scheduleRender() {
+    if (this.#renderRaf !== null) return;
+    this.#renderRaf = requestAnimationFrame(() => {
+      this.#renderRaf = null;
+      this.#render();
+      this.#updateNavBounds();
+      this.#scrubber?.update();
+    });
   }
 
   #handleTouchSettled() {
@@ -703,17 +709,31 @@ export class GridArchitect {
       velocity / OdysseyConfig.render.chromaVelocityDivisor
     );
     // This runs every animation frame; only touch the CSSOM when it matters.
-    const rounded = Math.round(chroma * 100) / 100;
-    if (rounded === this.#lastChroma) return;
-    this.#lastChroma = rounded;
-    document.documentElement.style.setProperty(OdysseyConfig.dom.chromaDistVar, rounded);
+    this.#setChroma(Math.round(chroma * 100) / 100);
+  }
+
+  // Writes to the few grid containers that read it rather than to :root, and
+  // toggles the class that brings the filter into existence at all.
+  #setChroma(value) {
+    if (value === this.#lastChroma) return;
+    this.#lastChroma = value;
+
+    const shifting = value > 0;
+    if (shifting !== this.#shifting) {
+      this.#shifting = shifting;
+      this.#viewport.classList.toggle(OdysseyConfig.classes.isShifting, shifting);
+    }
+    if (!shifting) return;
+    for (const container of this.#containers.values()) {
+      container.style.setProperty(OdysseyConfig.dom.chromaDistVar, value);
+    }
   }
 
   #lockInteractions() {
     this.#interactionsAllowed = false;
     this.#audio.setBusy(true);
     this.#viewport.classList.add(OdysseyConfig.classes.isLocked);
-    document.documentElement.style.setProperty(
+    this.#ionDrive.style.setProperty(
       OdysseyConfig.dom.ionGlowVar,
       OdysseyConfig.dom.ionGlowLocked
     );
@@ -724,7 +744,7 @@ export class GridArchitect {
       this.#interactionsAllowed = true;
       this.#audio.setBusy(false);
       this.#viewport.classList.remove(OdysseyConfig.classes.isLocked);
-      document.documentElement.style.setProperty(
+      this.#ionDrive.style.setProperty(
         OdysseyConfig.dom.ionGlowVar,
         OdysseyConfig.dom.ionGlowDefault
       );
@@ -822,6 +842,7 @@ export class GridArchitect {
     block.append(cont);
     this.#canvas.append(block);
     this.#activeYears.set(year, block);
+    this.#containers.set(year, cont);
     this.#observer.observe(block);
     this.#markBlock(block);
     this.#focus.refreshTabStop(this.#currentYear());
@@ -833,6 +854,7 @@ export class GridArchitect {
     // Snapshot first: #deactivateYearBlock mutates #activeYears as it goes.
     [...this.#activeYears].forEach(([year, block]) => this.#deactivateYearBlock(year, block));
     this.#activeYears.clear();
+    this.#containers.clear();
     this.#lastRenderTop = -1;
     this.#render();
     this.#audio.play('beep');

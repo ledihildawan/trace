@@ -4,29 +4,34 @@
    markup. No relative URLs inside, so the move needed no rewrites. */
 
 /* --- CORE CSS ENGINE --- */
+/* Every one of these is written on an animation frame. `inherits: false` is
+   not a detail: an inherited custom property set on :root invalidates the
+   computed style of every node in the document — here that is ~400 cells per
+   year block. Declared non-inheriting, each write only dirties the one
+   element that actually reads it. */
 @property --ion-x {
   syntax: '<number>';
-  inherits: true;
+  inherits: false;
   initial-value: 0;
 }
 @property --ion-y {
   syntax: '<number>';
-  inherits: true;
+  inherits: false;
   initial-value: 0;
 }
-@property --warp-scale {
+@property --ion-scale {
   syntax: '<number>';
-  inherits: true;
-  initial-value: 0.92;
+  inherits: false;
+  initial-value: 1;
 }
 @property --ion-glow {
   syntax: '<length>';
-  inherits: true;
+  inherits: false;
   initial-value: 700px;
 }
 @property --chroma-dist {
   syntax: '<number>';
-  inherits: true;
+  inherits: false;
   initial-value: 0;
 }
 
@@ -52,6 +57,7 @@
   --ion-blend: light-dark(multiply, screen);
   --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
   --ion-glow: 700px;
+  --ion-field: 2000px;
 
   /* Floating surfaces (day panel, jump-to-date, search). Theme-aware, and in
      OKLCH like the rest of the palette rather than stray rgba. */
@@ -157,9 +163,17 @@ body {
 }
 
 /* ── ION DRIVE ── */
+/* The glow used to be a viewport-sized element whose gradient origin moved
+   with the pointer, so every frame repainted the whole screen. It is now a
+   fixed-size field whose gradient never moves; the element is translated
+   instead, which the compositor handles without any repaint at all. */
 #ion-drive {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: var(--ion-field);
+  height: var(--ion-field);
+  margin: calc(var(--ion-field) / -2);
   z-index: 5;
   pointer-events: none;
   /* color-mix in oklab keeps the glow's tint true at low percentages.
@@ -677,7 +691,6 @@ body {
   transform: translateZ(0);
   transform-origin: center center;
   transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease, opacity 0.8s ease;
-  will-change: transform, opacity, filter;
   contain: strict;
 }
 
@@ -712,11 +725,16 @@ body {
   background: var(--bg);
   overflow-x: hidden;
   scrollbar-width: none;
-  filter: drop-shadow(calc(var(--chroma-dist) * -1px) 0 0 rgba(255, 0, 0, 0.2))
-    drop-shadow(calc(var(--chroma-dist) * 1px) 0 0 rgba(0, 255, 255, 0.2));
   backface-visibility: hidden;
   transform: translateZ(0); /* Force GPU layering */
-  will-change: transform, filter;
+}
+/* Only while the grid is actually shifting. Left permanently on, this filter
+   keeps a double drop-shadow path alive over ~400 cells even at rest, and
+   `will-change: filter` pins the machinery for every block at once. */
+#viewport.is-shifting .grid-container {
+  filter: drop-shadow(calc(var(--chroma-dist) * -1px) 0 0 rgba(255, 0, 0, 0.2))
+    drop-shadow(calc(var(--chroma-dist) * 1px) 0 0 rgba(0, 255, 255, 0.2));
+  will-change: filter;
 }
 
 .watermark-embedded {
@@ -740,10 +758,10 @@ body {
   opacity: 0;
   z-index: 10;
   transition: opacity 1s;
-  will-change: transform;
 }
 .year-block.active .watermark-embedded {
   opacity: 0.15;
+  will-change: transform; /* only the visible block runs the scroll timeline */
 }
 /* Parallax runs on the compositor via a scroll-driven view() timeline —
    zero JS per frame. Gated on @supports so older browsers see a static
@@ -958,6 +976,12 @@ body {
   }
 }
 /* Efek saat melakukan lompatan besar */
+/* Promoted only for the jump that needs it: every block carrying a permanent
+   will-change meant several viewport-sized layers held on the GPU at rest. */
+#viewport.warping-far .year-block,
+#viewport.warping-near .year-block {
+  will-change: transform, opacity, filter;
+}
 #viewport.warping-far .year-block {
   filter: blur(100px) saturate(2);
   opacity: 0;

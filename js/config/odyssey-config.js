@@ -79,6 +79,7 @@ export const OdysseyConfig = {
     active: 'active',
     isLocked: 'is-locked',
     isScrolling: 'is-scrolling',
+    isShifting: 'is-shifting',
     jumping: 'jumping',
     warpingFar: 'warping-far',
     warpingNear: 'warping-near',
