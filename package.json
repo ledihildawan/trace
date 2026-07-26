@@ -1,0 +1,16 @@
+{
+  "name": "trace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TRACE — The Shape of Time. A digital instrument to visualize the sensation of time passing across the entire year.",
+  "license": "MIT",
+  "scripts": {
+    "start": "python devserver.py 8000",
+    "test": "node --test",
+    "test:watch": "node --test --watch"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -2,13 +2,19 @@
 <html lang="id" style="color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Galactic Odyssey MPV2 - Fully Immersive Spatial Audio</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;900&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Pinch-zoom stays enabled (WCAG 1.4.4); #viewport already sets
+         touch-action: pan-y so zoom never fights the scroll gesture. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="TRACE — The Shape of Time. A digital instrument to visualize the sensation of time passing across the entire year." />
+    <meta name="theme-color" content="#020617" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>TRACE — The Shape of Time</title>
+    <!-- Self-hosted: no third-party request, no render-blocking round trip to
+         two extra origins, and the app still looks right offline. -->
+    <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="assets/fonts/space-grotesk.css" />
     <style>
       /* --- CORE CSS ENGINE --- */
       @property --ion-x {
@@ -38,14 +44,18 @@
       }
 
       :root {
-        --accent-primary: light-dark(#4338ca, #fbbf24);
-        --accent-secondary: light-dark(#0369a1, #22d3ee);
-        --today-glow: light-dark(rgba(67, 56, 202, 0.3), rgba(59, 130, 246, 0.6));
-        --bg: light-dark(#f8fafc, #020617);
-        --border: light-dark(#e2e8f0, #1e293b);
-        --cell-bg: light-dark(#ffffff, #020617);
-        --text-main: light-dark(#0f172a, #f1f5f9);
-        --text-muted: light-dark(#475569, #64748b);
+        /* Palette in OKLCH: perceptually uniform, so lightness/chroma can be
+           nudged predictably and color-mix() never dips through mud. Every
+           value round-trips to the exact sRGB hex it replaced — this changed
+           the color space, not the design. */
+        --accent-primary: light-dark(oklch(45.68% 0.2146 277.02), oklch(83.69% 0.1644 84.43));
+        --accent-secondary: light-dark(oklch(50% 0.1193 242.75), oklch(79.71% 0.1339 211.53));
+        --today-glow: light-dark(oklch(45.68% 0.2146 277.02 / 0.3), oklch(62.31% 0.188 259.81 / 0.6));
+        --bg: light-dark(oklch(98.42% 0.0034 247.86), oklch(12.88% 0.0406 264.7));
+        --border: light-dark(oklch(92.88% 0.0126 255.51), oklch(27.95% 0.0368 260.03));
+        --cell-bg: light-dark(oklch(100% 0 0), oklch(12.88% 0.0406 264.7));
+        --text-main: light-dark(oklch(20.77% 0.0398 265.75), oklch(96.83% 0.0069 247.9));
+        --text-muted: light-dark(oklch(44.55% 0.0374 257.28), oklch(55.44% 0.0407 257.42));
 
         /* Debu luar angkasa yang lebih halus */
         --dust-opacity: light-dark(0.04, 0.12);
@@ -55,6 +65,15 @@
         --ion-blend: light-dark(multiply, screen);
         --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
         --ion-glow: 700px;
+
+        /* Permukaan melayang (panel hari, jump-to-date). Harus ikut tema:
+           sebelumnya gelap permanen sementara teksnya --text-main, jadi tema
+           terang menghasilkan teks hitam di atas navy — tidak terbaca. */
+        --surface: light-dark(rgba(255, 255, 255, 0.94), rgba(15, 23, 42, 0.92));
+        --surface-sunken: light-dark(rgba(241, 245, 249, 0.9), rgba(2, 6, 23, 0.6));
+        --surface-border: light-dark(rgba(3, 105, 161, 0.28), rgba(34, 211, 238, 0.25));
+        --surface-scrim: light-dark(rgba(100, 116, 139, 0.35), rgba(2, 6, 23, 0.55));
+        --surface-shadow: light-dark(rgba(15, 23, 42, 0.18), rgba(0, 0, 0, 0.6));
       }
 
       *,
@@ -74,7 +93,8 @@
         width: 100vw;
         background: var(--bg);
         color: var(--text-main);
-        font-family: 'Space Grotesk', sans-serif;
+        /* Metric-ish fallbacks so the pre-swap frame is not a wild reflow. */
+        font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
         overflow: hidden;
         perspective: 2000px;
         overscroll-behavior: none;
@@ -132,14 +152,18 @@
         inset: 0;
         z-index: 5;
         pointer-events: none;
+        /* color-mix in oklab keeps the glow's tint true at low percentages.
+           No gradient interpolation hint here: these fade to `transparent`,
+           and CSS already interpolates alpha premultiplied, so there is no
+           grey dip to fix — an invalid hint would kill the whole declaration. */
         background: radial-gradient(
             var(--ion-glow) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
-            color-mix(in srgb, var(--ion-secondary) 15%, transparent) 0%,
+            color-mix(in oklab, var(--ion-secondary) 15%, transparent) 0%,
             transparent 60%
           ),
           radial-gradient(
             50px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
-            color-mix(in srgb, var(--ion-primary) 60%, transparent) 0%,
+            color-mix(in oklab, var(--ion-primary) 60%, transparent) 0%,
             transparent 100%
           );
         opacity: var(--ion-opacity);
@@ -171,17 +195,300 @@
       #viewport {
         width: 100vw;
         height: 100dvh;
-        overflow-y: auto;
-        scroll-snap-type: y mandatory;
+        overflow-y: scroll;
+        scroll-snap-type: none;
         scrollbar-width: none;
         position: relative;
-        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: none;
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: auto;
       }
       #viewport.is-locked {
         pointer-events: none !important;
       }
       #viewport::-webkit-scrollbar {
         display: none;
+      }
+
+      /* Accessibility */
+      :focus-visible {
+        outline: 2px solid #38bdf8;
+        outline-offset: 2px;
+      }
+      .cell:focus-visible {
+        outline: none;
+        z-index: 20;
+        box-shadow: inset 0 0 0 2px var(--accent-secondary),
+          0 0 24px rgba(34, 211, 238, 0.45);
+      }
+      /* Days that hold data: a glowing mood dot + subtle tint (the "shape of time"). */
+      .cell.has-data {
+        background: linear-gradient(
+          135deg in oklab,
+          color-mix(in oklab, var(--mood-color, var(--accent-secondary)) 22%, var(--cell-bg)) 0%,
+          var(--cell-bg) 100%
+        );
+      }
+      .cell.has-data::before {
+        content: '';
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--mood-color, var(--accent-secondary));
+        box-shadow: 0 0 8px var(--mood-color, var(--accent-secondary));
+        z-index: 4;
+      }
+      /* ── Floating surfaces: native <dialog> in the top layer ── */
+      /* showModal() gives focus trapping, Escape, inert background and
+         z-index-free stacking for free. @starting-style + allow-discrete
+         animate the open/close transition with no JS timers involved. */
+      .day-panel,
+      .date-jumper {
+        border: none;
+        color: var(--text-main);
+        background: var(--surface);
+        border: 1px solid var(--surface-border);
+        box-shadow: 0 24px 70px var(--surface-shadow);
+        opacity: 0;
+        transition:
+          opacity 0.2s ease,
+          transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+          display 0.25s allow-discrete,
+          overlay 0.25s allow-discrete;
+      }
+      .day-panel[open],
+      .date-jumper[open] {
+        opacity: 1;
+        transform: none;
+      }
+      @starting-style {
+        .day-panel[open],
+        .date-jumper[open] {
+          opacity: 0;
+        }
+      }
+
+      .day-panel::backdrop,
+      .date-jumper::backdrop {
+        background: var(--surface-scrim);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        transition:
+          opacity 0.2s ease,
+          display 0.2s allow-discrete,
+          overlay 0.2s allow-discrete;
+      }
+      .day-panel[open]::backdrop,
+      .date-jumper[open]::backdrop {
+        opacity: 1;
+      }
+      @starting-style {
+        .day-panel[open]::backdrop,
+        .date-jumper[open]::backdrop {
+          opacity: 0;
+        }
+      }
+
+      .day-panel {
+        width: min(420px, 92vw);
+        border-radius: 16px;
+        padding: 22px;
+        transform: translateY(12px) scale(0.96);
+        flex-direction: column;
+        gap: 14px;
+      }
+      .day-panel[open] {
+        display: flex;
+      }
+      .day-panel-title {
+        font-weight: 900;
+        font-size: 15px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        text-wrap: balance;
+      }
+      .day-panel-moods {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+      .day-panel-note {
+        width: 100%;
+        resize: vertical;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        color: inherit;
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 1.5;
+        outline: none;
+        user-select: text;
+        field-sizing: content;
+        max-height: 40dvh;
+      }
+      .day-panel-done {
+        align-self: flex-end;
+        background: color-mix(in oklab, var(--accent-secondary) 15%, transparent);
+        border: 1px solid color-mix(in oklab, var(--accent-secondary) 45%, transparent);
+        color: var(--accent-secondary);
+        border-radius: 20px;
+        padding: 7px 18px;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+
+      .date-jumper {
+        min-width: min(300px, 90vw);
+        border-radius: 14px;
+        padding: 18px 20px;
+        backdrop-filter: blur(20px) saturate(180%);
+        transform: scale(0.96);
+        flex-direction: column;
+        gap: 10px;
+      }
+      .date-jumper[open] {
+        display: flex;
+      }
+      .date-jumper input {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: inherit;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: 0.05em;
+        width: 100%;
+        user-select: text;
+      }
+      .date-jumper-hint {
+        font-size: 9px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+      }
+
+      /* Mood picker buttons in the day panel. */
+      .mood-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        opacity: 0.45;
+        transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+      }
+      .mood-btn:hover {
+        transform: scale(1.15);
+        opacity: 0.9;
+      }
+      .mood-btn[aria-pressed='true'] {
+        opacity: 1;
+        /* was #fff — invisible against the light-theme panel */
+        border-color: var(--text-main);
+        transform: scale(1.12);
+      }
+      /* "You are here" year scrubber on the right edge. */
+      .pos-scrubber {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 14px;
+        height: 100dvh;
+        z-index: 9996;
+        cursor: pointer;
+        touch-action: none;
+      }
+      .pos-scrubber::before {
+        content: '';
+        position: absolute;
+        top: 8%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 84%;
+        background: linear-gradient(to bottom, transparent, var(--border), transparent);
+      }
+      .pos-scrubber:focus-visible {
+        outline: 2px solid var(--accent-secondary);
+        outline-offset: -2px;
+      }
+      .pos-today {
+        position: absolute;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 10px;
+        height: 2px;
+        background: var(--accent-primary);
+        box-shadow: 0 0 6px var(--accent-primary);
+      }
+      .pos-thumb {
+        position: absolute;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 8px;
+        height: 18px;
+        border-radius: 4px;
+        background: var(--accent-secondary);
+        box-shadow: 0 0 10px var(--accent-secondary);
+        transition: top 0.08s linear;
+      }
+      @media (max-width: 720px) {
+        .pos-scrubber {
+          width: 18px;
+        }
+      }
+
+      /* Some users find heavy blur and translucency disorienting or simply
+         hard to read through. Give them opaque surfaces without changing the
+         layout or the palette. */
+      @media (prefers-reduced-transparency: reduce) {
+        .day-panel,
+        .date-jumper,
+        #toast,
+        .year-nav-btn {
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          background: var(--bg);
+        }
+        .day-panel::backdrop,
+        .date-jumper::backdrop {
+          backdrop-filter: none;
+          background: light-dark(rgba(226, 232, 240, 0.92), rgba(2, 6, 23, 0.92));
+        }
+        #atmosphere {
+          display: none;
+        }
+        .day-panel-note {
+          background: var(--cell-bg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #viewport {
+          scroll-behavior: auto !important;
+          scroll-snap-type: none !important;
+          overscroll-behavior: none !important;
+        }
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        /* Scroll-driven animations ignore animation-duration, so disable explicitly. */
+        .year-block.active .watermark-embedded {
+          animation: none !important;
+        }
       }
       #infinite-canvas {
         position: relative;
@@ -257,7 +564,9 @@
         font-size: clamp(100px, 30dvh, 400px);
         font-weight: 900;
         color: transparent;
-        background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary), transparent);
+        /* Amber → cyan in dark mode: sRGB interpolation drags this through a
+           dull olive midpoint. oklab keeps the ramp clean. */
+        background: linear-gradient(180deg in oklab, var(--accent-primary), var(--accent-secondary), transparent);
         background-clip: text;
         -webkit-background-clip: text;
         -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
@@ -265,16 +574,29 @@
         pointer-events: none;
         opacity: 0;
         z-index: 10;
-        transition: opacity 1s, transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: opacity 1s;
         will-change: transform;
       }
       .year-block.active .watermark-embedded {
         opacity: 0.15;
-        transform: translate3d(0, 0, 0);
+      }
+      /* Parallax runs on the compositor via a scroll-driven view() timeline —
+         zero JS per frame. Gated on @supports so older browsers see a static
+         watermark instead of a stuck offset. */
+      @supports (animation-timeline: view()) {
+        .year-block.active .watermark-embedded {
+          animation: watermark-drift linear both;
+          animation-timeline: view();
+        }
+      }
+      @keyframes watermark-drift {
+        from { transform: translate3d(0, -7%, 0); }
+        to { transform: translate3d(0, 7%, 0); }
       }
       .year-block.is-scrolling .watermark-embedded {
         position: fixed;
         opacity: 0.08;
+        animation: none;
       }
 
       .grid-layer {
@@ -290,6 +612,11 @@
       }
       .year-block.active .grid-layer {
         opacity: 1;
+      }
+      /* ARIA needs grid > row > gridcell, but the cells must stay direct
+         participants of the CSS grid — display: contents gives us both. */
+      .grid-row {
+        display: contents;
       }
 
       .cell {
@@ -333,8 +660,47 @@
         letter-spacing: 0.15em;
       }
 
+      /* ── Temporal fading ── Days already lived recede rather than vanish;
+         a day you actually recorded stays more present than an empty one.
+         Opacity on the content only: a filter here would promote ~400 cells
+         per year to their own compositing layers. */
+      .cell.past .cell-content {
+        opacity: 0.42;
+        transition: opacity 0.4s ease;
+      }
+      .cell.past.has-data .cell-content {
+        opacity: 0.85;
+      }
+
+      /* ── The pulse of now ── Today fills gradually as the day is spent.
+         --day-progress is published once a minute by DayPulse. */
+      .day-pulse {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: calc(var(--day-progress, 0) * 100%);
+        background: linear-gradient(
+          to top,
+          color-mix(in oklab, #fff 26%, transparent),
+          transparent
+        );
+        pointer-events: none;
+        z-index: 1;
+        transition: height 1s linear;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .day-pulse {
+          transition: none;
+        }
+      }
+
       .cell.today {
-        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        background: linear-gradient(
+          135deg in oklab,
+          oklch(54.61% 0.2152 262.88) 0%,
+          oklch(42.44% 0.1809 265.64) 100%
+        );
         z-index: 10;
         box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
       }
@@ -411,6 +777,20 @@
       #theme-veil.active {
         opacity: 1;
       }
+      /* Theme switching runs through document.startViewTransition() where it
+         exists; #theme-veil above is only the fallback path. */
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation-duration: 0.45s;
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        mix-blend-mode: normal;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+          animation: none;
+        }
+      }
       /* Efek saat melakukan lompatan besar */
       #viewport.warping-far .year-block {
         filter: blur(100px) saturate(2);
@@ -439,857 +819,132 @@
         transform: scale(0) translateZ(0);
         transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
       }
+
+      .keyboard-hints {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 14px;
+        z-index: 9998;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        opacity: 0.85;
+        transition: opacity 1.2s ease;
+        pointer-events: none;
+        user-select: none;
+      }
+      .keyboard-hints.faded {
+        opacity: 0.15;
+      }
+      .keyboard-hints kbd {
+        display: inline-block;
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: rgba(127, 127, 127, 0.1);
+        font-family: inherit;
+        font-size: 10px;
+        margin: 0 2px;
+      }
+
+      /* ── YEAR NAV EDGE BUTTONS ── */
+      .year-nav {
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 9997;
+        display: flex;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.6s ease;
+      }
+      #year-nav { left: 16px; }
+      #year-nav-end { right: 16px; flex-direction: row-reverse; }
+      .year-nav.visible { opacity: 0.65; }
+      .year-nav:hover { opacity: 1; }
+      .year-nav-btn {
+        pointer-events: auto;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.55);
+        color: var(--text-main);
+        backdrop-filter: blur(14px) saturate(180%);
+        -webkit-backdrop-filter: blur(14px) saturate(180%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-family: inherit;
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    background 0.2s ease,
+                    border-color 0.2s ease,
+                    opacity 0.25s ease;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      }
+      .year-nav-btn:hover {
+        background: rgba(34, 211, 238, 0.18);
+        border-color: var(--accent-secondary);
+        color: var(--accent-secondary);
+        transform: scale(1.08);
+      }
+      .year-nav-btn:active {
+        transform: scale(0.94);
+      }
+      .year-nav-btn.disabled {
+        opacity: 0.18;
+        pointer-events: none;
+      }
+      @media (max-width: 720px) {
+        .year-nav-btn { width: 38px; height: 38px; }
+        #year-nav { left: 8px; }
+        #year-nav-end { right: 8px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .year-nav { transition: opacity 0.2s linear; }
+        .year-nav-btn { transition: opacity 0.2s linear; }
+      }
     </style>
   </head>
-  <body oncontextmenu="return false;">
+  <body>
     <div id="loading-screen">
       <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
       <div class="loader-text" id="load-status">Synchronizing Neural Network...</div>
     </div>
-    <div id="ion-drive"></div>
-    <div id="atmosphere"></div>
-    <div id="theme-veil"></div>
-    <div id="toast">READY</div>
-    <main id="viewport"><div id="infinite-canvas"></div></main>
-
-    <script type="module">
-      const OdysseyConfig = {
-        temporal: {
-          weekStart: 1,
-          totalYears: 2000,
-          monthsShort: ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGS', 'SEP', 'OKT', 'NOV', 'DES'],
-          daysShort: ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'],
-        },
-        display: { defaultMode: 'structured', centerContent: true, minCols: 7, warpDuration: 1100 },
-        audio: {
-          basePath: 'assets/sfx/',
-          masterVolume: 0.4,
-          ambientBaseVolume: 0.12,
-          idleInterval: [10000, 25000],
-          idleDelay: 30000,
-        },
-        physics: { cursorInertia: 0.12, hoverThrottle: 120, exhaustThreshold: 15 },
-      };
-
-      class ParticleEngine {
-        constructor() {
-          this.canvas = document.createElement('canvas');
-          this.gl = this.canvas.getContext('webgl', {
-            alpha: true,
-            antialias: false,
-            depth: false,
-            preserveDrawingBuffer: false,
-          });
-
-          this.particles = [];
-          this.maxParticles = 1200;
-          this.init();
-        }
-
-        getCSSColor(varName) {
-          const color = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-          if (color.startsWith('#')) {
-            const r = parseInt(color.slice(1, 3), 16) / 255;
-            const g = parseInt(color.slice(3, 5), 16) / 255;
-            const b = parseInt(color.slice(5, 7), 16) / 255;
-            return [r, g, b];
-          }
-          return [0.5, 0.5, 0.5];
-        }
-
-        init() {
-          const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-          Object.assign(this.canvas.style, {
-            position: 'fixed',
-            inset: '0',
-            zIndex: '2', // Di bawah UI, di atas background
-            pointerEvents: 'none',
-            mixBlendMode: isLight ? 'normal' : 'screen',
-          });
-          document.body.appendChild(this.canvas);
-
-          if (!this.gl) return;
-
-          const gl = this.gl;
-          this.buffers = {
-            pos: gl.createBuffer(),
-            vel: gl.createBuffer(),
-            life: gl.createBuffer(),
-            size: gl.createBuffer(),
-            color: gl.createBuffer(),
-          };
-
-          const vs = `
-      attribute vec2 a_pos;
-      attribute vec2 a_vel;
-      attribute float a_life;
-      attribute float a_size;
-      attribute vec3 a_color;
-      varying float v_life;
-      varying vec3 v_color;
-      uniform vec2 u_res;
-      void main() {
-        vec2 clipSpace = (a_pos / u_res) * 2.0 - 1.0;
-        gl_Position = vec4(clipSpace.x, -clipSpace.y, 0, 1);
-        
-        // Efek Motion Stretch: Membesar saat bergerak cepat
-        float speed = length(a_vel);
-        gl_PointSize = a_size * a_life * (1.0 + speed * 0.05); 
-        
-        v_life = a_life;
-        v_color = a_color;
-      }
-    `;
-
-          const fs = `
-      precision mediump float;
-      varying float v_life;
-      varying vec3 v_color;
-      uniform float u_isLight;
-      void main() {
-        float d = distance(gl_PointCoord, vec2(0.5));
-        if (d > 0.5) discard;
-        float intensity = (u_isLight > 0.5) ? 1.8 : 2.5;
-        float glow = pow(1.0 - (d * 2.0), intensity);
-        gl_FragColor = vec4(v_color, glow * v_life);
-      }
-    `;
-
-          this.program = this.createProgram(vs, fs);
-          this.resize();
-          window.addEventListener('resize', () => this.resize());
-          this.loop();
-        }
-
-        createProgram(vsSource, fsSource) {
-          const gl = this.gl;
-          const compile = (type, src) => {
-            const s = gl.createShader(type);
-            gl.shaderSource(s, src);
-            gl.compileShader(s);
-            return s;
-          };
-          const p = gl.createProgram();
-          gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSource));
-          gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSource));
-          gl.linkProgram(p);
-          return p;
-        }
-
-        resize() {
-          const dpr = Math.min(window.devicePixelRatio, 2);
-          this.canvas.width = window.innerWidth * dpr;
-          this.canvas.height = window.innerHeight * dpr;
-          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        }
-
-        spawn(x, y, isExhaust = false) {
-          const dpr = Math.min(window.devicePixelRatio, 2);
-          const count = isExhaust ? 2 : 12;
-
-          // Ambil warna murni dari CSS
-          let primary = this.getCSSColor('--ion-primary');
-          let secondary = this.getCSSColor('--ion-secondary');
-
-          // Filter Khusus Light Mode: Berikan kontras ekstra agar Navy terlihat premium
-          if (document.documentElement.getAttribute('data-theme') === 'light') {
-            const contrastScale = 0.75; // Nilai ideal agar Navy tidak pecah
-            primary = primary.map((v) => v * contrastScale);
-            secondary = secondary.map((v) => v * contrastScale);
-          }
-
-          for (let i = 0; i < count; i++) {
-            if (this.particles.length >= this.maxParticles) this.particles.shift();
-            const angle = Math.random() * Math.PI * 2;
-            const force = isExhaust ? Math.random() * 2 : Math.random() * 5 + 1.5;
-
-            this.particles.push({
-              x: x * dpr,
-              y: y * dpr,
-              vx: Math.cos(angle) * force * dpr,
-              vy: Math.sin(angle) * force * dpr,
-              life: 1.0,
-              decay: isExhaust ? 0.04 : 0.015,
-              // Ukuran sedikit lebih besar di Light Mode agar terlihat solid
-              size: (isExhaust ? 8 : 22) * dpr,
-              color: isExhaust ? primary : secondary,
-            });
-          }
-        }
-
-        loop() {
-          const gl = this.gl;
-          if (!gl) return;
-
-          gl.clearColor(0, 0, 0, 0);
-          gl.clear(gl.COLOR_BUFFER_BIT);
-
-          if (this.particles.length === 0) {
-            requestAnimationFrame(() => this.loop());
-            return;
-          }
-
-          gl.enable(gl.BLEND);
-          const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-
-          // Sinkronkan visual secara real-time
-          this.canvas.style.mixBlendMode = isLight ? 'normal' : 'screen';
-          if (isLight) {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-          } else {
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-          }
-
-          if (!this.uniLocs) {
-            this.uniLocs = {
-              isLight: gl.getUniformLocation(this.program, 'u_isLight'),
-              res: gl.getUniformLocation(this.program, 'u_res'),
-            };
-          }
-
-          const posArr = [],
-            velArr = [],
-            lifeArr = [],
-            sizeArr = [],
-            colorArr = [];
-
-          // Logic Loop (CPU)
-          for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vx *= 0.98;
-            p.vy *= 0.98;
-            p.life -= p.decay;
-
-            if (p.life <= 0) {
-              // Teknik Swap-to-back: jauh lebih cepat daripada splice
-              this.particles[i] = this.particles[this.particles.length - 1];
-              this.particles.pop();
-              continue;
-            }
-
-            posArr.push(p.x, p.y);
-            velArr.push(p.vx, p.vy);
-            lifeArr.push(p.life);
-            sizeArr.push(p.size);
-            colorArr.push(...p.color);
-          }
-
-          // Render Loop (GPU)
-          if (posArr.length > 0) {
-            gl.useProgram(this.program);
-
-            // Kirim data batch ke GPU
-            this.updateBuffer(new Float32Array(posArr), this.buffers.pos, 'a_pos', 2);
-            this.updateBuffer(new Float32Array(velArr), this.buffers.vel, 'a_vel', 2);
-            this.updateBuffer(new Float32Array(lifeArr), this.buffers.life, 'a_life', 1);
-            this.updateBuffer(new Float32Array(sizeArr), this.buffers.size, 'a_size', 1);
-            this.updateBuffer(new Float32Array(colorArr), this.buffers.color, 'a_color', 3);
-
-            gl.uniform1f(this.uniLocs.isLight, isLight ? 1.0 : 0.0);
-            gl.uniform2f(this.uniLocs.res, this.canvas.width, this.canvas.height);
-
-            gl.drawArrays(gl.POINTS, 0, posArr.length / 2);
-          }
-
-          requestAnimationFrame(() => this.loop());
-        }
-
-        updateBuffer(data, buffer, attrName, size) {
-          const gl = this.gl;
-          const loc = gl.getAttribLocation(this.program, attrName);
-          if (loc === -1) return;
-
-          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-          gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-          gl.enableVertexAttribArray(loc);
-          gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
-        }
-      }
-
-      /* ── ENHANCED SPATIAL AUDIO ENGINE ── */
-      class GalacticAudio {
-        #path = OdysseyConfig.audio.basePath;
-        #sounds = new Map();
-        #ctx = null;
-        #masterGain = null;
-        #panner = null;
-        #ambientSources = new Map();
-
-        constructor() {
-          this.enabled = false;
-          this.initialized = false;
-          this.isBusy = false;
-          this.idleTimer = null;
-          this.#initAudioContext();
-        }
-
-        #initAudioContext() {
-          const init = async () => {
-            if (this.initialized) return;
-            this.#ctx = new (window.AudioContext || window.webkitAudioContext)();
-            this.#masterGain = this.#ctx.createGain();
-            this.#masterGain.gain.value = OdysseyConfig.audio.masterVolume;
-
-            this.#panner = this.#ctx.createPanner();
-            this.#panner.panningModel = 'HRTF';
-            this.#panner.distanceModel = 'inverse';
-            this.#panner.refDistance = 1;
-            this.#panner.maxDistance = 10000;
-            this.#panner.rolloffFactor = 1;
-
-            this.#panner.connect(this.#masterGain);
-            this.#masterGain.connect(this.#ctx.destination);
-
-            await this.#loadAssets();
-            this.initialized = true;
-          };
-          ['click', 'touchstart', 'keydown'].forEach((e) => window.addEventListener(e, init, { once: true }));
-        }
-
-        injectEnginePower(velocity) {
-          if (!this.enabled || !this.initialized) return;
-
-          const power = Math.min(velocity / 120, 1.0);
-
-          if (power > 0.15) {
-            const nowMs = Date.now();
-            // Gunakan interval 100ms agar audio terasa lebih mekanis (grainy)
-            if (!this._lastEnginePlay || nowMs - this._lastEnginePlay > 100) {
-              this.play('hover', {
-                volume: OdysseyConfig.audio.masterVolume * power * 0.3,
-                playbackRate: 0.4 + power * 1.2, // Pitch naik dari rendah ke sangat tinggi
-              });
-              this._lastEnginePlay = nowMs;
-            }
-          }
-
-          if (this.#masterGain) {
-            const targetVol = OdysseyConfig.audio.masterVolume * (1.0 + power * 0.4);
-            // Transisi volume yang sangat cepat untuk sensasi 'responsif'
-            this.#masterGain.gain.setTargetAtTime(targetVol, this.#ctx.currentTime, 0.08);
-          }
-        }
-
-        async #loadAssets() {
-          const sfx = {
-            jump: 'jump-to-today.mp3',
-            scroll: 'year-change-scroll-transition.mp3',
-            warp: 'fast-scroll-wrap-mode.mp3',
-            hover: 'hover-over-cell.mp3',
-            theme: 'theme-toggle.mp3',
-            beep: 'confirmation-beep.mp3',
-            enable: 'enabled-ambience.mp3',
-            mute: 'mute-ambience.mp3',
-            base: 'master-ambient-loop.mp3',
-            pulse: 'short-ambient-pulse.mp3',
-            wind: 'nebula-wind-sweep.mp3',
-            engine: 'engine-idle-hum.mp3',
-            stellar: 'distant-stellar-ambience.mp3',
-          };
-          for (const [key, name] of Object.entries(sfx)) {
-            const res = await fetch(`${this.#path}${name}`);
-            const buf = await res.arrayBuffer();
-            this.#sounds.set(key, await this.#ctx.decodeAudioData(buf));
-          }
-        }
-
-        updateSpatialPosition(x, y) {
-          if (!this.initialized || !this.#panner) return;
-          const px = (x / window.innerWidth) * 2 - 1;
-          const py = -(y / window.innerHeight) * 2 + 1;
-          this.#panner.positionX.setTargetAtTime(px, this.#ctx.currentTime, 0.1);
-          this.#panner.positionY.setTargetAtTime(py, this.#ctx.currentTime, 0.1);
-          this.#panner.positionZ.setTargetAtTime(0.5, this.#ctx.currentTime, 0.1);
-        }
-
-        play(key, options = {}) {
-          if (!this.enabled || !this.initialized || !this.#sounds.has(key)) return;
-          if (this.isBusy && key === 'hover') return;
-
-          const source = this.#ctx.createBufferSource();
-          source.buffer = this.#sounds.get(key);
-          const gain = this.#ctx.createGain();
-          gain.gain.value = options.volume ?? 1.0;
-          source.playbackRate.value = options.playbackRate || 1.0;
-
-          source.connect(gain);
-          // Only route non-ambient sounds through spatial panner
-          if (['hover', 'beep', 'pulse', 'wind'].includes(key)) {
-            gain.connect(this.#panner);
-          } else {
-            gain.connect(this.#masterGain);
-          }
-
-          if (options.loop) {
-            source.loop = true;
-            this.#ambientSources.set(key, source);
-          }
-          source.start(0);
-        }
-
-        toggleMaster() {
-          if (!this.initialized) return false;
-          this.enabled = !this.enabled;
-          if (this.enabled) {
-            this.#ctx.resume();
-            this.play('enable');
-            this.play('base', { volume: OdysseyConfig.audio.ambientBaseVolume, loop: true });
-            this.resetIdleTimer();
-          } else {
-            this.play('mute');
-            this.#ambientSources.forEach((s) => s.stop());
-            this.#ambientSources.clear();
-            clearTimeout(this.idleTimer);
-          }
-          return this.enabled;
-        }
-
-        resetIdleTimer() {
-          if (!this.enabled) return;
-          clearTimeout(this.idleTimer);
-          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), OdysseyConfig.audio.idleDelay);
-        }
-
-        #triggerRandomIdleClip() {
-          if (!this.enabled || this.isBusy) return;
-          const clips = [
-            { k: 'pulse', v: 0.15 },
-            { k: 'wind', v: 0.2 },
-            { k: 'engine', v: 0.15 },
-            { k: 'stellar', v: 0.2 },
-          ];
-          const c = clips[Math.floor(Math.random() * clips.length)];
-          this.play(c.k, { volume: c.v });
-          const [min, max] = OdysseyConfig.audio.idleInterval;
-          this.idleTimer = setTimeout(() => this.#triggerRandomIdleClip(), Math.random() * (max - min) + min);
-        }
-
-        setBusy(val) {
-          this.isBusy = val;
-          if (this.#masterGain)
-            this.#masterGain.gain.setTargetAtTime(
-              val ? 0.1 : OdysseyConfig.audio.masterVolume,
-              this.#ctx.currentTime,
-              0.5
-            );
-        }
-      }
-
-      class GridArchitect {
-        #activeYears = new Map();
-        #today = new Date();
-        #audio = new GalacticAudio();
-        #particles = new ParticleEngine();
-        #viewport = document.getElementById('viewport');
-        #canvas = document.getElementById('infinite-canvas');
-        #ionDrive = document.getElementById('ion-drive');
-        #toast = document.getElementById('toast');
-        #lastScrollPos = 0;
-        #currentYearIdx = null;
-        #isScrolling = false;
-        #isWarping = false;
-        #isInteractingAllowed = true;
-        #mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        #current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-        #lastMouse = { x: 0, y: 0 };
-        #isRandomMode = OdysseyConfig.display.defaultMode === 'random';
-
-        constructor() {
-          this.totalYears = OdysseyConfig.temporal.totalYears;
-          this.yearHeight = window.innerHeight;
-          this.startY = (this.totalYears / 2) * this.yearHeight;
-          this.#runBoot();
-        }
-
-        async #runBoot() {
-          const bar = document.getElementById('load-progress');
-          const steps = [
-            { p: 40, t: 'Binding Light Stream...' },
-            { p: 80, t: 'Synchronizing Neural Audio...' },
-            { p: 100, t: 'System Online.' },
-          ];
-          for (const s of steps) {
-            await new Promise((r) => setTimeout(r, 400));
-            bar.style.width = `${s.p}%`;
-            document.getElementById('load-status').innerText = s.t;
-          }
-          this.#init();
-          setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 600);
-        }
-
-        #init() {
-          this.#applyTheme(localStorage.getItem('theme') || 'dark');
-          this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
-          this.#viewport.scrollTop = this.startY;
-
-          this.observer = new IntersectionObserver(
-            (entries) => {
-              entries.forEach((e) => {
-                const b = e.target;
-                const year = parseInt(b.dataset.year);
-                const wasActive = b.classList.contains('active');
-                b.classList.toggle('active', e.isIntersecting);
-
-                if (e.isIntersecting && !wasActive && 'vibrate' in navigator) {
-                  navigator.vibrate(8);
-                }
-
-                if (!e.isIntersecting) {
-                  const currentIdx = Math.round(this.#viewport.scrollTop / this.yearHeight);
-                  const currentYear = this.#today.getFullYear() + (currentIdx - this.totalYears / 2);
-                  if (Math.abs(year - currentYear) > 2) {
-                    this.#activeYears.delete(year);
-                    this.observer.unobserve(b);
-                    b.remove();
-                  }
-                }
-
-                if (e.isIntersecting && this.#viewport.scrollTop < this.#lastScrollPos) {
-                  const c = b.querySelector('.grid-container');
-                  if (c && b.classList.contains('is-scrolling')) c.scrollTop = c.scrollHeight;
-                }
-              });
-              this.#lastScrollPos = this.#viewport.scrollTop;
-            },
-            { threshold: 0.05, rootMargin: '20% 0px' }
-          );
-
-          this.#setupListeners();
-          this.#cursorLoop();
-          this.#render();
-          setTimeout(() => this.jumpToToday(true), 150);
-        }
-
-        #showToast(msg) {
-          clearTimeout(this.toastTimer);
-          this.#toast.innerText = msg;
-          this.#toast.classList.add('active');
-          this.toastTimer = setTimeout(() => this.#toast.classList.remove('active'), 2500);
-        }
-
-        #lockInteractions() {
-          this.#isInteractingAllowed = false;
-          this.#audio.setBusy(true);
-          this.#viewport.classList.add('is-locked');
-          document.documentElement.style.setProperty('--ion-glow', '200px');
-        }
-
-        #unlockInteractions() {
-          setTimeout(() => {
-            this.#isInteractingAllowed = true;
-            this.#audio.setBusy(false);
-            this.#viewport.classList.remove('is-locked');
-            document.documentElement.style.setProperty('--ion-glow', '700px');
-          }, 400);
-        }
-
-        jumpToToday(isInitial = false) {
-          if (this.#isWarping) return;
-
-          const currentYear =
-            this.#today.getFullYear() + (Math.round(this.#viewport.scrollTop / this.yearHeight) - this.totalYears / 2);
-          const targetYear = this.#today.getFullYear();
-          const distance = Math.abs(targetYear - currentYear);
-
-          this.#isWarping = true;
-          this.#lockInteractions();
-
-          // 1. Sembunyikan Kursor (Ion Drive)
-          this.#ionDrive.classList.add('jumping');
-
-          // 2. Logika Jarak & Durasi
-          let warpClass = '';
-          let duration = OdysseyConfig.display.warpDuration; // Default 1100ms
-
-          if (distance > 20) {
-            warpClass = 'warping-far';
-            this.#audio.play('jump', { volume: 0.8 });
-            duration = 1800; // Lompatan jauh butuh waktu lebih lama agar suara 'jump' selesai
-
-            // Efek ledakan partikel saat mulai melompat
-            for (let i = 0; i < 15; i++) {
-              this.#particles.spawn(this.#current.x, this.#current.y, false);
-            }
-          } else if (distance >= 2) {
-            warpClass = 'warping-near';
-            this.#audio.play('warp', { volume: 0.5 });
-            duration = 1200;
-          } else {
-            this.#audio.play('scroll');
-          }
-
-          // Terapkan efek visual ke viewport
-          if (warpClass) this.#viewport.classList.add(warpClass);
-
-          // 3. Eksekusi Pergerakan Scroll
-          // Kita sesuaikan timing scroll agar sinkron dengan durasi CSS
-          this.#viewport.style.scrollBehavior = 'smooth';
-          this.#viewport.scrollTo({ top: this.startY, behavior: 'smooth' });
-
-          if (!isInitial) this.#showToast(distance > 20 ? 'INTERSTELLAR JUMP' : 'LOCAL WARP');
-
-          setTimeout(() => {
-            // Reset visual
-            this.#viewport.classList.remove('warping-far', 'warping-near');
-            this.#ionDrive.classList.remove('jumping');
-
-            for (let i = 0; i < 3; i++) {
-              setTimeout(() => {
-                this.#particles.spawn(this.#current.x, this.#current.y, false);
-              }, i * 50);
-            }
-
-            const b = this.#activeYears.get(targetYear);
-            if (b) {
-              const t = b.querySelector('.cell.today'),
-                c = b.querySelector('.grid-container');
-              if (t && c) c.scrollTo({ top: t.offsetTop - window.innerHeight / 3, behavior: 'smooth' });
-            }
-
-            this.#audio.play('beep');
-            this.#isWarping = false;
-            this.#unlockInteractions();
-          }, duration);
-        }
-
-        #setupListeners() {
-          window.addEventListener(
-            'pointermove',
-            (e) => {
-              this.#mouse.x = e.clientX;
-              this.#mouse.y = e.clientY;
-
-              // Hitung kecepatan kursor
-              const velocity = Math.sqrt(
-                Math.pow(e.clientX - this.#lastMouse.x, 2) + Math.pow(e.clientY - this.#lastMouse.y, 2)
-              );
-
-              // Kirim kecepatan ke Particle Engine
-              if (velocity > OdysseyConfig.physics.exhaustThreshold) {
-                this.#particles.spawn(e.clientX, e.clientY, true);
-              }
-
-              // SINYAL AUDIO: Sambungkan kecepatan ke volume dinamis
-              this.#audio.injectEnginePower(velocity);
-
-              this.#lastMouse = { x: e.clientX, y: e.clientY };
-              this.#audio.resetIdleTimer();
-            },
-            { passive: true }
-          );
-
-          document.addEventListener(
-            'mouseover',
-            (e) => {
-              if (!this.#isInteractingAllowed || this.#isWarping || this.#isScrolling) return;
-              const cell = e.target.closest('.cell');
-              if (cell) {
-                const isF = cell.classList.contains('filler');
-                this.#ionDrive.classList.add('active');
-                document.documentElement.style.setProperty('--ion-glow', isF ? '200px' : '900px');
-                this.#audio.play('hover', { volume: isF ? 0.04 : 0.25, playbackRate: isF ? 0.5 : 1.0 });
-              }
-            },
-            { passive: true }
-          );
-
-          document.addEventListener(
-            'mouseout',
-            (e) => {
-              if (e.target.closest('.cell') && this.#isInteractingAllowed) {
-                this.#ionDrive.classList.remove('active');
-                document.documentElement.style.setProperty('--ion-glow', '700px');
-              }
-            },
-            { passive: true }
-          );
-
-          this.#viewport.addEventListener(
-            'scroll',
-            () => {
-              if (!this.#isScrolling) {
-                this.#lockInteractions();
-                this.#audio.play('scroll');
-              }
-              this.#isScrolling = true;
-
-              if (!this.ticking) {
-                window.requestAnimationFrame(() => {
-                  this.#render();
-                  this.#handleParallax();
-
-                  const velocity = Math.abs(this.#viewport.scrollTop - this.#lastScrollPos);
-
-                  if (velocity > 1) {
-                    const chromaAmount = Math.min(12, velocity / 10);
-                    document.documentElement.style.setProperty('--chroma-dist', chromaAmount);
-                  }
-
-                  this.#lastScrollPos = this.#viewport.scrollTop;
-                  this.ticking = false;
-                });
-                this.ticking = true;
-              }
-
-              clearTimeout(this.scrollStopT);
-              this.scrollStopT = setTimeout(() => {
-                this.#isScrolling = false;
-                this.#unlockInteractions();
-                document.documentElement.style.setProperty('--chroma-dist', 0);
-              }, 150);
-            },
-            { passive: true }
-          );
-
-          window.addEventListener('keydown', (e) => {
-            const k = e.key.toLowerCase();
-            if (k === 't') {
-              this.#audio.play('theme');
-              this.#toggleTheme();
-            }
-            if (k === 'm') {
-              const a = this.#audio.toggleMaster();
-              this.#showToast(a ? 'ION DRIVE ONLINE' : 'SILENT CRUISE');
-            }
-            if (k === ' ') {
-              e.preventDefault();
-              this.jumpToToday();
-            }
-            if (k === 'r') this.#setMode(true);
-            if (k === 's') this.#setMode(false);
-          });
-
-          document.addEventListener('click', (e) => {
-            if (!this.#isInteractingAllowed) return;
-            this.#particles.spawn(e.clientX, e.clientY, false);
-            if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
-          });
-          window.addEventListener('resize', () => {
-            this.yearHeight = window.innerHeight;
-            this.#canvas.style.height = `${this.totalYears * this.yearHeight}px`;
-            this.#particles.resize();
-            // Re-render years yang aktif tanpa reload
-            this.#render();
-          });
-        }
-
-        #cursorLoop() {
-          if (window.matchMedia('(pointer: coarse)').matches) return;
-          this.#current.x += (this.#mouse.x - this.#current.x) * OdysseyConfig.physics.cursorInertia;
-          this.#current.y += (this.#mouse.y - this.#current.y) * OdysseyConfig.physics.cursorInertia;
-          document.documentElement.style.setProperty('--ion-x', this.#current.x);
-          document.documentElement.style.setProperty('--ion-y', this.#current.y);
-
-          this.#audio.updateSpatialPosition(this.#current.x, this.#current.y);
-
-          requestAnimationFrame(() => this.#cursorLoop());
-        }
-
-        #handleParallax() {
-          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
-          const y = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          const b = this.#activeYears.get(y);
-          if (b && !this.#isScrolling) {
-            const offset = (this.#viewport.scrollTop % this.yearHeight) - this.yearHeight / 2;
-            const wm = b.querySelector('.watermark-embedded');
-            if (wm) wm.style.transform = `translate3d(0, ${offset * 0.06}px, 0)`;
-          }
-        }
-
-        #render() {
-          const idx = Math.round(this.#viewport.scrollTop / this.yearHeight);
-          const base = this.#today.getFullYear() + (idx - this.totalYears / 2);
-          for (let i = -1; i <= 1; i++) this.#drawYear(base + i, (idx + i) * this.yearHeight);
-        }
-
-        #drawYear(year, yPos) {
-          if (this.#activeYears.has(year)) return;
-          const block = document.createElement('section');
-          block.className = 'year-block';
-          block.style.top = `${yPos}px`;
-          block.dataset.year = year;
-          const jan1 = new Date(year, 0, 1);
-          const days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
-          const vw = window.innerWidth,
-            vh = window.innerHeight;
-          let cols = vw >= 600 ? Math.ceil(Math.ceil(Math.sqrt(373 * (vw / vh))) / 7) * 7 : 7;
-          let gO = this.#isRandomMode ? Math.floor(jan1.getTime() / 86400000) % cols : (jan1.getDay() + 6) % 7;
-          const rows = Math.ceil((days + gO) / cols);
-          const isSc = vh / rows < 60;
-          if (isSc) block.classList.add('is-scrolling');
-
-          const cont = document.createElement('div');
-          cont.className = 'grid-container';
-          cont.style.overflowY = isSc ? 'auto' : 'hidden';
-          const wm = document.createElement('div');
-          wm.className = 'watermark-embedded';
-          wm.innerText = year;
-          cont.append(wm);
-          const grid = document.createElement('div');
-          grid.className = 'grid-layer';
-          grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-          grid.style.gridTemplateRows = isSc ? `repeat(${rows}, minmax(60px, 1fr))` : `repeat(${rows}, 1fr)`;
-          grid.style.height = isSc ? 'auto' : '100%';
-          const frag = document.createDocumentFragment();
-          const itD = new Date(year, 0, 1 - gO);
-          for (let s = 0; s < cols * rows; s++) {
-            const isM = itD.getFullYear() === year;
-            const cell = document.createElement('div');
-            let fC = !isM ? (itD.getFullYear() < year ? 'filler-past' : 'filler-future') : '';
-            cell.className = `cell ${!isM ? 'filler ' + fC : ''} ${
-              itD.toDateString() === this.#today.toDateString() && isM ? 'today' : ''
-            } ${isM && itD.getDate() === 1 ? 'month-start' : ''} ${
-              isM && (itD.getDay() === 0 || itD.getDay() === 6) ? 'weekend' : ''
-            } ${isM && itD.getDay() === 1 ? 'week-start' : ''}`;
-            cell.innerHTML = `<div class="cell-content"><span class="info-meta ${
-              itD.getDate() === 1 && isM ? 'top-label' : ''
-            }">${
-              isM && (itD.getDate() === 1 || s === gO) ? OdysseyConfig.temporal.monthsShort[itD.getMonth()] : ''
-            }</span><span class="date-num">${itD.getDate()}</span><span class="info-meta">${
-              isM ? OdysseyConfig.temporal.daysShort[itD.getDay()] : ''
-            }</span></div>`;
-            frag.append(cell);
-            itD.setDate(itD.getDate() + 1);
-          }
-          grid.append(frag);
-          cont.append(grid);
-          block.append(cont);
-          this.#canvas.append(block);
-          this.#activeYears.set(year, block);
-          this.observer.observe(block);
-        }
-
-        #setMode(r) {
-          if (this.#isRandomMode === r) return;
-          this.#isRandomMode = r;
-          this.#activeYears.forEach((b) => {
-            this.observer.unobserve(b);
-            b.remove();
-          });
-          this.#activeYears.clear();
-          this.#render();
-          this.#audio.play('beep');
-          this.#showToast(r ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
-        }
-        #applyTheme(t) {
-          document.documentElement.setAttribute('data-theme', t);
-          document.documentElement.style.colorScheme = t;
-        }
-        #toggleTheme() {
-          const v = document.getElementById('theme-veil');
-          v.classList.add('active');
-          setTimeout(() => {
-            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-            this.#applyTheme(next);
-            localStorage.setItem('theme', next);
-            setTimeout(() => v.classList.remove('active'), 200);
-          }, 400);
-        }
-      }
-
-      new GridArchitect();
-    </script>
+    <div id="ion-drive" aria-hidden="true"></div>
+    <div id="atmosphere" aria-hidden="true"></div>
+    <div id="theme-veil" aria-hidden="true"></div>
+    <div id="toast" aria-live="polite">READY</div>
+    <nav id="year-nav" class="year-nav" aria-label="Previous year">
+      <button data-nav="prev" class="year-nav-btn" aria-label="Previous year" type="button">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M15 4 L7 12 L15 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </nav>
+    <nav id="year-nav-end" class="year-nav" aria-label="Next year">
+      <button data-nav="next" class="year-nav-btn" aria-label="Next year" type="button">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M9 4 L17 12 L9 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </nav>
+    <div id="keyboard-hints" class="keyboard-hints">
+      <span><kbd>F</kbd> Focus</span>
+      <span><kbd>G</kbd> Jump</span>
+      <span><kbd>←</kbd><kbd>→</kbd> Day</span>
+      <span><kbd>Space</kbd> Today</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> Year</span>
+      <span><kbd>T</kbd> Theme</span>
+    </div>
+    <main id="viewport" aria-label="Temporal grid"><div id="infinite-canvas"></div></main>
+
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>

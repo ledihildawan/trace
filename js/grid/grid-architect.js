@@ -1,0 +1,820 @@
+import { OdysseyConfig } from '../config/odyssey-config.js';
+import { SmoothScroll } from '../core/smooth-scroll.js';
+import { LongPressDetector, ScrollEndDetector } from '../core/event-hub.js';
+import { prefersReducedMotion } from '../core/motion.js';
+import {
+  addMonths,
+  daysInYear,
+  endOfMonth,
+  formatFullDate,
+  stampOf,
+  shiftDays,
+  startOfMonth,
+} from '../core/date-utils.js';
+import {
+  flingVelocity,
+  isFling,
+  pushSample,
+  stepsFromFling,
+  stepsFromPixels,
+  wheelDeltaToPixels,
+} from '../core/gesture-math.js';
+import { DayStore, moodColor } from '../systems/day-store.js';
+import { downloadArchive, pickArchiveFile } from '../systems/day-archive.js';
+import { DayPulse } from '../systems/day-pulse.js';
+import { DayPanel } from '../ui/day-panel.js';
+import { DateJumper } from '../ui/date-jumper.js';
+import { PositionScrubber } from '../ui/position-scrubber.js';
+import { DayFocus } from './day-focus.js';
+import { GridPool } from './grid-pool.js';
+import { IonCursor } from './cursor.js';
+import { YearNavigator } from './year-navigator.js';
+import {
+  buildBlockSkeleton,
+  buildGridContainer,
+  buildGridLayer,
+  buildYearCellsHTML,
+  enrichCell,
+  computeGridCols,
+  computeYearOffset,
+  isScrollableLayout,
+} from './grid-renderer.js';
+
+const DAYS_PER_WEEK = 7;
+
+export class GridArchitect {
+  #viewport;
+  #canvas;
+  #ionDrive;
+  #audio;
+  #particles;
+  #theme;
+  #toast;
+  #boot;
+  #smoothScroll;
+  #pool;
+  #cursor;
+  #navigator;
+
+  #touchActive = false;
+  #touchScrollEndWillSnap = false;
+  #activeYears = new Map();
+  #observer = null;
+
+  #isWarping = false;
+  #isAnimating = false;
+  #interactionsAllowed = true;
+  #lastRenderTop = -1;
+  #lastChroma = 0;
+
+  #today = new Date();
+  #totalYears;
+  #yearHeight;
+  #startY;
+  #mode = null;
+
+  #focus = null;
+  #pendingFocusDate = null;
+  #jumper = null;
+  #shortcuts = null;
+  #store = new DayStore();
+  #panel = null;
+  #scrubber = null;
+  #pulse = null;
+
+  constructor(deps) {
+    this.#viewport = deps.viewport;
+    this.#canvas = deps.canvas;
+    this.#ionDrive = deps.ionDrive;
+    this.#audio = deps.audio;
+    this.#particles = deps.particles;
+    this.#theme = deps.theme;
+    this.#toast = deps.toast;
+    this.#boot = deps.boot;
+
+    this.#totalYears = OdysseyConfig.temporal.totalYears;
+    this.#yearHeight = window.innerHeight;
+    this.#startY = (this.#totalYears / 2) * this.#yearHeight;
+    this.#mode = OdysseyConfig.display.defaultMode === 'structured';
+
+    this.#focus = new DayFocus(this.#canvas, {
+      resolveBlock: (year) => this.#activeYears.get(year),
+      today: this.#today,
+    });
+    this.#pool = new GridPool((year, yPos) => buildBlockSkeleton(year, yPos));
+    this.#smoothScroll = new SmoothScroll(this.#viewport, this.#yearHeight)
+      .onArrive((scrollTop) => this.#handleArrival(scrollTop))
+      .onVelocityChange((velocity) => this.#handleInertiaVelocity(velocity));
+    this.#cursor = new IonCursor();
+    // Both detectors bind their own listeners on construction and are driven
+    // entirely by callbacks, so there is nothing to hold on to afterwards.
+    new LongPressDetector().onTrigger(() => this.#handleLongPress());
+    new ScrollEndDetector(this.#viewport).onSettle(() => this.#handleTouchSettled());
+    this.#navigator = new YearNavigator()
+      .onPrev(() => this.#navigateYear(-1))
+      .onNext(() => this.#navigateYear(1));
+    this.#navigator.reveal();
+
+    this.#panel = new DayPanel(this.#store, {
+      onClose: () => this.#focus.restoreFocus(),
+    });
+    this.#jumper = new DateJumper()
+      .onSubmit((date) => {
+        this.#focusDate(date);
+        this.#toast.show(formatFullDate(date));
+      })
+      .onReject(() => this.#toast.show('INVALID DATE'));
+    this.#store.onChange((key) => this.#refreshDataMarkers(key));
+    this.#scrubber = new PositionScrubber(this.#viewport, {
+      todayRatio: 0.5,
+      onStart: () => this.#smoothScroll.beginTouchDrag(),
+      onScrub: (top) => { this.#viewport.scrollTop = top; },
+      onEnd: () => this.#smoothScroll.endTouchDrag(),
+      onSettle: () => this.#smoothScroll.settleToNearest(),
+    });
+
+    this.#pulse = new DayPulse({ onRollover: (now) => this.#handleDayRollover(now) });
+
+    this.#runBoot();
+  }
+
+  async #runBoot() {
+    await this.#boot.run(() => this.#initialize());
+  }
+
+  #initialize() {
+    this.#canvas.style.height = `${this.#totalYears * this.#yearHeight}px`;
+    this.#viewport.scrollTop = this.#startY;
+
+    this.#installIntersectionObserver();
+    this.#installEventListeners();
+    this.#installKeyShortcuts();
+    this.#smoothScroll.startInertia();
+    this.#cursor.start();
+    this.#pulse.start();
+    this.#smoothScroll.syncTo(this.#startY);
+    this.#render();
+    this.#updateNavBounds();
+    this.#scrubber?.update();
+    setTimeout(() => this.jumpToToday(true), OdysseyConfig.timing.jumpInitialDelayMs);
+  }
+
+  #installIntersectionObserver() {
+    this.#observer = new IntersectionObserver(
+      (entries) => this.#handleIntersections(entries),
+      { threshold: 0.05, rootMargin: '20% 0px' }
+    );
+  }
+
+  #handleIntersections(entries) {
+    for (const entry of entries) {
+      const block = entry.target;
+      const year = parseInt(block.dataset.year, 10);
+      block.classList.toggle(OdysseyConfig.classes.active, entry.isIntersecting);
+
+      if (entry.isIntersecting) this.#enrichYearBlock(block);
+      if (!entry.isIntersecting) {
+        const idx = this.#smoothScroll.currentIndex;
+        const currentYear = this.#today.getFullYear() + (idx - this.#totalYears / 2);
+        if (Math.abs(year - currentYear) > 2) this.#deactivateYearBlock(year, block);
+      }
+    }
+  }
+
+  #deactivateYearBlock(year, block) {
+    this.#activeYears.delete(year);
+    this.#observer.unobserve(block);
+    this.#pool.release(block);
+  }
+
+  // Upgrades a block rendered with date-only cells to fully-labelled ones.
+  // Idempotent and self-flagging, so every caller can just call it.
+  #enrichYearBlock(block) {
+    if (block.dataset.detailed === 'true') return;
+    block.dataset.detailed = 'true';
+
+    const C = OdysseyConfig.classes;
+    const cells = block.querySelectorAll(`.${C.cell}:not(.${C.enriched}):not(.${C.filler})`);
+    cells.forEach((cell) => {
+      const month = parseInt(cell.dataset.month, 10);
+      const day = parseInt(cell.dataset.day, 10);
+      const date = parseInt(cell.dataset.date, 10);
+      if (Number.isNaN(month) || Number.isNaN(day) || Number.isNaN(date)) return;
+      cell.classList.add(C.enriched);
+      enrichCell(cell, month, day, date, cell.dataset.isMonthStart === 'true');
+    });
+  }
+
+  #installEventListeners() {
+    let lastX = 0;
+    let lastY = 0;
+    let lastSpatialAt = 0;
+    const spatialThrottle = OdysseyConfig.physics.spatialAudioThrottleMs;
+
+    window.addEventListener(
+      'pointermove',
+      (e) => {
+        this.#cursor.setPointer(e.clientX, e.clientY);
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        const velocity = Math.hypot(dx, dy);
+        if (velocity > OdysseyConfig.physics.exhaustThreshold) {
+          this.#particles.spawn(e.clientX, e.clientY, true);
+        }
+        this.#audio.injectEnginePower(velocity);
+        this.#audio.resetIdleTimer();
+        // Pan the spatial bus toward the pointer. Throttled: each update
+        // schedules three AudioParam ramps.
+        const now = performance.now();
+        if (now - lastSpatialAt > spatialThrottle) {
+          lastSpatialAt = now;
+          this.#audio.updateSpatialPosition(e.clientX, e.clientY);
+        }
+        lastX = e.clientX;
+        lastY = e.clientY;
+      },
+      { passive: true }
+    );
+
+    const glowVar = OdysseyConfig.dom.ionGlowVar;
+    const defaultGlow = OdysseyConfig.dom.ionGlowDefault;
+
+    document.addEventListener('mouseover', (e) => {
+      if (!this.#interactionsAllowed || this.#isWarping || this.#isAnimating) return;
+      const cell = e.target.closest(`.${OdysseyConfig.classes.cell}`);
+      if (cell) {
+        const isFiller = cell.classList.contains(OdysseyConfig.classes.filler);
+        this.#ionDrive.classList.add(OdysseyConfig.classes.active);
+        document.documentElement.style.setProperty(
+          glowVar,
+          isFiller ? OdysseyConfig.dom.ionGlowFiller : OdysseyConfig.dom.ionGlowHover
+        );
+        this.#audio.play('hover', { volume: isFiller ? 0.04 : 0.25, playbackRate: isFiller ? 0.5 : 1.0 });
+      }
+    }, { passive: true });
+
+    document.addEventListener('mouseout', (e) => {
+      if (e.target.closest(`.${OdysseyConfig.classes.cell}`) && this.#interactionsAllowed) {
+        this.#ionDrive.classList.remove(OdysseyConfig.classes.active);
+        document.documentElement.style.setProperty(glowVar, defaultGlow);
+      }
+    }, { passive: true });
+
+    let ticking = false;
+    this.#viewport.addEventListener('scroll', () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const isInternalAnim =
+            this.#smoothScroll.isAnimating() || this.#isWarping;
+          if (!isInternalAnim) {
+            this.#render();
+            this.#updateNavBounds();
+            this.#updateChroma();
+          } else {
+            this.#render();
+          }
+          this.#scrubber?.update();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }, { passive: true });
+
+    this.#installWheel();
+    this.#installTouch();
+    this.#installResizeAndClick();
+  }
+
+  #installWheel() {
+    this.#viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (this.#isWarping || this.#touchActive) return;
+      const deltaPx = wheelDeltaToPixels(e.deltaY, e.deltaMode, window.innerHeight);
+      this.#smoothScroll.stepBy(stepsFromPixels(deltaPx, this.#yearHeight));
+    }, { passive: false });
+  }
+
+  #installTouch() {
+    let lastTouchY = 0;
+    let samples = [];
+
+    this.#viewport.addEventListener('touchstart', (e) => {
+      this.#touchActive = true;
+      lastTouchY = e.touches[0].clientY;
+      samples = [{ y: lastTouchY, t: performance.now() }];
+      this.#touchScrollEndWillSnap = false;
+      this.#smoothScroll.beginTouchDrag();
+    }, { passive: true });
+
+    this.#viewport.addEventListener('touchmove', (e) => {
+      const y = e.touches[0].clientY;
+      if (!lastTouchY) { lastTouchY = y; return; }
+      const deltaY = lastTouchY - y;
+      lastTouchY = y;
+      pushSample(samples, { y, t: performance.now() });
+
+      this.#smoothScroll.cancelAnimation();
+      this.#smoothScroll.nudge(deltaY);
+    }, { passive: true });
+
+    this.#viewport.addEventListener('touchend', () => {
+      const velocity = flingVelocity(samples);
+      lastTouchY = 0;
+      // Brief grace period so a trackpad's momentum wheel events, which arrive
+      // right after touchend, do not double-navigate.
+      setTimeout(() => { this.#touchActive = false; }, OdysseyConfig.physics.touchSettleMs);
+
+      if (isFling(velocity)) {
+        this.#smoothScroll.stepBy(stepsFromFling(velocity, this.#yearHeight));
+      } else {
+        this.#touchScrollEndWillSnap = true;
+      }
+      this.#smoothScroll.endTouchDrag();
+    });
+  }
+
+  #installResizeAndClick() {
+    window.addEventListener('resize', () => {
+      this.#yearHeight = window.innerHeight;
+      this.#canvas.style.height = `${this.#totalYears * this.#yearHeight}px`;
+      this.#smoothScroll.setStep(this.#yearHeight);
+      this.#smoothScroll.clampInertia();
+      this.#particles.resize();
+      this.#lastRenderTop = -1;
+      this.#render();
+      this.#updateNavBounds();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!this.#interactionsAllowed) return;
+      this.#particles.spawn(e.clientX, e.clientY, false);
+      if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
+      const cell = e.target.closest(
+        `.${OdysseyConfig.classes.cell}:not(.${OdysseyConfig.classes.filler})`
+      );
+      // DayFocus picks this up via focusin and syncs state + the tab stop.
+      if (cell) cell.focus();
+    });
+  }
+
+  #installKeyShortcuts() {
+    this.#shortcuts = this.#buildShortcuts();
+    window.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, textarea')) return;
+      if (this.#panel?.isOpen() || this.#jumper?.isOpen()) return;
+      const key = e.key.toLowerCase();
+
+      // A focused day cell claims the arrow/home/end/page keys for day-wise motion.
+      if (this.#focus.isCellFocused() && this.#handleCellNav(e, key)) return;
+
+      const action = this.#shortcuts.get(key);
+      if (!action) return;
+      if (action.prevent) e.preventDefault();
+      action.run(e);
+    });
+  }
+
+  // Shortcuts as data rather than an if/else ladder: one row per key, and
+  // preventDefault is opt-in because T/M/R/S should not swallow anything.
+  #buildShortcuts() {
+    const leap = OdysseyConfig.display.yearLeapStep;
+    const plain = (run) => ({ prevent: false, run });
+    const prevent = (run) => ({ prevent: true, run });
+    const byYear = (sign) => prevent((e) => this.#navigateYear(sign * (e.shiftKey ? leap : 1)));
+
+    return new Map([
+      ['t', plain(() => this.#toggleTheme())],
+      ['m', plain(() => this.#toggleAudio())],
+      ['r', plain(() => this.#setMode(true))],
+      ['s', plain(() => this.#setMode(false))],
+      ['e', prevent(() => this.#exportDays())],
+      ['i', prevent(() => this.#importDays())],
+      ['f', prevent(() => this.#focusDate(this.#today))],
+      ['g', prevent(() => this.#jumper.open())],
+      ['/', prevent(() => this.#jumper.open())],
+      [' ', prevent(() => this.jumpToToday())],
+      ['home', prevent(() => this.#jumpToEdge(0))],
+      ['end', prevent(() => this.#jumpToEdge(this.#totalYears - 1))],
+      ['arrowup', byYear(-1)],
+      ['pageup', byYear(-1)],
+      ['arrowdown', byYear(1)],
+      ['pagedown', byYear(1)],
+    ]);
+  }
+
+  #toggleTheme() {
+    this.#audio.play('theme');
+    this.#theme.toggle();
+  }
+
+  #toggleAudio() {
+    const on = this.#audio.toggleMaster();
+    this.#toast.show(on ? 'ION DRIVE ONLINE' : 'SILENT CRUISE');
+  }
+
+  // ── Keyboard day navigation (WAI-ARIA grid pattern) ──
+
+  #handleCellNav(e, k) {
+    const date = this.#focus.date;
+    if (!date) return false;
+    let next = null;
+    switch (k) {
+      case 'arrowright': next = shiftDays(date, 1); break;
+      case 'arrowleft': next = shiftDays(date, -1); break;
+      case 'arrowdown': next = shiftDays(date, DAYS_PER_WEEK); break;
+      case 'arrowup': next = shiftDays(date, -DAYS_PER_WEEK); break;
+      case 'home': next = startOfMonth(date); break;
+      case 'end': next = endOfMonth(date); break;
+      case 'pageup': next = addMonths(date, -1); break;
+      case 'pagedown': next = addMonths(date, 1); break;
+      case 'enter':
+      case ' ':
+        e.preventDefault();
+        this.#openDayPanel();
+        return true;
+      case 'escape':
+        e.preventDefault();
+        document.activeElement?.blur();
+        return true;
+      default:
+        return false;
+    }
+    e.preventDefault();
+    this.#focusDate(next);
+    return true;
+  }
+
+
+  #focusDate(date) {
+    this.#focus.date = date;
+    const year = date.getFullYear();
+    const block = this.#activeYears.get(year);
+    if (block && block.dataset.detailed === 'true') {
+      this.#focus.focusIn(block, date);
+      return;
+    }
+    // Target year isn't rendered yet — travel there and focus on arrival.
+    this.#pendingFocusDate = date;
+    if (this.#isWarping) return;
+    this.#smoothScroll.jumpToIndex(this.#yearToIndex(year));
+    this.#updateNavBounds();
+  }
+
+
+  // ── Per-day data (notes + mood) ──
+
+  #openDayPanel() {
+    if (!this.#focus.date) return;
+    this.#panel.open(this.#focus.date);
+  }
+
+  // A single day changed (someone typed a note or picked a mood): touch only
+  // that one cell. Without a key, fall back to a full re-scan.
+  #refreshDataMarkers(key) {
+    if (!key) {
+      this.#activeYears.forEach((block) => this.#markBlock(block));
+      return;
+    }
+    const parts = DayStore.dateOf(key);
+    if (!parts) return;
+    const block = this.#activeYears.get(parts.year);
+    if (!block) return;
+    const cell = this.#cellIn(block, parts.month, parts.date);
+    if (cell) this.#applyMarker(cell, this.#store.get(key));
+  }
+
+  #applyMarker(cell, entry) {
+    if (entry && (entry.note || entry.mood)) {
+      cell.classList.add('has-data');
+      cell.style.setProperty('--mood-color', moodColor(entry.mood) || 'transparent');
+    } else {
+      cell.classList.remove('has-data');
+      cell.style.removeProperty('--mood-color');
+    }
+  }
+
+  // Driven by the data, not the DOM: clear the handful of cells currently
+  // marked, then paint only the days this year actually has entries for.
+  // The old version tested all ~400 cells of the block on every arrival.
+  #markBlock(block) {
+    const year = parseInt(block.dataset.year, 10);
+    if (Number.isNaN(year)) return;
+
+    block.querySelectorAll('.has-data').forEach((cell) => this.#applyMarker(cell, null));
+
+    for (const key of this.#store.keysForYear(year)) {
+      const parts = DayStore.dateOf(key);
+      if (!parts) continue;
+      const cell = this.#cellIn(block, parts.month, parts.date);
+      if (cell) this.#applyMarker(cell, this.#store.get(key));
+    }
+  }
+
+  #cellIn(block, month, date) {
+    return block.querySelector(
+      `.${OdysseyConfig.classes.cell}[data-month="${month}"][data-date="${date}"]`
+    );
+  }
+
+  // Midnight passed while the app was open: "today" moved on, so every
+  // rendered block is now marked against the wrong day.
+  #handleDayRollover(now) {
+    this.#today = now;
+    this.#rebuildAllYears();
+    this.#toast.show(formatFullDate(now));
+  }
+
+  #rebuildAllYears() {
+    // Snapshot first: #deactivateYearBlock mutates #activeYears as it goes.
+    [...this.#activeYears].forEach(([year, block]) => this.#deactivateYearBlock(year, block));
+    this.#activeYears.clear();
+    this.#lastRenderTop = -1;
+    this.#render();
+  }
+
+  // ── Import / export ──
+
+  #exportDays() {
+    const entries = this.#store.entries();
+    if (!entries.length) {
+      this.#toast.show('NOTHING TO EXPORT');
+      return;
+    }
+    this.#store.flush();
+    downloadArchive(entries);
+    this.#toast.show(`${entries.length} DAYS EXPORTED`);
+  }
+
+  async #importDays() {
+    const result = await pickArchiveFile();
+    if (!result) return; // picker dismissed
+    if (result.error) {
+      this.#toast.show('IMPORT FAILED');
+      console.warn('[TRACE] import rejected:', result.error);
+      return;
+    }
+    const changed = this.#store.merge(result.entries);
+    this.#toast.show(changed ? `${changed} DAYS RESTORED` : 'ALREADY UP TO DATE');
+  }
+
+  #currentYear() {
+    return this.#today.getFullYear() + (this.#smoothScroll.currentIndex - this.#totalYears / 2);
+  }
+
+  #clampIndex(idx) {
+    return Math.max(0, Math.min(this.#totalYears - 1, idx));
+  }
+
+  #yearToIndex(year) {
+    return this.#clampIndex(year - this.#today.getFullYear() + this.#totalYears / 2);
+  }
+
+  #navigateYear(delta) {
+    if (this.#isWarping) return;
+    const target = this.#clampIndex(this.#smoothScroll.currentIndex + delta);
+    this.#smoothScroll.stepBy(delta);
+    this.#audio.play('scroll', { volume: 0.25 });
+    // Haptic tick on a deliberate year change only — buzzing on every block
+    // that scrolls into view made the whole page vibrate continuously.
+    if ('vibrate' in navigator && !prefersReducedMotion()) navigator.vibrate(8);
+    const label = Math.abs(delta) === 1
+      ? (delta < 0 ? 'PREV YEAR' : 'NEXT YEAR')
+      : (delta < 0 ? `−${Math.abs(delta)} YEARS` : `+${Math.abs(delta)} YEARS`);
+    this.#toast.show(label);
+    this.#navigator.setBounds(target > 0, target < this.#totalYears - 1);
+  }
+
+  #jumpToEdge(idx) {
+    const target = this.#clampIndex(idx);
+    const current = this.#smoothScroll.currentIndex;
+    if (target === current) return;
+    this.#isWarping = true;
+    this.#lockInteractions();
+    this.#audio.play('jump', { volume: 0.6 });
+    this.#viewport.classList.add(OdysseyConfig.classes.warpingFar);
+    this.#smoothScroll.jumpToIndex(target);
+    this.#toast.show(target === 0 ? 'EPOCH ZERO' : 'EPOCH ULTIMA');
+    this.#updateNavBounds();
+  }
+
+  #updateNavBounds() {
+    const idx = this.#smoothScroll.currentIndex;
+    this.#navigator.setBounds(idx > 0, idx < this.#totalYears - 1);
+  }
+
+  #handleArrival(_scrollTop) {
+    const wasAnimating = this.#isAnimating;
+    const wasWarping = this.#isWarping;
+    this.#isAnimating = false;
+    this.#isWarping = false;
+    this.#ionDrive.classList.remove(OdysseyConfig.classes.jumping);
+    this.#lastChroma = 0;
+    document.documentElement.style.setProperty(OdysseyConfig.dom.chromaDistVar, 0);
+
+    if (wasWarping) {
+      this.#viewport.classList.remove(
+        OdysseyConfig.classes.warpingFar,
+        OdysseyConfig.classes.warpingNear
+      );
+      this.#audio.play('beep');
+    }
+    if (!this.#interactionsAllowed) {
+      this.#unlockInteractions();
+    }
+
+    this.#updateNavBounds();
+    this.#activeYears.forEach((block) => this.#enrichYearBlock(block));
+    this.#refreshDataMarkers();
+    this.#focus.refreshTabStop(this.#currentYear());
+
+    // Focus the date requested while its year was still off-screen. Force a
+    // render first: on instant (reduced-motion) or long jumps, this runs before
+    // the scroll event that would otherwise draw the target year's block.
+    if (this.#pendingFocusDate) {
+      const d = this.#pendingFocusDate;
+      this.#pendingFocusDate = null;
+      this.#lastRenderTop = -1;
+      this.#render();
+      const block = this.#activeYears.get(d.getFullYear());
+      if (block) this.#focus.focusIn(block, d);
+    }
+  }
+
+  #handleInertiaVelocity(velocity) {
+    if (this.#isWarping || this.#isAnimating) return;
+    this.#render();
+    this.#updateChroma(velocity);
+    this.#updateNavBounds();
+  }
+
+  #handleTouchSettled() {
+    const wantsSnap = this.#touchScrollEndWillSnap;
+    this.#touchScrollEndWillSnap = false;
+    const velocity = Math.abs(this.#smoothScroll.velocity || 0);
+    if (wantsSnap && velocity < 0.5 && !this.#isWarping && !this.#isAnimating) {
+      this.#smoothScroll.settleToNearest();
+    }
+  }
+
+  #handleLongPress() {
+    this.#audio.play('theme');
+    this.#theme.toggle();
+    this.#toast.show('MOOD SHIFT');
+    this.#ionDrive.classList.add(OdysseyConfig.classes.active);
+    setTimeout(() => this.#ionDrive.classList.remove(OdysseyConfig.classes.active), 300);
+  }
+
+  #updateChroma(velocity = Math.abs(this.#smoothScroll.velocity || 0)) {
+    if (prefersReducedMotion()) return;
+    if (velocity <= OdysseyConfig.render.scrollEndVelocityPx) return;
+    if (velocity > OdysseyConfig.render.scrollSkipVelocityPx) return;
+    const chroma = Math.min(
+      OdysseyConfig.render.chromaCapPx,
+      velocity / OdysseyConfig.render.chromaVelocityDivisor
+    );
+    // This runs every animation frame; only touch the CSSOM when it matters.
+    const rounded = Math.round(chroma * 100) / 100;
+    if (rounded === this.#lastChroma) return;
+    this.#lastChroma = rounded;
+    document.documentElement.style.setProperty(OdysseyConfig.dom.chromaDistVar, rounded);
+  }
+
+  #lockInteractions() {
+    this.#interactionsAllowed = false;
+    this.#audio.setBusy(true);
+    this.#viewport.classList.add(OdysseyConfig.classes.isLocked);
+    document.documentElement.style.setProperty(
+      OdysseyConfig.dom.ionGlowVar,
+      OdysseyConfig.dom.ionGlowLocked
+    );
+  }
+
+  #unlockInteractions() {
+    setTimeout(() => {
+      this.#interactionsAllowed = true;
+      this.#audio.setBusy(false);
+      this.#viewport.classList.remove(OdysseyConfig.classes.isLocked);
+      document.documentElement.style.setProperty(
+        OdysseyConfig.dom.ionGlowVar,
+        OdysseyConfig.dom.ionGlowDefault
+      );
+    }, OdysseyConfig.timing.lockReleaseDelayMs);
+  }
+
+  jumpToToday(isInitial = false) {
+    if (this.#isWarping) return;
+
+    const targetYear = this.#today.getFullYear();
+    const targetIdx = this.#yearToIndex(targetYear);
+    const currentIdx = this.#smoothScroll.currentIndex;
+    const distance = Math.abs(targetIdx - currentIdx);
+
+    this.#ionDrive.classList.add(OdysseyConfig.classes.jumping);
+
+    if (distance <= 1) {
+      this.#isAnimating = true;
+      this.#lockInteractions();
+      this.#audio.play('scroll', { volume: 0.25 });
+      this.#smoothScroll.jumpToIndex(targetIdx);
+      return;
+    }
+
+    this.#isWarping = true;
+    this.#lockInteractions();
+    let warpClass = OdysseyConfig.classes.warpingNear;
+
+    if (distance > 20) {
+      warpClass = OdysseyConfig.classes.warpingFar;
+      this.#audio.play('jump', { volume: 0.8 });
+      for (let i = 0; i < 15; i++) this.#particles.spawn(this.#cursor.position.x, this.#cursor.position.y, false);
+    } else {
+      this.#audio.play('warp', { volume: 0.5 });
+    }
+
+    this.#viewport.classList.add(warpClass);
+    this.#smoothScroll.jumpToIndex(targetIdx);
+    this.#updateNavBounds();
+
+    if (!isInitial) {
+      this.#toast.show(distance > 20 ? 'INTERSTELLAR JUMP' : 'LOCAL WARP');
+    }
+  }
+
+  #render() {
+    const scrollTop = this.#viewport.scrollTop;
+    const velocity = Math.abs(this.#smoothScroll.velocity || 0);
+    const isFast = velocity > OdysseyConfig.render.scrollEndVelocityPx;
+    if (isFast && velocity > OdysseyConfig.render.scrollSkipVelocityPx) return;
+    if (!isFast && scrollTop === this.#lastRenderTop) return;
+    this.#lastRenderTop = scrollTop;
+
+    const idx = Math.round(scrollTop / this.#yearHeight);
+    const base = this.#today.getFullYear() + (idx - this.#totalYears / 2);
+    const extend = isFast
+      ? Math.min(OdysseyConfig.render.adaptiveExtendMax, Math.ceil(velocity * OdysseyConfig.render.fastVelocityFactor))
+      : 1;
+
+    for (let i = -extend; i <= extend; i++) {
+      this.#drawYear(base + i, (idx + i) * this.#yearHeight, isFast);
+    }
+  }
+
+  #drawYear(year, yPos, fast) {
+    const existing = this.#activeYears.get(year);
+    if (existing) {
+      if (existing.style.top !== `${yPos}px`) existing.style.top = `${yPos}px`;
+      // Only upgrade date-only cells once the scroll has calmed down —
+      // enriching mid-fling is exactly the wrong moment to touch the DOM.
+      if (!fast) this.#enrichYearBlock(existing);
+      return;
+    }
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cols = computeGridCols(vw, vh);
+    const days = daysInYear(year);
+    const gO = computeYearOffset(year, cols, this.#mode);
+    const rows = Math.ceil((days + gO) / cols);
+    const isScrollable = isScrollableLayout(rows, vh);
+
+    const block = this.#pool.acquire(year, yPos);
+    if (isScrollable) block.classList.add(OdysseyConfig.classes.isScrolling);
+
+    const cont = buildGridContainer(year, isScrollable);
+    const grid = buildGridLayer(year, cols, rows, isScrollable);
+    // Whole year in one parse. While scrolling fast we emit date-only cells and
+    // let #enrichYearBlock add the labels once the block settles.
+    grid.innerHTML = buildYearCellsHTML(
+      year, cols, rows, gO, stampOf(this.#today), !fast
+    );
+    if (!fast) block.dataset.detailed = 'true';
+    cont.append(grid);
+    block.append(cont);
+    this.#canvas.append(block);
+    this.#activeYears.set(year, block);
+    this.#observer.observe(block);
+    this.#markBlock(block);
+    this.#focus.refreshTabStop(this.#currentYear());
+  }
+
+  #setMode(random) {
+    if (this.#mode === random) return;
+    this.#mode = random;
+    // Snapshot first: #deactivateYearBlock mutates #activeYears as it goes.
+    [...this.#activeYears].forEach(([year, block]) => this.#deactivateYearBlock(year, block));
+    this.#activeYears.clear();
+    this.#lastRenderTop = -1;
+    this.#render();
+    this.#audio.play('beep');
+    this.#toast.show(random ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
+  }
+
+  nextYear() { this.#navigateYear(1); }
+  prevYear() { this.#navigateYear(-1); }
+  goToYear(year) {
+    if (this.#isWarping) return;
+    this.#smoothScroll.jumpToIndex(this.#yearToIndex(year));
+    this.#toast.show(`YEAR ${year}`);
+    this.#updateNavBounds();
+  }
+}

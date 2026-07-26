@@ -39,13 +39,63 @@ TRACE follows a "Zero-UI" philosophy. There are no visible buttons to clutter th
     **Hover** over any cell to bring it into focus.
     *Why?* The grid remains quiet until you choose to engage with it.
 
+3.  **To Record a Day:**
+    **Click** a date, then press `Enter` — write a note or pick a mood.
+    *Why?* A day worth remembering should cost one gesture, not a form.
+
+### ⌨️ Keyboard
+
+The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.
+
+| Key | Action |
+| --- | --- |
+| `Tab` | Enter the calendar |
+| `←` `→` `↑` `↓` | Move by day / week |
+| `Home` `End` | First / last day of the month |
+| `PageUp` `PageDown` | Previous / next month |
+| `Enter` `Space` | Open the day panel |
+| `F` | Focus today |
+| `G` or `/` | Jump to a date |
+| `Space` | Travel to today |
+| `↑` `↓` (no cell focused) | Previous / next year (`Shift` = 10 years) |
+| `T` | Toggle theme |
+| `E` | Export every recorded day to a JSON file |
+| `I` | Import a JSON archive (merges; nothing is overwritten blindly) |
+| `M` | Toggle audio |
+| `R` / `S` | Dynamic / Monday-aligned layout |
+
 ---
 
-### 📦 Installation & Setup
-TRACE is a standalone web instrument. No installation is required.
-1.  Download the `index.html` file.
-2.  Open it in any modern browser.
-3.  Press `F11` for Fullscreen mode to complete the immersion.
+### 📦 Running It
+
+TRACE ships as ES modules, so it needs to be served over HTTP — opening
+`index.html` straight from disk is blocked by the browser's module CORS rules.
+
+```bash
+npm start           # http://127.0.0.1:8000 (no-cache dev server)
+```
+
+Any static server works; `devserver.py` simply adds `Cache-Control: no-store`
+so an edited module is never masked by a cached copy. Press `F11` for
+fullscreen to complete the immersion.
+
+There is no build step and there are no runtime dependencies.
+
+### 💾 Your Data
+
+Notes and moods live in this browser's `localStorage` — nothing is sent
+anywhere. That also means clearing site data erases them, so press `E` now and
+then to keep a copy. `I` merges an archive back in: days already on screen are
+kept unless the file has a newer version of that same day.
+
+### 🧪 Development
+
+```bash
+npm test            # unit tests (node:test, no dependencies)
+npm run test:watch  # re-run on change
+```
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the modules fit together.
 
 ### 📝 Changelog
 Refer to the [CHANGELOG.md](./CHANGELOG.md) for technical history and version updates.
