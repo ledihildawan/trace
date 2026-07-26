@@ -18,6 +18,7 @@ export class AudioGraph {
   #limiter;
   #buses;
   #panner;
+  #voices = new Set();
 
   constructor() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -103,6 +104,21 @@ export class AudioGraph {
     this.#panner.positionZ.setTargetAtTime(0.5, t, 0.1);
   }
 
+  get voiceCount() { return this.#voices.size; }
+
+  // The limiter stops a pile-up from clipping, but nothing stopped it from
+  // costing CPU: a burst of interaction could leave dozens of sources being
+  // summed. Past the cap the oldest one-shot is retired first.
+  #enforceVoiceCap() {
+    const cap = OdysseyConfig.audio.maxVoices;
+    while (this.#voices.size >= cap) {
+      const oldest = this.#voices.values().next().value;
+      if (!oldest) return;
+      this.#voices.delete(oldest);
+      oldest.stop(OdysseyConfig.audio.stealFadeSec);
+    }
+  }
+
   // Starts one voice. Returns a handle whose stop() fades out rather than
   // cutting, because stopping a loop outright is an audible click.
   play(buffer, voice) {
@@ -128,13 +144,15 @@ export class AudioGraph {
     // Every voice used to leave its gain node wired to the bus forever. At one
     // hover sample per 100ms that is ten dead nodes a second, all still being
     // summed by the audio thread.
+    let handle;
     const release = () => {
       source.disconnect();
       gain.disconnect();
+      this.#voices.delete(handle);
     };
     source.onended = release;
 
-    return {
+    handle = {
       stop: (fade = OdysseyConfig.audio.stopFadeSec) => {
         const t = this.#ctx.currentTime;
         gain.gain.cancelScheduledValues(t);
@@ -147,5 +165,13 @@ export class AudioGraph {
         }
       },
     };
+
+    // Loops are held by the caller and stopped deliberately, so only one-shots
+    // take part in the cap.
+    if (!voice.loop) {
+      this.#enforceVoiceCap();
+      this.#voices.add(handle);
+    }
+    return handle;
   }
 }

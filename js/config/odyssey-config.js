@@ -12,6 +12,8 @@ export const OdysseyConfig = {
     idleInterval: [10000, 25000],
     idleDelay: 30000,
     fetchTimeoutMs: 15000,
+    maxVoices: 12,           // a burst must not pile up sources on the audio thread
+    stealFadeSec: 0.04,      // retiring a voice early: short, but not a click
     stopFadeSec: 0.25,        // loops fade out; stopping outright clicks
     duckedGain: 0.18,         // how far a jump pulls everything down
     enginePowerRange: 0.4,    // how much pointer speed lifts the sfx bus

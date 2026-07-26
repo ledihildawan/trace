@@ -123,9 +123,21 @@ spatial   ─▶ panner ─┘
 - **sfx** carries the engine, which rides pointer speed.
 - **limiter** is a safety net: stacked one-shots would otherwise clip.
 
-`mix.js` is the only place that says how loud anything is. Voices release
-their nodes on `ended`, loops fade rather than cut, and each voice takes a
-few cents of random detune so repeats do not sound mechanical.
+`mix.js` is the only place that says how loud anything is, and it separates
+two questions that look alike:
+
+- **trim** references each file to -18 LUFS, measured with `ffmpeg -af
+  ebur128`. The sources span 15.9 LUFS, so without it the same `gain` on two
+  clips is not the same loudness. Applied non-destructively, so the files
+  stay as delivered.
+- **gain** is the fader. With the sources normalised it finally means
+  something on its own, and the ladder follows how often a sound is heard.
+
+Voices release their nodes on `ended`, one-shots are capped so a burst
+cannot pile up on the audio thread, loops fade rather than cut, and each
+voice takes a few cents of random detune so repeats do not sound mechanical.
+The context is watched for suspension — a call or a screen lock would
+otherwise stop audio until a reload.
 
 ## Accessibility contract
 

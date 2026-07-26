@@ -38,6 +38,7 @@ export class GalacticAudio {
           OdysseyConfig.audio.basePath,
           ASSET_QUEUE
         );
+        this.#watchContextState();
         await this.#loader.preloadPriority(1, OdysseyConfig.timing.audioConcurrentMax);
         this.#idle.reset();
         this.initialized = true;
@@ -50,6 +51,26 @@ export class GalacticAudio {
     };
     ['click', 'touchstart', 'keydown'].forEach((e) =>
       window.addEventListener(e, init, { once: true })
+    );
+  }
+
+  // A phone call, a screen lock or an autoplay policy can suspend the context
+  // out from under us. Nothing was watching for it, so audio simply stopped
+  // and never came back until the page was reloaded.
+  #watchContextState() {
+    const ctx = this.#graph.ctx;
+    const revive = () => {
+      if (!this.enabled) return;
+      if (ctx.state === 'running') return;
+      this.#graph.resume().catch(() => {});
+    };
+    ctx.addEventListener?.('statechange', revive);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) revive();
+    });
+    // Some platforms only allow resuming inside a gesture.
+    ['pointerdown', 'keydown', 'touchend'].forEach((type) =>
+      window.addEventListener(type, revive, { passive: true })
     );
   }
 
