@@ -26,6 +26,7 @@ main.js
         ├── DayStore         per-day notes and moods (localStorage)
         ├── DayPanel         modal editor for one day
         ├── DateJumper       jump-to-date command box
+        ├── NoteSearch       ranked search over recorded days
         └── PositionScrubber right-edge minimap
 ```
 
@@ -57,6 +58,7 @@ gesture maths, focus bookkeeping, and every self-contained widget.
 | `js/systems/galactic-audio.js` | Web Audio graph, lazy sample loading. |
 | `js/systems/day-store.js` | Persistence for notes and moods, indexed by year. |
 | `js/systems/day-archive.js` | Import/export of the day log. Parsing is pure. |
+| `js/systems/day-search.js` | Ranked full-text search over notes and moods. Pure. |
 | `js/systems/day-pulse.js` | Publishes `--day-progress`; reports midnight. |
 | `js/ui/*` | Self-contained widgets. |
 

@@ -24,6 +24,7 @@ import { downloadArchive, pickArchiveFile } from '../systems/day-archive.js';
 import { DayPulse } from '../systems/day-pulse.js';
 import { DayPanel } from '../ui/day-panel.js';
 import { DateJumper } from '../ui/date-jumper.js';
+import { NoteSearch } from '../ui/note-search.js';
 import { PositionScrubber } from '../ui/position-scrubber.js';
 import { DayFocus } from './day-focus.js';
 import { GridPool } from './grid-pool.js';
@@ -76,6 +77,7 @@ export class GridArchitect {
   #focus = null;
   #pendingFocusDate = null;
   #jumper = null;
+  #search = null;
   #shortcuts = null;
   #store = new DayStore();
   #panel = null;
@@ -124,6 +126,11 @@ export class GridArchitect {
         this.#toast.show(formatFullDate(date));
       })
       .onReject(() => this.#toast.show('INVALID DATE'));
+    this.#search = new NoteSearch(this.#store)
+      .onSelect((date) => {
+        this.#focusDate(date);
+        this.#toast.show(formatFullDate(date));
+      });
     this.#store.onChange((key) => this.#refreshDataMarkers(key));
     this.#scrubber = new PositionScrubber(this.#viewport, {
       todayRatio: 0.5,
@@ -361,7 +368,7 @@ export class GridArchitect {
     this.#shortcuts = this.#buildShortcuts();
     window.addEventListener('keydown', (e) => {
       if (e.target.matches('input, textarea')) return;
-      if (this.#panel?.isOpen() || this.#jumper?.isOpen()) return;
+      if (this.#panel?.isOpen() || this.#jumper?.isOpen() || this.#search?.isOpen()) return;
       const key = e.key.toLowerCase();
 
       // A focused day cell claims the arrow/home/end/page keys for day-wise motion.
@@ -391,7 +398,7 @@ export class GridArchitect {
       ['i', prevent(() => this.#importDays())],
       ['f', prevent(() => this.#focusDate(this.#today))],
       ['g', prevent(() => this.#jumper.open())],
-      ['/', prevent(() => this.#jumper.open())],
+      ['/', prevent(() => this.#search.open())],
       [' ', prevent(() => this.jumpToToday())],
       ['home', prevent(() => this.#jumpToEdge(0))],
       ['end', prevent(() => this.#jumpToEdge(this.#totalYears - 1))],

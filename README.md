@@ -39,7 +39,12 @@ TRACE follows a "Zero-UI" philosophy. There are no visible buttons to clutter th
     **Hover** over any cell to bring it into focus.
     *Why?* The grid remains quiet until you choose to engage with it.
 
-3.  **To Record a Day:**
+3.  **To Find a Day Again:**
+    Press `/` and type. Matches rank by relevance, newest first; `↑` `↓` to
+    pick and `Enter` to travel there.
+    *Why?* A note you cannot find again was never really kept.
+
+4.  **To Record a Day:**
     **Click** a date, then press `Enter` — write a note or pick a mood.
     *Why?* A day worth remembering should cost one gesture, not a form.
 
@@ -55,7 +60,8 @@ The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.
 | `PageUp` `PageDown` | Previous / next month |
 | `Enter` `Space` | Open the day panel |
 | `F` | Focus today |
-| `G` or `/` | Jump to a date |
+| `G` | Jump to a date |
+| `/` | Search your notes and moods |
 | `Space` | Travel to today |
 | `↑` `↓` (no cell focused) | Previous / next year (`Shift` = 10 years) |
 | `T` | Toggle theme |

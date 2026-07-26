@@ -370,6 +370,94 @@
         width: 100%;
         user-select: text;
       }
+      /* ── Note search ── */
+      .note-search {
+        width: min(560px, 94vw);
+        max-height: min(70dvh, 620px);
+        border-radius: 16px;
+        padding: 16px 18px;
+        transform: translateY(-8px) scale(0.98);
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+      }
+      .note-search[open] {
+        display: flex;
+      }
+      .note-search-input {
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: inherit;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 16px;
+        outline: none;
+        user-select: text;
+        width: 100%;
+      }
+      .note-search-input:focus-visible {
+        border-color: var(--accent-secondary);
+      }
+      .note-search-results {
+        list-style: none;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0;
+      }
+      .note-hit {
+        display: grid;
+        grid-template-columns: 10px minmax(0, 1fr);
+        grid-template-areas: 'mood date' 'mood text';
+        gap: 2px 10px;
+        align-items: baseline;
+        padding: 8px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .note-hit.is-active,
+      .note-hit:hover {
+        background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
+      }
+      .note-hit-mood {
+        grid-area: mood;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        align-self: center;
+      }
+      .note-hit-date {
+        grid-area: date;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent-secondary);
+      }
+      .note-hit-text {
+        grid-area: text;
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--text-main);
+        overflow-wrap: anywhere;
+      }
+      .note-hit-text mark {
+        background: color-mix(in oklab, var(--accent-primary) 40%, transparent);
+        color: inherit;
+        border-radius: 3px;
+      }
+      .note-search-status {
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+      }
+
       .date-jumper-hint {
         font-size: 9px;
         letter-spacing: 0.2em;
