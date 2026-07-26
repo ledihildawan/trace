@@ -48,6 +48,24 @@ TRACE follows a "Zero-UI" philosophy. There are no visible buttons to clutter th
     **Click** a date, then press `Enter` — write a note or pick a mood.
     *Why?* A day worth remembering should cost one gesture, not a form.
 
+### ✍️ Note Formatting
+
+Notes take a small slice of Markdown — enough to keep a long entry readable,
+not enough to turn the panel into a document editor:
+
+```
+**tebal**   *miring*   `kode`
+- bullet
+1. numbered
+```
+
+A blank line starts a new paragraph. Links, images, headings and raw HTML are
+deliberately unsupported: a note can arrive from an imported archive, so the
+renderer only ever creates that fixed set of elements and only ever assigns
+text — markup inside a note stays visible as text, it never becomes structure.
+
+A day that already has a note opens formatted; click it to edit the source.
+
 ### ⌨️ Keyboard
 
 The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.

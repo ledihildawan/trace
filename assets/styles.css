@@ -343,6 +343,49 @@ body {
   opacity: 1;
   background: color-mix(in oklab, oklch(77% 0.1289 22.22) 14%, transparent);
 }
+.day-panel-preview {
+  background: var(--surface-sunken);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  max-height: 40dvh;
+  overflow-y: auto;
+  cursor: text;
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+.day-panel-preview:hover,
+.day-panel-preview:focus-visible {
+  border-color: var(--border);
+}
+.day-panel-preview p + p,
+.day-panel-preview p + ul,
+.day-panel-preview p + ol,
+.day-panel-preview ul + p,
+.day-panel-preview ol + p {
+  margin-top: 0.6em;
+}
+.day-panel-preview ul,
+.day-panel-preview ol {
+  padding-left: 1.25em;
+}
+.day-panel-preview li::marker {
+  color: var(--accent-secondary);
+}
+.day-panel-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.day-panel-preview [hidden],
+.day-panel [hidden] {
+  display: none;
+}
+
 .day-panel-done {
   background: color-mix(in oklab, var(--accent-secondary) 15%, transparent);
   border: 1px solid color-mix(in oklab, var(--accent-secondary) 45%, transparent);

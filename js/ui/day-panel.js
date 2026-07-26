@@ -1,4 +1,5 @@
 import { formatFullDate } from '../core/date-utils.js';
+import { renderRichText } from '../core/rich-text.js';
 import { DayStore, MOODS } from '../systems/day-store.js';
 
 // Modal detail for a single day: full date, a mood picker, and a free-text note.
@@ -15,6 +16,7 @@ export class DayPanel {
   #title;
   #moodRow;
   #textarea;
+  #preview;
   #currentKey = null;
 
   constructor(store, opts = {}) {
@@ -35,12 +37,23 @@ export class DayPanel {
     this.#renderMoods(entry.mood || '');
     this.#textarea.value = entry.note || '';
 
+    // An existing note opens as formatted text; an empty day opens ready to
+    // type. Either way recording a day still costs one gesture.
+    this.#setEditing(!entry.note);
     this.#dialog.showModal();
-    this.#textarea.focus();
+    if (!entry.note) this.#textarea.focus();
   }
 
   close() {
     if (this.#dialog.open) this.#dialog.close();
+  }
+
+  // Preview and editor are the same content in two modes; only one shows.
+  #setEditing(editing) {
+    this.#textarea.hidden = !editing;
+    this.#preview.hidden = editing;
+    if (editing) return;
+    this.#preview.replaceChildren(renderRichText(this.#textarea.value));
   }
 
   #renderMoods(selected) {
@@ -87,6 +100,23 @@ export class DayPanel {
       this.#store.setNote(this.#currentKey, this.#textarea.value);
     });
 
+    this.#preview = document.createElement('div');
+    this.#preview.className = 'day-panel-preview';
+    this.#preview.tabIndex = 0;
+    this.#preview.setAttribute('role', 'button');
+    this.#preview.setAttribute('aria-label', 'Catatan hari ini, klik untuk menyunting');
+    const toEdit = () => {
+      this.#setEditing(true);
+      this.#textarea.focus();
+    };
+    this.#preview.addEventListener('click', toEdit);
+    this.#preview.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toEdit();
+      }
+    });
+
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'day-panel-delete';
@@ -95,6 +125,7 @@ export class DayPanel {
       this.#store.clear(this.#currentKey);
       this.#renderMoods('');
       this.#textarea.value = '';
+      this.#setEditing(true);
       this.#textarea.focus();
     });
 
@@ -108,7 +139,7 @@ export class DayPanel {
     closeBtn.addEventListener('click', () => this.close());
 
     actions.append(deleteBtn, closeBtn);
-    dialog.append(this.#title, this.#moodRow, this.#textarea, actions);
+    dialog.append(this.#title, this.#moodRow, this.#preview, this.#textarea, actions);
 
     // Light-dismiss: showModal() sizes the dialog to its content, so a click
     // landing on the element itself came from the backdrop area.

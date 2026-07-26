@@ -44,6 +44,7 @@ gesture maths, focus bookkeeping, and every self-contained widget.
 | `js/core/locale.js` | Month/weekday names from `Intl`, resolved once. |
 | `js/core/color.js` | Resolves CSS colours to RGB for WebGL. |
 | `js/core/date-utils.js` | Calendar arithmetic, parsing, formatting. Pure. |
+| `js/core/rich-text.js` | Note formatting: parses to blocks, renders to DOM. |
 | `js/core/gesture-math.js` | Wheel/fling arithmetic, separate from listeners. Pure. |
 | `js/core/event-hub.js` | Long-press and scroll-settle detectors. |
 | `js/core/motion.js` | `prefers-reduced-motion` queries. |
