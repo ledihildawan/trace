@@ -175,25 +175,28 @@ body {
   margin: calc(var(--ion-field) / -2);
   z-index: 5;
   pointer-events: none;
-  /* color-mix in oklab keeps the glow's tint true at low percentages.
-     No gradient interpolation hint here: these fade to `transparent`,
-     and CSS already interpolates alpha premultiplied, so there is no
-     grey dip to fix — an invalid hint would kill the whole declaration. */
+  /* The gradient is anchored to the middle of the field and never moves; the
+     element is translated instead, so following the pointer costs a composite
+     rather than a full-viewport repaint. color-mix in oklab keeps the tint
+     true at low percentages. */
   background: radial-gradient(
-      var(--ion-glow) circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+      var(--ion-glow) circle at 50% 50%,
       color-mix(in oklab, var(--ion-secondary) 15%, transparent) 0%,
       transparent 60%
     ),
     radial-gradient(
-      50px circle at calc(var(--ion-x) * 1px) calc(var(--ion-y) * 1px),
+      50px circle at 50% 50%,
       color-mix(in oklab, var(--ion-primary) 60%, transparent) 0%,
       transparent 100%
     );
   opacity: var(--ion-opacity);
   mix-blend-mode: var(--ion-blend);
-  transition: opacity 0.5s ease, background 0.3s ease, --ion-glow 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transform: translate3d(calc(var(--ion-x) * 1px), calc(var(--ion-y) * 1px), 0)
+    scale(var(--ion-scale));
+  transition: opacity 0.5s ease,
+    --ion-glow 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    --ion-scale 0.6s cubic-bezier(0.19, 1, 0.22, 1);
   will-change: transform;
-  transform: translateZ(0);
 }
 
 #atmosphere {
@@ -1004,9 +1007,11 @@ body {
 
 /* Memastikan kursor benar-benar lenyap ke titik tengah */
 #ion-drive.jumping {
-  opacity: 0 !important;
-  transform: scale(0) translateZ(0);
-  transition: opacity 0.4s ease-out, transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+  /* Collapses via the scale variable so it composes with the translate that
+     tracks the pointer, instead of overwriting the whole transform. */
+  opacity: 0;
+  --ion-scale: 0;
+  transition: opacity 0.4s ease-out, --ion-scale 0.6s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .keyboard-hints {
