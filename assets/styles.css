@@ -56,7 +56,6 @@
   --ion-secondary: var(--accent-secondary);
   --ion-blend: light-dark(multiply, screen);
   --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
-  --ion-glow: 700px;
   --ion-field: 2000px;
 
   /* Floating surfaces (day panel, jump-to-date, search). Theme-aware, and in

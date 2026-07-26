@@ -1,6 +1,7 @@
 import { DayStore, moodColor } from '../systems/day-store.js';
 import { buildSnippet, searchDays } from '../systems/day-search.js';
 import { formatFullDate } from '../core/date-utils.js';
+import { OdysseyConfig } from '../config/odyssey-config.js';
 
 const NO_RESULTS = 'Tidak ada catatan yang cocok';
 const EMPTY_PROMPT = 'Ketik untuk mencari catatan dan suasana';
@@ -111,7 +112,7 @@ export class NoteSearch {
   #syncActive() {
     [...this.#list.children].forEach((row, i) => {
       const isActive = i === this.#active;
-      row.classList.toggle('is-active', isActive);
+      row.classList.toggle(OdysseyConfig.classes.isActive, isActive);
       row.setAttribute('aria-selected', String(isActive));
       if (isActive) {
         row.scrollIntoView({ block: 'nearest' });

@@ -2,6 +2,7 @@ import { OdysseyConfig } from '../config/odyssey-config.js';
 import { SmoothScroll } from '../core/smooth-scroll.js';
 import { LongPressDetector, ScrollEndDetector } from '../core/event-hub.js';
 import { prefersReducedMotion } from '../core/motion.js';
+import { resolveShortcut } from '../core/shortcuts.js';
 import {
   addMonths,
   daysInYear,
@@ -351,6 +352,20 @@ export class GridArchitect {
       // DayFocus picks this up via focusin and syncs state + the tab stop.
       if (cell) cell.focus();
     });
+
+    // Click alone only focuses, which left the panel undiscoverable: people
+    // clicked a date, nothing happened, and concluded it was broken. Double
+    // click opens it, while a single click stays quiet for browsing.
+    this.#canvas.addEventListener('dblclick', (e) => {
+      if (!this.#interactionsAllowed) return;
+      const cell = e.target.closest(
+        `.${OdysseyConfig.classes.cell}:not(.${OdysseyConfig.classes.filler})`
+      );
+      if (!cell) return;
+      e.preventDefault();
+      cell.focus();
+      this.#openDayPanel();
+    });
   }
 
   #installKeyShortcuts() {
@@ -358,12 +373,13 @@ export class GridArchitect {
     window.addEventListener('keydown', (e) => {
       if (e.target.matches('input, textarea')) return;
       if (this.#panel?.isOpen() || this.#jumper?.isOpen() || this.#search?.isOpen()) return;
-      const key = e.key.toLowerCase();
+      const bare = !(e.ctrlKey || e.metaKey || e.altKey);
 
       // A focused day cell claims the arrow/home/end/page keys for day-wise motion.
-      if (this.#focus.isCellFocused() && this.#handleCellNav(e, key)) return;
+      if (bare && this.#focus.isCellFocused()
+        && this.#handleCellNav(e, e.key.toLowerCase())) return;
 
-      const action = this.#shortcuts.get(key);
+      const action = resolveShortcut(this.#shortcuts, e);
       if (!action) return;
       if (action.prevent) e.preventDefault();
       action.run(e);
@@ -376,6 +392,7 @@ export class GridArchitect {
     const leap = OdysseyConfig.display.yearLeapStep;
     const plain = (run) => ({ prevent: false, run });
     const prevent = (run) => ({ prevent: true, run });
+    const withCtrl = (run) => ({ prevent: true, combo: true, run });
     const byYear = (sign) => prevent((e) => this.#navigateYear(sign * (e.shiftKey ? leap : 1)));
 
     return new Map([
@@ -388,7 +405,7 @@ export class GridArchitect {
       ['f', prevent(() => this.#focusDate(this.#today))],
       ['g', prevent(() => this.#jumper.open())],
       ['/', prevent(() => this.#search.open())],
-      ['z', prevent((e) => { if (e.ctrlKey || e.metaKey) this.#undoDayEdit(); })],
+      ['z', withCtrl(() => this.#undoDayEdit())],
       ['[', prevent(() => this.#travelToRecorded(-1))],
       [']', prevent(() => this.#travelToRecorded(1))],
       [' ', prevent(() => this.jumpToToday())],
@@ -484,10 +501,10 @@ export class GridArchitect {
 
   #applyMarker(cell, entry) {
     if (entry && (entry.note || entry.mood)) {
-      cell.classList.add('has-data');
+      cell.classList.add(OdysseyConfig.classes.hasData);
       cell.style.setProperty('--mood-color', moodColor(entry.mood) || 'transparent');
     } else {
-      cell.classList.remove('has-data');
+      cell.classList.remove(OdysseyConfig.classes.hasData);
       cell.style.removeProperty('--mood-color');
     }
   }
@@ -499,7 +516,7 @@ export class GridArchitect {
     const year = parseInt(block.dataset.year, 10);
     if (Number.isNaN(year)) return;
 
-    block.querySelectorAll('.has-data').forEach((cell) => this.#applyMarker(cell, null));
+    block.querySelectorAll(`.${OdysseyConfig.classes.hasData}`).forEach((cell) => this.#applyMarker(cell, null));
 
     for (const key of this.#store.keysForYear(year)) {
       const parts = DayStore.dateOf(key);
@@ -701,8 +718,17 @@ export class GridArchitect {
   }
 
   #updateChroma(velocity = Math.abs(this.#smoothScroll.velocity || 0)) {
-    if (prefersReducedMotion()) return;
-    if (velocity <= OdysseyConfig.render.scrollEndVelocityPx) return;
+    // Both of these must clear rather than just bail: leaving a stale value
+    // keeps .is-shifting on, and with it a filter over the entire grid.
+    if (prefersReducedMotion()) {
+      this.#setChroma(0);
+      return;
+    }
+    if (velocity <= OdysseyConfig.render.scrollEndVelocityPx) {
+      this.#setChroma(0);
+      return;
+    }
+    // Too fast to be worth smearing; leave the last value until it settles.
     if (velocity > OdysseyConfig.render.scrollSkipVelocityPx) return;
     const chroma = Math.min(
       OdysseyConfig.render.chromaCapPx,

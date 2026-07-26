@@ -45,7 +45,7 @@ TRACE follows a "Zero-UI" philosophy. There are no visible buttons to clutter th
     *Why?* A note you cannot find again was never really kept.
 
 4.  **To Record a Day:**
-    **Click** a date, then press `Enter` — write a note or pick a mood.
+    **Double click** a date — or click it once and press `Enter`.
     *Why?* A day worth remembering should cost one gesture, not a form.
 
 ### ✍️ Note Formatting
@@ -74,7 +74,7 @@ The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.
 | --- | --- |
 | `Tab` | Enter the calendar |
 | `←` `→` `↑` `↓` | Move by day / week |
-| `Home` `End` | First / last day of the month |
+| `Home` `End` | First / last day of the month (with a day focused) |
 | `PageUp` `PageDown` | Previous / next month |
 | `Enter` `Space` | Open the day panel |
 | `F` | Focus today |
@@ -84,6 +84,7 @@ The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.
 | `Ctrl`/`Cmd` + `Z` | Undo a delete or a mood change |
 | `Space` | Travel to today |
 | `↑` `↓` (no cell focused) | Previous / next year (`Shift` = 10 years) |
+| `Home` `End` | Otherwise: jump to the first / last year |
 | `T` | Toggle theme |
 | `E` | Export every recorded day to a JSON file |
 | `I` | Import a JSON archive (merges; nothing is overwritten blindly) |

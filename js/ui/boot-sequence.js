@@ -25,7 +25,7 @@ export class BootSequence {
     }
     onComplete?.();
     setTimeout(
-      () => this.#screen?.classList.add('hidden'),
+      () => this.#screen?.classList.add(OdysseyConfig.classes.hidden),
       OdysseyConfig.timing.loadingHideMs
     );
   }

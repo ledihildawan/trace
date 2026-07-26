@@ -67,7 +67,7 @@ function assertConfig() {
 
 function hideLoading() {
   const screen = document.getElementById(OdysseyConfig.dom.loadingScreen);
-  if (screen) screen.classList.add('hidden');
+  if (screen) screen.classList.add(OdysseyConfig.classes.hidden);
 }
 
 function bootstrap() {
