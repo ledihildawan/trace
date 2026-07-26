@@ -60,7 +60,8 @@ gesture maths, focus bookkeeping, and every self-contained widget.
 | `js/systems/galactic-audio.js` | Facade: enabled/busy state and activation. |
 | `js/systems/audio/asset-manifest.js` | Which clip, which file, which priority. |
 | `js/systems/audio/asset-loader.js` | Fetch + decode on demand, deduplicated. |
-| `js/systems/audio/audio-graph.js` | Master gain, HRTF panner, one-shot sources. |
+| `js/systems/audio/audio-graph.js` | Bus graph, limiter, voice lifecycle. |
+| `js/systems/audio/mix.js` | Level, bus, detune and fade per clip. Pure. |
 | `js/systems/audio/idle-scheduler.js` | Ambient clips once the user goes quiet. |
 | `js/core/concurrency.js` | Bounded-parallelism task runner. Pure. |
 | `js/systems/day-store.js` | Persistence for notes and moods, indexed by year. |
@@ -106,6 +107,25 @@ sitting next to it:
 
 Each has a fallback where support is not universal: theme switching still uses
 `#theme-veil`, and colour parsing still has hex/`rgb()` regexes.
+
+## Audio
+
+One signal chain, with the stages kept apart so they cannot fight:
+
+```
+one-shots ─▶ sfx ────┐
+ambient   ─▶ ambient ┼─▶ duck ─▶ master ─▶ limiter ─▶ destination
+spatial   ─▶ panner ─┘
+```
+
+- **master** is the user's volume, toggled with `M`.
+- **duck** is what a jump pulls down, so it no longer competes with master.
+- **sfx** carries the engine, which rides pointer speed.
+- **limiter** is a safety net: stacked one-shots would otherwise clip.
+
+`mix.js` is the only place that says how loud anything is. Voices release
+their nodes on `ended`, loops fade rather than cut, and each voice takes a
+few cents of random detune so repeats do not sound mechanical.
 
 ## Accessibility contract
 

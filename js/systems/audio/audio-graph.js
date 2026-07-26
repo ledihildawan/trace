@@ -1,42 +1,94 @@
 import { OdysseyConfig } from '../../config/odyssey-config.js';
-import { SPATIAL_KEYS } from './asset-manifest.js';
+import { BUS } from './mix.js';
 
-// The Web Audio node graph: a master gain, an HRTF panner for the sounds
-// that should follow the pointer, and a factory for one-shot sources.
+// The node graph.
+//
+//   one-shots ──▶ sfx ────┐
+//   ambient   ──▶ ambient ┼──▶ duck ──▶ master ──▶ limiter ──▶ destination
+//   spatial   ──▶ panner ─┘
+//
+// The three stages after the buses exist separately on purpose. Master is the
+// user's volume, duck is what a warp pulls down, and the engine rides the sfx
+// bus. They used to be one gain, so a mouse move would immediately undo the
+// duck a jump had just applied.
 export class AudioGraph {
-  #ctx = null;
-  #master = null;
-  #panner = null;
+  #ctx;
+  #master;
+  #duck;
+  #limiter;
+  #buses;
+  #panner;
 
   constructor() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) throw new Error('AudioContext unsupported');
     this.#ctx = new Ctx();
-    this.#master = this.#ctx.createGain();
-    this.#master.gain.value = OdysseyConfig.audio.masterVolume;
+
+    // A limiter, not an effect: overlapping one-shots on top of the ambient
+    // bed can sum past unity, and without this that clips audibly.
+    const lim = OdysseyConfig.audio.limiter;
+    this.#limiter = this.#ctx.createDynamicsCompressor();
+    this.#limiter.threshold.value = lim.thresholdDb;
+    this.#limiter.knee.value = lim.kneeDb;
+    this.#limiter.ratio.value = lim.ratio;
+    this.#limiter.attack.value = lim.attackSec;
+    this.#limiter.release.value = lim.releaseSec;
+    this.#limiter.connect(this.#ctx.destination);
+
+    this.#master = this.#gain(OdysseyConfig.audio.masterVolume);
+    this.#master.connect(this.#limiter);
+
+    this.#duck = this.#gain(1);
+    this.#duck.connect(this.#master);
+
     this.#panner = this.#ctx.createPanner();
     this.#panner.panningModel = 'HRTF';
     this.#panner.distanceModel = 'inverse';
     this.#panner.refDistance = 1;
     this.#panner.maxDistance = 10000;
     this.#panner.rolloffFactor = 1;
-    this.#panner.connect(this.#master);
-    this.#master.connect(this.#ctx.destination);
+    this.#panner.connect(this.#duck);
+
+    this.#buses = {
+      [BUS.sfx]: this.#gain(1),
+      [BUS.ambient]: this.#gain(1),
+      [BUS.spatial]: this.#panner,
+    };
+    this.#buses[BUS.sfx].connect(this.#duck);
+    this.#buses[BUS.ambient].connect(this.#duck);
   }
 
   get ctx() { return this.#ctx; }
-  get master() { return this.#master; }
-  get panner() { return this.#panner; }
+  get state() { return this.#ctx.state; }
 
   resume() { return this.#ctx.resume(); }
 
+  #gain(value) {
+    const node = this.#ctx.createGain();
+    node.gain.value = value;
+    return node;
+  }
+
+  #ramp(param, value, timeConstant) {
+    param.setTargetAtTime(value, this.#ctx.currentTime, Math.max(0.001, timeConstant));
+  }
+
   setMasterVolume(value, timeConstant = 0.08) {
-    if (!this.#master) return;
-    this.#master.gain.setTargetAtTime(value, this.#ctx.currentTime, timeConstant);
+    this.#ramp(this.#master.gain, value, timeConstant);
+  }
+
+  // Pulls everything down for the length of a jump without touching the
+  // user's own volume, so the two can no longer fight.
+  setDuck(amount, timeConstant = 0.5) {
+    this.#ramp(this.#duck.gain, amount, timeConstant);
+  }
+
+  // The engine rides the sfx bus alone; ambience underneath is unaffected.
+  setSfxGain(value, timeConstant = 0.12) {
+    this.#ramp(this.#buses[BUS.sfx].gain, value, timeConstant);
   }
 
   updateSpatialPosition(x, y) {
-    if (!this.#panner) return;
     const px = (x / window.innerWidth) * 2 - 1;
     const py = -(y / window.innerHeight) * 2 + 1;
     // Older WebKit exposes only the deprecated setPosition(), with no
@@ -51,20 +103,49 @@ export class AudioGraph {
     this.#panner.positionZ.setTargetAtTime(0.5, t, 0.1);
   }
 
-  spawnSource(buffer, options = {}) {
+  // Starts one voice. Returns a handle whose stop() fades out rather than
+  // cutting, because stopping a loop outright is an audible click.
+  play(buffer, voice) {
+    const now = this.#ctx.currentTime;
     const source = this.#ctx.createBufferSource();
     source.buffer = buffer;
+    source.loop = voice.loop;
+    source.playbackRate.value = voice.playbackRate;
+    if (source.detune) source.detune.value = voice.detune;
+
     const gain = this.#ctx.createGain();
-    gain.gain.value = options.volume ?? 1.0;
-    source.playbackRate.value = options.playbackRate || 1.0;
-    source.connect(gain);
-    if (options.spatial !== false && SPATIAL_KEYS.has(options.key)) {
-      gain.connect(this.#panner);
+    if (voice.fade > 0) {
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(voice.gain, now + voice.fade);
     } else {
-      gain.connect(this.#master);
+      gain.gain.setValueAtTime(voice.gain, now);
     }
-    source.loop = Boolean(options.loop);
-    source.start(0);
-    return source;
+
+    source.connect(gain);
+    gain.connect(this.#buses[voice.bus] ?? this.#buses[BUS.sfx]);
+    source.start(now);
+
+    // Every voice used to leave its gain node wired to the bus forever. At one
+    // hover sample per 100ms that is ten dead nodes a second, all still being
+    // summed by the audio thread.
+    const release = () => {
+      source.disconnect();
+      gain.disconnect();
+    };
+    source.onended = release;
+
+    return {
+      stop: (fade = OdysseyConfig.audio.stopFadeSec) => {
+        const t = this.#ctx.currentTime;
+        gain.gain.cancelScheduledValues(t);
+        gain.gain.setValueAtTime(gain.gain.value, t);
+        gain.gain.linearRampToValueAtTime(0, t + fade);
+        try {
+          source.stop(t + fade);
+        } catch {
+          release(); // already stopped
+        }
+      },
+    };
   }
 }

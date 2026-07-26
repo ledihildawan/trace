@@ -3,6 +3,7 @@ import { ASSET_QUEUE } from './audio/asset-manifest.js';
 import { AssetLoader } from './audio/asset-loader.js';
 import { AudioGraph } from './audio/audio-graph.js';
 import { IdleScheduler } from './audio/idle-scheduler.js';
+import { resolveVoice } from './audio/mix.js';
 
 // Facade over the audio subsystem: owns the enabled/busy state and decides
 // when the graph, the loader and the idle scheduler come into play.
@@ -19,7 +20,7 @@ export class GalacticAudio {
   constructor() {
     this.#idle = new IdleScheduler(
       () => this.enabled,
-      (key, volume) => this.play(key, { volume })
+      (key) => this.play(key)
     );
     this.#idle.setBusyFn(() => this.isBusy);
     this.#setupActivation();
@@ -71,6 +72,7 @@ export class GalacticAudio {
     await this.#loader.load(key);
   }
 
+  // Levels come from the mix table; callers pass a key, not a number.
   async play(key, options = {}) {
     if (!this.enabled || !this.initialized) return;
     if (this.isBusy && key === 'hover') return;
@@ -78,9 +80,11 @@ export class GalacticAudio {
     await this.#ensureLoaded(key);
     if (!this.#loader.has(key)) return;
 
-    const buffer = this.#loader.get(key);
-    const source = this.#graph.spawnSource(buffer, { ...options, key });
-    if (options.loop) this.#ambientSources.set(key, source);
+    const voice = resolveVoice(key, options);
+    const handle = this.#graph.play(this.#loader.get(key), voice);
+    if (!voice.loop) return;
+    this.#ambientSources.get(key)?.stop();
+    this.#ambientSources.set(key, handle);
   }
 
   injectEnginePower(velocity) {
@@ -89,18 +93,21 @@ export class GalacticAudio {
       return;
     }
     if (!this.enabled) return;
-    const power = Math.min(velocity / 120, 1.0);
-    if (power > 0.15) {
+    const cfg = OdysseyConfig.audio;
+    const power = Math.min(velocity / cfg.engineVelocityFullPx, 1);
+    if (power > cfg.engineFloor) {
       const now = Date.now();
-      if (now - this.#lastHoverPlay > 100) {
+      if (now - this.#lastHoverPlay > cfg.hoverRepeatMs) {
         this.play('hover', {
-          volume: OdysseyConfig.audio.masterVolume * power * 0.3,
+          volume: cfg.masterVolume * power * 0.3,
           playbackRate: 0.4 + power * 1.2,
         });
         this.#lastHoverPlay = now;
       }
     }
-    this.#graph.setMasterVolume(OdysseyConfig.audio.masterVolume * (1.0 + power * 0.4));
+    // Rides the sfx bus, not the master: the master carries the user's own
+    // volume and the duck, and writing it here cancelled both.
+    this.#graph.setSfxGain(1 + power * cfg.enginePowerRange);
   }
 
   resetIdleTimer() { this.#idle.reset(); }
@@ -117,11 +124,11 @@ export class GalacticAudio {
       this.#graph.resume();
       this.#graph.setMasterVolume(OdysseyConfig.audio.masterVolume);
       this.play('enable');
-      this.play('base', { volume: OdysseyConfig.audio.ambientBaseVolume, loop: true });
+      this.play('base');
       this.#idle.reset();
     } else {
       this.play('mute');
-      this.#ambientSources.forEach((src) => src.stop());
+      this.#ambientSources.forEach((handle) => handle.stop());
       this.#ambientSources.clear();
       this.#idle.clear();
     }
@@ -131,6 +138,6 @@ export class GalacticAudio {
   setBusy(value) {
     this.isBusy = value;
     if (!this.initialized) return;
-    this.#graph.setMasterVolume(value ? 0.1 : OdysseyConfig.audio.masterVolume, 0.5);
+    this.#graph.setDuck(value ? OdysseyConfig.audio.duckedGain : 1);
   }
 }

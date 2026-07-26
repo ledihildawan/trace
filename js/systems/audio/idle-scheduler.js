@@ -31,7 +31,7 @@ class IdleScheduler {
     this.#timer = null;
     if (!this.#enabled() || this.#isBusy()) return;
     const clip = IDLE_CLIPS[Math.floor(Math.random() * IDLE_CLIPS.length)];
-    this.#playback(clip.k, clip.v);
+    this.#playback(clip);
     const [min, max] = OdysseyConfig.audio.idleInterval;
     this.#timer = setTimeout(() => this.#fire(), Math.random() * (max - min) + min);
   }

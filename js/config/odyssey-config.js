@@ -12,6 +12,21 @@ export const OdysseyConfig = {
     idleInterval: [10000, 25000],
     idleDelay: 30000,
     fetchTimeoutMs: 15000,
+    stopFadeSec: 0.25,        // loops fade out; stopping outright clicks
+    duckedGain: 0.18,         // how far a jump pulls everything down
+    enginePowerRange: 0.4,    // how much pointer speed lifts the sfx bus
+    engineVelocityFullPx: 120,
+    engineFloor: 0.15,        // below this, pointer motion makes no sound
+    hoverRepeatMs: 100,
+    // A safety limiter, not a colour: overlapping one-shots on top of the
+    // ambient bed would otherwise sum past unity and clip.
+    limiter: {
+      thresholdDb: -6,
+      kneeDb: 6,
+      ratio: 12,
+      attackSec: 0.003,
+      releaseSec: 0.25,
+    },
   },
   physics: {
     cursorInertia: 0.12,

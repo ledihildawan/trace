@@ -17,11 +17,7 @@ export const ASSET_QUEUE = [
   { key: 'stellar', file: 'distant-stellar-ambience.mp3', priority: 3 },
 ];
 
-export const SPATIAL_KEYS = new Set(['hover', 'beep', 'pulse', 'wind']);
 
-export const IDLE_CLIPS = [
-  { k: 'pulse', v: 0.15 },
-  { k: 'wind', v: 0.2 },
-  { k: 'engine', v: 0.15 },
-  { k: 'stellar', v: 0.2 },
-];
+// Which ambient clips may surface once the user goes quiet. Levels come from
+// the mix table, so this is only the shortlist.
+export const IDLE_CLIPS = ['pulse', 'wind', 'engine', 'stellar'];

@@ -257,7 +257,8 @@ export class GridArchitect {
           glowVar,
           isFiller ? OdysseyConfig.dom.ionGlowFiller : OdysseyConfig.dom.ionGlowHover
         );
-        this.#audio.play('hover', { volume: isFiller ? 0.04 : 0.25, playbackRate: isFiller ? 0.5 : 1.0 });
+        // A filler day answers quieter and lower: it is not really a day.
+        this.#audio.play('hover', isFiller ? { volume: 0.04, playbackRate: 0.5 } : {});
       }
     }, { passive: true });
 
@@ -345,7 +346,7 @@ export class GridArchitect {
     document.addEventListener('click', (e) => {
       if (!this.#interactionsAllowed) return;
       this.#particles.spawn(e.clientX, e.clientY, false);
-      if (this.#audio.enabled) this.#audio.play('beep', { volume: 0.15 });
+      if (this.#audio.enabled) this.#audio.play('beep');
       const cell = e.target.closest(
         `.${OdysseyConfig.classes.cell}:not(.${OdysseyConfig.classes.filler})`
       );
@@ -615,7 +616,7 @@ export class GridArchitect {
     if (this.#isWarping) return;
     const target = this.#clampIndex(this.#smoothScroll.currentIndex + delta);
     this.#smoothScroll.stepBy(delta);
-    this.#audio.play('scroll', { volume: 0.25 });
+    this.#audio.play('scroll');
     // Haptic tick on a deliberate year change only — buzzing on every block
     // that scrolls into view made the whole page vibrate continuously.
     if ('vibrate' in navigator && !prefersReducedMotion()) navigator.vibrate(8);
@@ -632,7 +633,7 @@ export class GridArchitect {
     if (target === current) return;
     this.#isWarping = true;
     this.#lockInteractions();
-    this.#audio.play('jump', { volume: 0.6 });
+    this.#audio.play('jump');
     this.#viewport.classList.add(OdysseyConfig.classes.warpingFar);
     this.#smoothScroll.jumpToIndex(target);
     this.#toast.show(target === 0 ? 'EPOCH ZERO' : 'EPOCH ULTIMA');
@@ -790,7 +791,7 @@ export class GridArchitect {
     if (distance <= 1) {
       this.#isAnimating = true;
       this.#lockInteractions();
-      this.#audio.play('scroll', { volume: 0.25 });
+      this.#audio.play('scroll');
       this.#smoothScroll.jumpToIndex(targetIdx);
       return;
     }
@@ -801,10 +802,10 @@ export class GridArchitect {
 
     if (distance > 20) {
       warpClass = OdysseyConfig.classes.warpingFar;
-      this.#audio.play('jump', { volume: 0.8 });
+      this.#audio.play('jump');
       for (let i = 0; i < 15; i++) this.#particles.spawn(this.#cursor.position.x, this.#cursor.position.y, false);
     } else {
-      this.#audio.play('warp', { volume: 0.5 });
+      this.#audio.play('warp');
     }
 
     this.#viewport.classList.add(warpClass);
