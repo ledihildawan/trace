@@ -18,7 +18,7 @@ const probe = (() => {
   }
 })();
 
-export function resolveWithBrowser(raw) {
+function resolveWithBrowser(raw) {
   if (!probe) return null;
   probe.fillStyle = '#000000';
   probe.fillStyle = raw;

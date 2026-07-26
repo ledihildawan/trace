@@ -1,5 +1,5 @@
 import { OdysseyConfig } from '../config/odyssey-config.js';
-import { prefersReducedMotion } from '../core/motion.js';
+import { onReducedMotionChange, prefersReducedMotion } from '../core/motion.js';
 
 export class IonCursor {
   #target = { x: 0, y: 0 };
@@ -12,8 +12,14 @@ export class IonCursor {
     this.#target.y = window.innerHeight / 2;
     this.#current.x = this.#target.x;
     this.#current.y = this.#target.y;
-    // Reduced-motion users get an instant cursor instead of a smoothed trail.
-    this.#inertia = prefersReducedMotion() ? 1 : OdysseyConfig.physics.cursorInertia;
+    // Reduced-motion users get an instant cursor instead of a smoothed trail,
+    // and toggling the OS setting takes effect without reloading the page.
+    this.#applyMotionPreference(prefersReducedMotion());
+    onReducedMotionChange((reduced) => this.#applyMotionPreference(reduced));
+  }
+
+  #applyMotionPreference(reduced) {
+    this.#inertia = reduced ? 1 : OdysseyConfig.physics.cursorInertia;
   }
 
   setPointer(x, y) {

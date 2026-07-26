@@ -56,6 +56,11 @@ export function buildGridLayer(year, cols, rows, isScrollable) {
   return grid;
 }
 
+// The one way to locate a day cell inside a rendered year block.
+export function findDayCell(block, monthIndex, dateNum) {
+  return block.querySelector(`.${C.cell}[data-month="${monthIndex}"][data-date="${dateNum}"]`);
+}
+
 export function isScrollableLayout(rows, vh) {
   return vh / rows < OdysseyConfig.render.minCellPx;
 }

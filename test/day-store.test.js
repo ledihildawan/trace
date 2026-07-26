@@ -163,6 +163,33 @@ test('the year index is rebuilt when loading from storage', () => {
   assert.deepEqual([...s.keysForYear(2024)], ['2024-02-29']);
 });
 
+test('adjacentKey walks to the nearest recorded day in each direction', () => {
+  const s = fresh();
+  ['2025-12-01', '2026-03-11', '2026-07-27'].forEach((k) => s.setMood(k, 'good'));
+
+  assert.equal(s.adjacentKey('2026-03-11', 1), '2026-07-27');
+  assert.equal(s.adjacentKey('2026-03-11', -1), '2025-12-01');
+  assert.equal(s.adjacentKey('2026-01-01', 1), '2026-03-11', 'skips to the next recorded day');
+  assert.equal(s.adjacentKey('2026-12-31', -1), '2026-07-27');
+});
+
+test('adjacentKey is strict, so it never returns the day you are on', () => {
+  const s = fresh();
+  s.setMood('2026-07-27', 'good');
+  assert.equal(s.adjacentKey('2026-07-27', 1), null);
+  assert.equal(s.adjacentKey('2026-07-27', -1), null);
+});
+
+test('adjacentKey returns null at the ends and on an empty log', () => {
+  const empty = fresh();
+  assert.equal(empty.adjacentKey('2026-07-27', 1), null);
+
+  const s = fresh();
+  s.setMood('2026-07-27', 'good');
+  assert.equal(s.adjacentKey('2030-01-01', 1), null, 'nothing later');
+  assert.equal(s.adjacentKey('2000-01-01', -1), null, 'nothing earlier');
+});
+
 test('moodColor resolves known moods and rejects unknown ones', () => {
   assert.equal(moodColor('great'), MOODS[0].color);
   assert.equal(moodColor('nope'), null);

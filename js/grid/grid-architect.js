@@ -36,6 +36,7 @@ import {
   buildGridLayer,
   buildYearCellsHTML,
   enrichCell,
+  findDayCell,
   computeGridCols,
   computeYearOffset,
   isScrollableLayout,
@@ -121,16 +122,10 @@ export class GridArchitect {
       onClose: () => this.#focus.restoreFocus(),
     });
     this.#jumper = new DateJumper()
-      .onSubmit((date) => {
-        this.#focusDate(date);
-        this.#toast.show(formatFullDate(date));
-      })
+      .onSubmit((date) => this.#travelToDate(date))
       .onReject(() => this.#toast.show('INVALID DATE'));
     this.#search = new NoteSearch(this.#store)
-      .onSelect((date) => {
-        this.#focusDate(date);
-        this.#toast.show(formatFullDate(date));
-      });
+      .onSelect((date) => this.#travelToDate(date));
     this.#store.onChange((key) => this.#refreshDataMarkers(key));
     this.#scrubber = new PositionScrubber(this.#viewport, {
       todayRatio: 0.5,
@@ -399,6 +394,8 @@ export class GridArchitect {
       ['f', prevent(() => this.#focusDate(this.#today))],
       ['g', prevent(() => this.#jumper.open())],
       ['/', prevent(() => this.#search.open())],
+      ['[', prevent(() => this.#travelToRecorded(-1))],
+      [']', prevent(() => this.#travelToRecorded(1))],
       [' ', prevent(() => this.jumpToToday())],
       ['home', prevent(() => this.#jumpToEdge(0))],
       ['end', prevent(() => this.#jumpToEdge(this.#totalYears - 1))],
@@ -486,7 +483,7 @@ export class GridArchitect {
     if (!parts) return;
     const block = this.#activeYears.get(parts.year);
     if (!block) return;
-    const cell = this.#cellIn(block, parts.month, parts.date);
+    const cell = findDayCell(block, parts.month, parts.date);
     if (cell) this.#applyMarker(cell, this.#store.get(key));
   }
 
@@ -512,16 +509,11 @@ export class GridArchitect {
     for (const key of this.#store.keysForYear(year)) {
       const parts = DayStore.dateOf(key);
       if (!parts) continue;
-      const cell = this.#cellIn(block, parts.month, parts.date);
+      const cell = findDayCell(block, parts.month, parts.date);
       if (cell) this.#applyMarker(cell, this.#store.get(key));
     }
   }
 
-  #cellIn(block, month, date) {
-    return block.querySelector(
-      `.${OdysseyConfig.classes.cell}[data-month="${month}"][data-date="${date}"]`
-    );
-  }
 
   // Midnight passed while the app was open: "today" moved on, so every
   // rendered block is now marked against the wrong day.
@@ -562,6 +554,25 @@ export class GridArchitect {
     }
     const changed = this.#store.merge(result.entries);
     this.#toast.show(changed ? `${changed} DAYS RESTORED` : 'ALREADY UP TO DATE');
+  }
+
+  // Every "go to this date" path: move there, then say where we landed.
+  #travelToDate(date) {
+    this.#focusDate(date);
+    this.#toast.show(formatFullDate(date));
+  }
+
+  // Hops to the previous/next day that actually holds a note or mood, so a
+  // sparse log can be walked without knowing the dates by heart.
+  #travelToRecorded(direction) {
+    const from = DayStore.keyOf(this.#focus.date ?? this.#today);
+    const key = this.#store.adjacentKey(from, direction);
+    if (!key) {
+      this.#toast.show(direction > 0 ? 'NO LATER ENTRY' : 'NO EARLIER ENTRY');
+      return;
+    }
+    const parts = DayStore.dateOf(key);
+    if (parts) this.#travelToDate(new Date(parts.year, parts.month, parts.date));
   }
 
   #currentYear() {
@@ -816,12 +827,4 @@ export class GridArchitect {
     this.#toast.show(random ? 'NEBULA DYNAMIC STRUCTURE' : 'MONDAY ALIGNED ORBIT');
   }
 
-  nextYear() { this.#navigateYear(1); }
-  prevYear() { this.#navigateYear(-1); }
-  goToYear(year) {
-    if (this.#isWarping) return;
-    this.#smoothScroll.jumpToIndex(this.#yearToIndex(year));
-    this.#toast.show(`YEAR ${year}`);
-    this.#updateNavBounds();
-  }
 }

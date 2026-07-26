@@ -1,4 +1,5 @@
 import { OdysseyConfig } from '../config/odyssey-config.js';
+import { findDayCell } from './grid-renderer.js';
 
 const C = OdysseyConfig.classes;
 const DAY_CELL = `.${C.cell}[data-month]`;
@@ -41,15 +42,13 @@ export class DayFocus {
       && !el.classList.contains(C.filler);
   }
 
-  cellFor(block, date) {
-    return block.querySelector(
-      `.${C.cell}[data-month="${date.getMonth()}"][data-date="${date.getDate()}"]`
-    );
+  #cellFor(block, date) {
+    return findDayCell(block, date.getMonth(), date.getDate());
   }
 
   // Moves DOM focus to `date` within an already-rendered block.
   focusIn(block, date) {
-    const cell = this.cellFor(block, date);
+    const cell = this.#cellFor(block, date);
     if (!cell) return false;
     this.#date = date;
     cell.focus();
@@ -71,8 +70,8 @@ export class DayFocus {
     const block = this.#resolveBlock(year);
     if (!block) return;
     const target =
-      (this.#date?.getFullYear() === year && this.cellFor(block, this.#date))
-      || (this.#today.getFullYear() === year && this.cellFor(block, this.#today))
+      (this.#date?.getFullYear() === year && this.#cellFor(block, this.#date))
+      || (this.#today.getFullYear() === year && this.#cellFor(block, this.#today))
       || block.querySelector(DAY_CELL);
     this.#setTabStop(target || null);
   }

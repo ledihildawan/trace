@@ -87,13 +87,28 @@ export class DayPanel {
       this.#store.setNote(this.#currentKey, this.#textarea.value);
     });
 
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'day-panel-delete';
+    deleteBtn.textContent = 'Hapus';
+    deleteBtn.addEventListener('click', () => {
+      this.#store.clear(this.#currentKey);
+      this.#renderMoods('');
+      this.#textarea.value = '';
+      this.#textarea.focus();
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'day-panel-actions';
+
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'day-panel-done';
     closeBtn.textContent = 'Selesai';
     closeBtn.addEventListener('click', () => this.close());
 
-    dialog.append(this.#title, this.#moodRow, this.#textarea, closeBtn);
+    actions.append(deleteBtn, closeBtn);
+    dialog.append(this.#title, this.#moodRow, this.#textarea, actions);
 
     // Light-dismiss: showModal() sizes the dialog to its content, so a click
     // landing on the element itself came from the backdrop area.

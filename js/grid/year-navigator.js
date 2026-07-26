@@ -26,9 +26,6 @@ export class YearNavigator {
   onPrev(callback) { this.#onPrev = callback; return this; }
   onNext(callback) { this.#onNext = callback; return this; }
 
-  setPrevEnabled(enabled) { this.#setEnabled('prev', enabled); }
-  setNextEnabled(enabled) { this.#setEnabled('next', enabled); }
-
   setBounds(prev, next) {
     this.#setEnabled('prev', prev);
     this.#setEnabled('next', next);
@@ -38,9 +35,6 @@ export class YearNavigator {
     this.#containers.forEach((c) => c.classList.add(OdysseyConfig.classes.visible));
   }
 
-  hide() {
-    this.#containers.forEach((c) => c.classList.remove(OdysseyConfig.classes.visible));
-  }
 
   // setBounds is called from the per-frame scroll loop, so bail out unless the
   // state actually flipped — otherwise every frame writes to the DOM for nothing.

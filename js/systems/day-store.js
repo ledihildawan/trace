@@ -183,6 +183,17 @@ export class DayStore {
     return changed;
   }
 
+  // Nearest recorded day strictly before (-1) or after (+1) `fromKey`.
+  // ISO keys sort chronologically, so plain string comparison is enough.
+  adjacentKey(fromKey, direction) {
+    let best = null;
+    for (const key of this.#data.keys()) {
+      if (direction > 0 ? key <= fromKey : key >= fromKey) continue;
+      if (best === null || (direction > 0 ? key < best : key > best)) best = key;
+    }
+    return best;
+  }
+
   clear(key) {
     if (!this.#data.delete(key)) return;
     this.#unindex(key);

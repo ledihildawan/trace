@@ -62,6 +62,7 @@ The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.
 | `F` | Focus today |
 | `G` | Jump to a date |
 | `/` | Search your notes and moods |
+| `[` `]` | Travel to the previous / next recorded day |
 | `Space` | Travel to today |
 | `↑` `↓` (no cell focused) | Previous / next year (`Shift` = 10 years) |
 | `T` | Toggle theme |

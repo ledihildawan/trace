@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 
 import {
   durationForDistance,
-  durationForPixels,
   durationForSteps,
   easeInOutCubic,
 } from '../js/core/scroll-easing.js';
@@ -83,12 +82,4 @@ test('zero distance takes no time, and direction is ignored', () => {
   assert.equal(durationForDistance(-30), durationForDistance(30));
 });
 
-test('durationForPixels converts through the step size', () => {
-  assert.equal(durationForPixels(1000, 1000), durationForDistance(1));
-  assert.equal(durationForPixels(10_000, 1000), durationForDistance(10));
-  assert.equal(durationForPixels(-2500, 1000), durationForDistance(3), 'rounds up, sign-agnostic');
-});
 
-test('durationForPixels survives a zero step size', () => {
-  assert.ok(Number.isFinite(durationForPixels(500, 0)));
-});

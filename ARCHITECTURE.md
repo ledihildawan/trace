@@ -1,8 +1,9 @@
 # Architecture
 
 TRACE is plain ES modules loaded straight from `index.html` — no bundler, no
-build step, no runtime dependencies. `index.html` owns all CSS; every module
-under `js/` owns one job.
+build step, no runtime dependencies. `index.html` is markup only; the
+stylesheet lives in `assets/styles.css`, and every module under `js/` owns
+one job.
 
 > The plugin/`TraceEngine` system described in earlier documents no longer
 > exists. Those documents are kept in [`archive/docs/`](./archive/docs/) for

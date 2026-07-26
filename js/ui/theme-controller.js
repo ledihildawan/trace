@@ -16,9 +16,6 @@ export class ThemeController {
     return this.#current;
   }
 
-  isLight() {
-    return this.#current === 'light';
-  }
 
   apply(theme) {
     if (!OdysseyConfig.dom.themes.includes(theme)) theme = 'dark';

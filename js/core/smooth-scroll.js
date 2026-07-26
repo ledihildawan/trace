@@ -2,7 +2,6 @@ import { OdysseyConfig } from '../config/odyssey-config.js';
 import { prefersReducedMotion } from './motion.js';
 import {
   durationForDistance,
-  durationForPixels,
   durationForSteps,
   easeInOutCubic,
 } from './scroll-easing.js';
@@ -179,19 +178,6 @@ export class SmoothScroll {
     this.#animateToIndex(target, dur);
   }
 
-  jumpTo(targetY, duration) {
-    this.cancelAnimation();
-    const max = this.#maxScroll();
-    const clamped = clamp(targetY, 0, max);
-    if (Math.abs(clamped - this.#viewport.scrollTop) < 0.5) {
-      this.#viewport.scrollTop = clamped;
-      this.#onArrive?.(clamped);
-      return;
-    }
-    const dist = Math.abs(clamped - this.#viewport.scrollTop);
-    const dur = duration ?? durationForPixels(dist, this.#step);
-    this.#animateTo(clamped, dur);
-  }
 
   settleToNearest() {
     if (this.#step <= 0) return;

@@ -41,6 +41,3 @@ export function durationForDistance(indexDistance) {
   return Math.min(MAX_DURATION_MS, FAR_BASE_MS + Math.log2(distance - 99) * FAR_LOG_SCALE);
 }
 
-export function durationForPixels(px, pixelsPerStep) {
-  return durationForDistance(Math.ceil(Math.abs(px) / Math.max(1, pixelsPerStep)));
-}
