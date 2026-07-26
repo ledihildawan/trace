@@ -394,6 +394,7 @@ export class GridArchitect {
       ['f', prevent(() => this.#focusDate(this.#today))],
       ['g', prevent(() => this.#jumper.open())],
       ['/', prevent(() => this.#search.open())],
+      ['z', prevent((e) => { if (e.ctrlKey || e.metaKey) this.#undoDayEdit(); })],
       ['[', prevent(() => this.#travelToRecorded(-1))],
       [']', prevent(() => this.#travelToRecorded(1))],
       [' ', prevent(() => this.jumpToToday())],
@@ -554,6 +555,17 @@ export class GridArchitect {
     }
     const changed = this.#store.merge(result.entries);
     this.#toast.show(changed ? `${changed} DAYS RESTORED` : 'ALREADY UP TO DATE');
+  }
+
+  #undoDayEdit() {
+    const key = this.#store.undo();
+    if (!key) {
+      this.#toast.show('NOTHING TO UNDO');
+      return;
+    }
+    const parts = DayStore.dateOf(key);
+    if (parts) this.#travelToDate(new Date(parts.year, parts.month, parts.date));
+    this.#toast.show('UNDONE');
   }
 
   // Every "go to this date" path: move there, then say where we landed.

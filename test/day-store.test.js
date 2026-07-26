@@ -190,6 +190,80 @@ test('adjacentKey returns null at the ends and on an empty log', () => {
   assert.equal(s.adjacentKey('2000-01-01', -1), null, 'nothing earlier');
 });
 
+test('undo restores a deleted day', () => {
+  const s = fresh();
+  s.setMood('2026-07-27', 'good');
+  s.setNote('2026-07-27', 'penting');
+  s.flush();
+
+  s.clear('2026-07-27');
+  assert.equal(s.size, 0);
+
+  assert.equal(s.undo(), '2026-07-27', 'returns the day it restored');
+  assert.deepEqual(s.get('2026-07-27'), { mood: 'good', note: 'penting' });
+  assert.equal(s.keysForYear(2026).size, 1, 'the year index came back too');
+});
+
+test('undo reverses a mood change, including the first one', () => {
+  const s = fresh();
+  s.setMood('2026-07-27', 'good');
+  s.setMood('2026-07-27', 'rough');
+  assert.equal(s.get('2026-07-27').mood, 'rough');
+
+  s.undo();
+  assert.equal(s.get('2026-07-27').mood, 'good');
+
+  s.undo();
+  assert.equal(s.get('2026-07-27'), null, 'back to never having been set');
+  assert.equal(s.keysForYear(2026).size, 0);
+});
+
+test('undo reports when there is nothing left', () => {
+  const s = fresh();
+  assert.equal(s.canUndo, false);
+  assert.equal(s.undo(), null);
+
+  s.setMood('2026-07-27', 'good');
+  assert.equal(s.canUndo, true);
+  s.undo();
+  assert.equal(s.canUndo, false);
+});
+
+test('typing is not recorded in undo history', () => {
+  // The textarea has native undo; a snapshot per keystroke would bury the
+  // edits that are actually hard to redo by hand.
+  const s = fresh();
+  s.setNote('2026-07-27', 'a');
+  s.setNote('2026-07-27', 'ab');
+  s.flush();
+  assert.equal(s.canUndo, false);
+});
+
+test('undo notifies listeners with the affected key', () => {
+  const s = fresh();
+  s.setMood('2026-07-27', 'good');
+  const seen = [];
+  s.onChange((key) => seen.push(key));
+  s.undo();
+  assert.deepEqual(seen, ['2026-07-27']);
+});
+
+test('undo persists, so a reload keeps the restored state', () => {
+  const s = fresh();
+  s.setMood('2026-07-27', 'good');
+  s.clear('2026-07-27');
+  s.undo();
+  assert.deepEqual(stored(), [['2026-07-27', { mood: 'good' }]]);
+});
+
+test('undo history is bounded', () => {
+  const s = fresh();
+  for (let i = 0; i < 80; i++) s.setMood('2026-07-27', i % 2 ? 'good' : 'low');
+  let steps = 0;
+  while (s.canUndo && steps < 200) { s.undo(); steps++; }
+  assert.ok(steps <= 50, `history should be capped, unwound ${steps} steps`);
+});
+
 test('moodColor resolves known moods and rejects unknown ones', () => {
   assert.equal(moodColor('great'), MOODS[0].color);
   assert.equal(moodColor('nope'), null);

@@ -56,7 +56,12 @@ gesture maths, focus bookkeeping, and every self-contained widget.
 | `js/systems/particle-core.js` | Shaders and the particle simulation. |
 | `js/systems/particle-engine.js` | Main-thread owner; prefers the worker. |
 | `js/systems/particle-worker.js` | Same simulation on an OffscreenCanvas. |
-| `js/systems/galactic-audio.js` | Web Audio graph, lazy sample loading. |
+| `js/systems/galactic-audio.js` | Facade: enabled/busy state and activation. |
+| `js/systems/audio/asset-manifest.js` | Which clip, which file, which priority. |
+| `js/systems/audio/asset-loader.js` | Fetch + decode on demand, deduplicated. |
+| `js/systems/audio/audio-graph.js` | Master gain, HRTF panner, one-shot sources. |
+| `js/systems/audio/idle-scheduler.js` | Ambient clips once the user goes quiet. |
+| `js/core/concurrency.js` | Bounded-parallelism task runner. Pure. |
 | `js/systems/day-store.js` | Persistence for notes and moods, indexed by year. |
 | `js/systems/day-archive.js` | Import/export of the day log. Parsing is pure. |
 | `js/systems/day-search.js` | Ranked full-text search over notes and moods. Pure. |
@@ -126,7 +131,13 @@ The palette is defined in OKLCH inside `light-dark()`. Two consequences:
 
 ## Tests
 
-`npm test` runs `node:test` against the DOM-free logic: grid markup
-generation, the particle pool, colour parsing, and the day store (with
-`localStorage` stubbed). Anything requiring layout or WebGL is out of scope
-and must be checked in a browser.
+`npm test` runs `node:test`. Most suites are DOM-free — grid markup, the
+particle pool, colour parsing, date and gesture maths, search ranking, the
+day store. The rest boot jsdom through `test/helpers/dom.js` to cover
+`GridPool`, `DayFocus` (roving tabindex) and the search widget.
+
+Two gaps that helper cannot close, both noted in the file: jsdom ships no
+`HTMLDialogElement.showModal`, so the modal behaviour our widgets rely on
+(top layer, focus trap, inert background) is shimmed rather than verified;
+and it has no layout, so anything depending on measurement is out of scope.
+Both still need a real browser. WebGL likewise.

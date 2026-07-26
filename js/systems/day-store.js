@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'trace-days';
 const WRITE_DEBOUNCE_MS = 350;
+const UNDO_DEPTH = 50;
 
 // Five-step mood scale, ordered best → worst.
 //
@@ -33,6 +34,10 @@ export class DayStore {
   #byYear = new Map();
   #listeners = new Set();
   #writeTimer = null;
+  // Structural edits only — deleting a day and picking a mood. Typing is not
+  // recorded: the textarea has native undo, and one snapshot per keystroke
+  // would bury the edits that are actually hard to redo by hand.
+  #history = [];
 
   constructor() {
     this.#load();
@@ -137,6 +142,7 @@ export class DayStore {
   }
 
   setMood(key, mood) {
+    this.#remember(key);
     const entry = { ...this.#data.get(key) };
     entry.mood = MOOD_BY_KEY.has(mood) ? mood : '';
     this.#finalize(key, entry, false);
@@ -195,11 +201,43 @@ export class DayStore {
   }
 
   clear(key) {
-    if (!this.#data.delete(key)) return;
+    if (!this.#data.has(key)) return;
+    this.#remember(key);
+    this.#data.delete(key);
     this.#unindex(key);
     this.flush();
     this.#writeNow();
     this.#emit(key);
+  }
+
+  // Snapshots a day before it is changed, so undo can put it back.
+  #remember(key) {
+    const before = this.#data.get(key);
+    this.#history.push([key, before ? { ...before } : null]);
+    if (this.#history.length > UNDO_DEPTH) this.#history.shift();
+  }
+
+  get canUndo() {
+    return this.#history.length > 0;
+  }
+
+  // Restores the most recent structural edit. Returns the affected key, or
+  // null when there is nothing left to undo.
+  undo() {
+    const step = this.#history.pop();
+    if (!step) return null;
+    const [key, before] = step;
+    if (before) {
+      this.#data.set(key, before);
+      this.#index(key);
+    } else {
+      this.#data.delete(key);
+      this.#unindex(key);
+    }
+    this.flush();
+    this.#writeNow();
+    this.#emit(key);
+    return key;
   }
 
   // Listeners receive the changed key so they can update just that day

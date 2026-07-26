@@ -63,6 +63,7 @@ The grid is reachable with `Tab` and follows the WAI-ARIA grid pattern.
 | `G` | Jump to a date |
 | `/` | Search your notes and moods |
 | `[` `]` | Travel to the previous / next recorded day |
+| `Ctrl`/`Cmd` + `Z` | Undo a delete or a mood change |
 | `Space` | Travel to today |
 | `↑` `↓` (no cell focused) | Previous / next year (`Shift` = 10 years) |
 | `T` | Toggle theme |
@@ -98,7 +99,7 @@ kept unless the file has a newer version of that same day.
 ### 🧪 Development
 
 ```bash
-npm test            # unit tests (node:test, no dependencies)
+npm test            # unit tests (node:test; jsdom is the only devDependency)
 npm run test:watch  # re-run on change
 ```
 

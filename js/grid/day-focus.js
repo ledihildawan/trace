@@ -42,7 +42,10 @@ export class DayFocus {
       && !el.classList.contains(C.filler);
   }
 
+  // Guards on the year too: findDayCell matches month and day only, so
+  // without this a date from another year would quietly focus the wrong cell.
   #cellFor(block, date) {
+    if (parseInt(block?.dataset.year, 10) !== date.getFullYear()) return null;
     return findDayCell(block, date.getMonth(), date.getDate());
   }
 
