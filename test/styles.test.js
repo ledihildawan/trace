@@ -24,6 +24,11 @@ function rule(selector) {
   return css.slice(start, end);
 }
 
+// Declarations only. Assertions about what the stylesheet *does* must not be
+// satisfied or broken by prose: a comment here explaining why `!important` is
+// no longer needed once made the test that forbids `!important` fail.
+const declarationsOnly = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
 test('the stylesheet is structurally intact', () => {
   assert.equal(css.match(/\{/g).length, css.match(/\}/g).length, 'unbalanced braces');
 });
@@ -51,9 +56,9 @@ test('cascade layers are declared before they are used', () => {
 test('preference queries live in the top layer and need no !important', () => {
   // They used to beat rules below them in the file by force. In the last
   // layer they win by position, so the force is no longer needed.
-  const start = css.indexOf('@layer overrides {');
+  const start = declarationsOnly.indexOf('@layer overrides {');
   assert.notEqual(start, -1);
-  const overrides = css.slice(start);
+  const overrides = declarationsOnly.slice(start);
   for (const query of [
     'prefers-reduced-motion', 'prefers-reduced-transparency',
     'forced-colors', 'pointer: coarse', 'pointer: fine',
@@ -78,6 +83,26 @@ test('cell tints derive from the theme, not from one theme written out', () => {
     assert.match(rule(selector), /color-mix\(in oklab, var\(--accent-/,
       `${selector} still hardcodes a colour`);
   }
+});
+
+test('element transitions are suppressed while the theme switches', () => {
+  // The view transition cross-fades two page snapshots. Element transitions
+  // underneath fight it: the new snapshot is taken the moment the theme flips,
+  // so each cell is captured at t=0 of its own fade, and the real elements are
+  // then revealed part-way through 0.4s, 0.8s and 1s transitions. That is what
+  // made the cells appear to change colour at different moments.
+  assert.match(css, /html\.theme-switching \*[\s\S]{0,120}transition: none/);
+  const start = css.indexOf('html.theme-switching');
+  const overrides = css.lastIndexOf('@layer overrides {', start);
+  assert.notEqual(overrides, -1, 'must live in the top layer, not rely on !important');
+});
+
+test('the toast animates only what it means to', () => {
+  // `all` also transitions its offset and its background, neither of which
+  // wants a 0.6s spring.
+  const toast = rule('#toast');
+  assert.ok(!/transition: all/.test(toast), 'transition: all is never the intent');
+  assert.match(toast, /transition: opacity[\s\S]*transform/);
 });
 
 test('high contrast mode is handled', () => {

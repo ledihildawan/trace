@@ -944,7 +944,8 @@
     border: 1px solid color-mix(in oklab, var(--accent-secondary) 30%, transparent);
     letter-spacing: var(--track-wide);
     text-transform: uppercase;
-    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
   }
@@ -1253,3 +1254,23 @@
   }
 }
 
+
+@layer overrides {
+  /* ── Theme switching ──
+     A view transition cross-fades two snapshots of the page, and that is meant
+     to be the whole animation. Element transitions underneath fight it: the new
+     snapshot is taken the instant data-theme flips, so every cell is captured
+     at t=0 of its own 0.4s background fade and still mostly the old colour.
+     The cross-fade then runs between two near-identical images, and the real
+     elements are revealed part-way through transitions of 0.4s, 0.8s and 1s —
+     which is why the cells appeared to change colour at different moments
+     rather than together.
+
+     Suppressing them for the length of the switch leaves one animation in
+     charge. In the `overrides` layer, so no !important is needed. */
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none;
+  }
+}
