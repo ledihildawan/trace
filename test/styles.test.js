@@ -7,10 +7,19 @@ import { readFileSync } from 'node:fs';
 // changed, the paint did not, and the glow silently rendered off-screen.
 const css = readFileSync(new URL('../assets/styles.css', import.meta.url), 'utf8');
 
+// Finds a rule at the outermost level, which after layering means at most one
+// level of indentation. Anything deeper is nested inside a media query and
+// must not be mistaken for the base rule.
+function ruleStart(selector) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`^ {0,2}${escaped} \\{`, 'm').exec(css);
+  assert.ok(match, `no top-level rule for ${selector}`);
+  return match.index;
+}
+
 function rule(selector) {
-  const start = css.indexOf(`${selector} {`);
-  assert.notEqual(start, -1, `no rule for ${selector}`);
-  const end = css.indexOf('\n}', start);
+  const start = ruleStart(selector);
+  const end = css.indexOf('\n  }', start);
   assert.notEqual(end, -1, `unterminated rule for ${selector}`);
   return css.slice(start, end);
 }
@@ -29,14 +38,66 @@ test('every custom property referenced is defined or set at runtime', () => {
   assert.deepEqual(missing, [], `undefined custom properties: ${missing}`);
 });
 
+test('cascade layers are declared before they are used', () => {
+  const decl = /@layer ([\w\s,]+);/.exec(css);
+  assert.ok(decl, 'the layer order must be declared up front');
+  const order = decl[1].split(',').map((n) => n.trim());
+  assert.deepEqual(order, ['tokens', 'app', 'overrides']);
+  for (const name of order) {
+    assert.ok(css.includes(`@layer ${name} {`), `layer "${name}" is declared but empty`);
+  }
+});
+
+test('preference queries live in the top layer and need no !important', () => {
+  // They used to beat rules below them in the file by force. In the last
+  // layer they win by position, so the force is no longer needed.
+  const start = css.indexOf('@layer overrides {');
+  assert.notEqual(start, -1);
+  const overrides = css.slice(start);
+  for (const query of [
+    'prefers-reduced-motion', 'prefers-reduced-transparency',
+    'forced-colors', 'pointer: coarse', 'pointer: fine',
+  ]) {
+    assert.ok(overrides.includes(query), `${query} should be an override`);
+  }
+  assert.ok(!overrides.includes('!important'), 'layers replace the force');
+});
+
+test('property registration stays outside the layers', () => {
+  // @property is a registration, not a cascade participant. Nesting it is not
+  // worth betting the non-inheriting optimisation on.
+  const layerStart = css.indexOf('@layer tokens, app, overrides;');
+  assert.ok(css.slice(0, layerStart).includes('@property'), 'registered up front');
+  assert.ok(!css.slice(layerStart).includes('@property'), 'and nowhere else');
+});
+
+test('cell tints derive from the theme, not from one theme written out', () => {
+  // rgba(34,211,238) and rgba(251,191,36) are the dark accents written out, so
+  // light mode kept cyan and amber while its own accents were indigo and blue.
+  for (const selector of ['.cell.weekend', '.cell.week-start', '.cell.month-start']) {
+    assert.match(rule(selector), /color-mix\(in oklab, var\(--accent-/,
+      `${selector} still hardcodes a colour`);
+  }
+});
+
+test('high contrast mode is handled', () => {
+  const start = css.indexOf('@media (forced-colors: active)');
+  assert.notEqual(start, -1, 'Windows High Contrast needs its own pass');
+  const block = css.slice(start);
+  assert.match(block, /#ion-drive[\s\S]*display: none/, 'decoration should step aside');
+  assert.match(block, /\.cell \{[\s\S]*border:/, 'inset shadows are dropped, so draw borders');
+  assert.match(block, /forced-color-adjust: none/, 'mood colour carries meaning and must survive');
+  assert.match(block, /outline: 3px solid Highlight/, 'the focus ring is a box-shadow otherwise');
+});
+
 test('every animated property is registered as non-inheriting', () => {
   // A value written each frame on an inheriting property invalidates computed
   // style for the whole document; that was the single biggest scroll cost.
-  const blocks = css.split('@property ').slice(1);
+  // Matched as a rule, not by splitting on the word: prose mentioning
+  // "@property" elsewhere in the file would otherwise be read as one.
+  const blocks = [...css.matchAll(/@property\s+(--[\w-]+)\s*\{([^}]*)\}/g)];
   assert.ok(blocks.length >= 5, 'expected the animated properties to be registered');
-  for (const block of blocks) {
-    const name = block.slice(0, block.indexOf(' '));
-    const body = block.slice(0, block.indexOf('}'));
+  for (const [, name, body] of blocks) {
     assert.match(body, /inherits:\s*false/, `${name} must not inherit`);
   }
 });
@@ -84,6 +145,72 @@ test('will-change is scoped rather than pinned on every block', () => {
   const block = rule('.year-block');
   assert.ok(!/will-change/.test(block), 'a permanent layer per year block is the bug');
   assert.match(css, /#viewport\.warping-(far|near) \.year-block[^{]*\{[^}]*will-change/);
+});
+
+// Declarations of a top-level rule, tolerating one-line and multi-line
+// formatting. Uses the same outermost-only anchor as rule(): an override
+// nested in a media query must never be mistaken for the base rule, which is
+// exactly what tripped this suite up while it was being written.
+function declarations(selector) {
+  const start = ruleStart(selector);
+  const end = css.indexOf('}', start);
+  assert.notEqual(end, -1, `unterminated rule for ${selector}`);
+  return css.slice(start, end);
+}
+
+test('every edge-anchored control insets for the safe area', () => {
+  // index.html asks for viewport-fit=cover, which puts the page under the
+  // notch and the home indicator. Anything pinned to an edge has to inset.
+  const anchored = [
+    ['#toast', 'bottom'],
+    ['.keyboard-hints', 'bottom'],
+    ['#year-nav', 'left'],
+    ['#year-nav-end', 'right'],
+    ['.pos-scrubber', 'right'],
+  ];
+  for (const [selector, side] of anchored) {
+    const body = declarations(selector);
+    const pattern = new RegExp(`${side}:[^;]*env\\(safe-area-inset-${side}`);
+    assert.match(body, pattern, `${selector} does not inset its ${side} edge`);
+  }
+});
+
+test('the toast clears the hint strip instead of landing on it', () => {
+  const offset = (selector) => {
+    const m = /bottom:\s*calc\((\d+)px/.exec(declarations(selector));
+    assert.ok(m, `${selector} should be offset from the bottom`);
+    return Number(m[1]);
+  };
+  // The strip is about 20px tall, so at the old 30px the toast sat on it.
+  const HINT_HEIGHT = 24;
+  assert.ok(
+    offset('#toast') >= offset('.keyboard-hints') + HINT_HEIGHT,
+    `toast at ${offset('#toast')}px overlaps hints at ${offset('.keyboard-hints')}px`
+  );
+});
+
+test('nothing sizes itself to 100vw', () => {
+  // 100vw includes the scrollbar, which is how a page that fits exactly still
+  // scrolls sideways. contain-intrinsic-size is a hint, not a used width.
+  const offenders = [...css.matchAll(/^\s*(width|min-width):\s*100vw/gm)];
+  assert.deepEqual(offenders.map((m) => m[0].trim()), []);
+});
+
+test('small controls carry a hit area big enough to press', () => {
+  const expanded = /\.mood-btn::after,\s*\.year-nav-btn::after \{([^}]*)\}/.exec(css);
+  assert.ok(expanded, 'the small controls should expand their target');
+  assert.match(expanded[1], /width: max\(100%, 44px\)/);
+  assert.match(expanded[1], /height: max\(100%, 44px\)/);
+});
+
+test('the day panel cannot outgrow a landscape phone', () => {
+  const panel = rule('.day-panel');
+  assert.match(panel, /max-height:/, 'without a cap the Done button falls off screen');
+  assert.match(panel, /overflow-y: auto/);
+});
+
+test('keyboard hints are hidden where there is no keyboard', () => {
+  assert.match(css, /@media \(pointer: coarse\) \{[\s\S]*?\.keyboard-hints \{\s*display: none/);
 });
 
 test('floating surfaces share one glass recipe and the grid edge', () => {

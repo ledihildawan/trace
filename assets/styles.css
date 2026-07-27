@@ -1,14 +1,19 @@
 /* TRACE — stylesheet.
-   Extracted from index.html: at ~1000 lines it was no longer readable
-   inline, and as its own file it is cacheable independently of the
-   markup. No relative URLs inside, so the move needed no rewrites. */
 
-/* --- CORE CSS ENGINE --- */
-/* Every one of these is written on an animation frame. `inherits: false` is
-   not a detail: an inherited custom property set on :root invalidates the
-   computed style of every node in the document — here that is ~400 cells per
-   year block. Declared non-inheriting, each write only dirties the one
-   element that actually reads it. */
+   Three cascade layers, declared in priority order:
+
+     tokens     the palette and derived design tokens
+     app        everything the app draws, in its original source order
+     overrides  user-preference and forced-colours queries
+
+   Only the last one is a reordering. Those blocks used to rely on !important
+   to beat rules that happened to sit below them in the file; in the top layer
+   they win by position in the cascade instead, so the !important is gone.
+   `app` keeps its exact original order, so nothing else about the cascade
+   changes. */
+/* Registered up here, outside any layer: @property is a registration, not a
+   cascade participant, and the non-inheriting declarations below are what
+   keep a per-frame write from invalidating the whole document. */
 @property --ion-x {
   syntax: '<number>';
   inherits: false;
@@ -35,1072 +40,1216 @@
   initial-value: 0;
 }
 
-:root {
-  /* Palette in OKLCH: perceptually uniform, so lightness/chroma can be
-     nudged predictably and color-mix() never dips through mud. Every
-     value round-trips to the exact sRGB hex it replaced — this changed
-     the color space, not the design. */
-  --accent-primary: light-dark(oklch(45.68% 0.2146 277.02), oklch(83.69% 0.1644 84.43));
-  --accent-secondary: light-dark(oklch(50% 0.1193 242.75), oklch(79.71% 0.1339 211.53));
-  --today-glow: light-dark(oklch(45.68% 0.2146 277.02 / 0.3), oklch(62.31% 0.188 259.81 / 0.6));
-  --bg: light-dark(oklch(98.42% 0.0034 247.86), oklch(12.88% 0.0406 264.7));
-  --border: light-dark(oklch(92.88% 0.0126 255.51), oklch(27.95% 0.0368 260.03));
-  --cell-bg: light-dark(oklch(100% 0 0), oklch(12.88% 0.0406 264.7));
-  --text-main: light-dark(oklch(20.77% 0.0398 265.75), oklch(96.83% 0.0069 247.9));
-  --text-muted: light-dark(oklch(44.55% 0.0374 257.28), oklch(55.44% 0.0407 257.42));
+@layer tokens, app, overrides;
 
-  /* Debu luar angkasa yang lebih halus */
-  --dust-opacity: light-dark(0.04, 0.12);
+@layer tokens {
+  /* --- CORE CSS ENGINE --- */
+  /* Every one of these is written on an animation frame. `inherits: false` is
+     not a detail: an inherited custom property set on :root invalidates the
+     computed style of every node in the document — here that is ~400 cells per
+     year block. Declared non-inheriting, each write only dirties the one
+     element that actually reads it. */
 
-  --ion-primary: var(--accent-primary);
-  --ion-secondary: var(--accent-secondary);
-  --ion-blend: light-dark(multiply, screen);
-  --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
-  --ion-field: 2000px;
+  :root {
+    /* Palette in OKLCH: perceptually uniform, so lightness/chroma can be
+       nudged predictably and color-mix() never dips through mud. Every
+       value round-trips to the exact sRGB hex it replaced — this changed
+       the color space, not the design. */
+    --accent-primary: light-dark(oklch(45.68% 0.2146 277.02), oklch(83.69% 0.1644 84.43));
+    --accent-secondary: light-dark(oklch(50% 0.1193 242.75), oklch(79.71% 0.1339 211.53));
+    --today-glow: light-dark(oklch(45.68% 0.2146 277.02 / 0.3), oklch(62.31% 0.188 259.81 / 0.6));
+    --bg: light-dark(oklch(98.42% 0.0034 247.86), oklch(12.88% 0.0406 264.7));
+    --border: light-dark(oklch(92.88% 0.0126 255.51), oklch(27.95% 0.0368 260.03));
+    --cell-bg: light-dark(oklch(100% 0 0), oklch(12.88% 0.0406 264.7));
+    --text-main: light-dark(oklch(20.77% 0.0398 265.75), oklch(96.83% 0.0069 247.9));
+    --text-muted: light-dark(oklch(44.55% 0.0374 257.28), oklch(55.44% 0.0407 257.42));
 
-  /* Floating surfaces (day panel, jump-to-date, search). Theme-aware, and in
-     OKLCH like the rest of the palette rather than stray rgba. */
-  --surface: light-dark(oklch(100% 0 0 / 0.94), oklch(20.77% 0.0398 265.75 / 0.92));
-  --surface-sunken: light-dark(oklch(96.83% 0.0069 247.9 / 0.9), oklch(12.88% 0.0406 264.7 / 0.6));
-  --surface-scrim: light-dark(oklch(55.44% 0.0407 257.42 / 0.35), oklch(12.88% 0.0406 264.7 / 0.55));
-  --surface-shadow: light-dark(oklch(20.77% 0.0398 265.75 / 0.18), oklch(0% 0 0 / 0.6));
+    /* Debu luar angkasa yang lebih halus */
+    --dust-opacity: light-dark(0.04, 0.12);
 
-  /* Destructive actions. Same hue family as the "Buruk" mood so it reads as
-     one palette, but its own token: a button is not a mood. Chroma is 95% of
-     each lightness's sRGB maximum, so neither theme clips. */
-  --danger: light-dark(oklch(52% 0.17 22.22), oklch(72% 0.1657 22.22));
+    --ion-primary: var(--accent-primary);
+    --ion-secondary: var(--accent-secondary);
+    --ion-blend: light-dark(multiply, screen);
+    --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
+    --ion-field: 2000px;
 
-  /* ── The grid's visual grammar, named so the panels can speak it too ──
-     The calendar draws every edge as a half-pixel inset rather than a border,
-     and marks the start of a month with a 2px accent bar along the top. Those
-     two idioms plus one glass recipe are what make a surface feel like part
-     of this app; before this the panels invented their own each time. */
-  --hairline: inset 0 0 0 0.5px var(--border);
-  --edge-accent: inset 0 2px 0 0 var(--accent-secondary);
-  --glass: blur(20px) saturate(180%);
+    /* Floating surfaces (day panel, jump-to-date, search). Theme-aware, and in
+       OKLCH like the rest of the palette rather than stray rgba. */
+    --surface: light-dark(oklch(100% 0 0 / 0.94), oklch(20.77% 0.0398 265.75 / 0.92));
+    --surface-sunken: light-dark(oklch(96.83% 0.0069 247.9 / 0.9), oklch(12.88% 0.0406 264.7 / 0.6));
+    --surface-scrim: light-dark(oklch(55.44% 0.0407 257.42 / 0.35), oklch(12.88% 0.0406 264.7 / 0.55));
+    --surface-shadow: light-dark(oklch(20.77% 0.0398 265.75 / 0.18), oklch(0% 0 0 / 0.6));
 
-  /* Three radii instead of the nine that had accumulated. */
-  --r-sm: 4px;    /* inline chips: kbd, code, marks */
-  --r-md: 10px;   /* fields and rows */
-  --r-lg: 16px;   /* floating panels */
-  --r-pill: 40px; /* toast and buttons */
+    /* Destructive actions. Same hue family as the "Buruk" mood so it reads as
+       one palette, but its own token: a button is not a mood. Chroma is 95% of
+       each lightness's sRGB maximum, so neither theme clips. */
+    --danger: light-dark(oklch(52% 0.17 22.22), oklch(72% 0.1657 22.22));
 
-  /* Tracking scale, taken from the grid's own labels. */
-  --track-tight: 0.05em;
-  --track: 0.15em;
-  --track-wide: 0.25em;
-}
+    /* ── The grid's visual grammar, named so the panels can speak it too ──
+       The calendar draws every edge as a half-pixel inset rather than a border,
+       and marks the start of a month with a 2px accent bar along the top. Those
+       two idioms plus one glass recipe are what make a surface feel like part
+       of this app; before this the panels invented their own each time. */
+    --hairline: inset 0 0 0 0.5px var(--border);
+    --edge-accent: inset 0 2px 0 0 var(--accent-secondary);
+    --glass: blur(20px) saturate(180%);
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
+    /* Three radii instead of the nine that had accumulated. */
+    --r-sm: 4px;    /* inline chips: kbd, code, marks */
+    --r-md: 10px;   /* fields and rows */
+    --r-lg: 16px;   /* floating panels */
+    --r-pill: 40px; /* toast and buttons */
 
-html,
-body {
-  height: 100dvh;
-  width: 100vw;
-  background: var(--bg);
-  color: var(--text-main);
-  /* Metric-ish fallbacks so the pre-swap frame is not a wild reflow. */
-  font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
-  perspective: 2000px;
-  overscroll-behavior: none;
-  contain: strict;
-}
-
-#loading-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 100000;
-  background: #020617;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.6s ease-out, visibility 0.6s;
-}
-#loading-screen.hidden {
-  opacity: 0;
-  visibility: hidden;
-}
-.loader-text {
-  color: var(--accent-secondary);
-  font-size: 10px;
-  letter-spacing: 0.5em;
-  text-transform: uppercase;
-  font-weight: 900;
-  margin-top: 20px;
-  text-align: center;
-}
-.loader-bar {
-  width: 150px;
-  height: 1px;
-  background: rgba(34, 211, 238, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-.loader-progress {
-  position: absolute;
-  height: 100%;
-  width: 0%;
-  background: var(--accent-secondary);
-  transition: width 0.4s ease;
-}
-
-@media (pointer: fine) {
-  * {
-    cursor: none !important;
+    /* Tracking scale, taken from the grid's own labels. */
+    --track-tight: 0.05em;
+    --track: 0.15em;
+    --track-wide: 0.25em;
   }
 }
 
-/* ── ION DRIVE ── */
-/* The glow used to be a viewport-sized element whose gradient origin moved
-   with the pointer, so every frame repainted the whole screen. It is now a
-   fixed-size field whose gradient never moves; the element is translated
-   instead, which the compositor handles without any repaint at all. */
-#ion-drive {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: var(--ion-field);
-  height: var(--ion-field);
-  margin: calc(var(--ion-field) / -2);
-  z-index: 5;
-  pointer-events: none;
-  /* The gradient is anchored to the middle of the field and never moves; the
-     element is translated instead, so following the pointer costs a composite
-     rather than a full-viewport repaint. color-mix in oklab keeps the tint
-     true at low percentages. */
-  background: radial-gradient(
-      var(--ion-glow) circle at 50% 50%,
-      color-mix(in oklab, var(--ion-secondary) 15%, transparent) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      50px circle at 50% 50%,
-      color-mix(in oklab, var(--ion-primary) 60%, transparent) 0%,
-      transparent 100%
+@layer app {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body {
+    height: 100dvh;
+    width: 100%;
+    background: var(--bg);
+    color: var(--text-main);
+    /* Metric-ish fallbacks so the pre-swap frame is not a wild reflow. */
+    font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    perspective: 2000px;
+    overscroll-behavior: none;
+    contain: strict;
+  }
+
+  #loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: #020617;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.6s ease-out, visibility 0.6s;
+  }
+  #loading-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .loader-text {
+    color: var(--accent-secondary);
+    font-size: 10px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    font-weight: 900;
+    margin-top: 20px;
+    text-align: center;
+  }
+  .loader-bar {
+    width: 150px;
+    height: 1px;
+    background: color-mix(in oklab, var(--accent-secondary) 20%, transparent);
+    position: relative;
+    overflow: hidden;
+  }
+  .loader-progress {
+    position: absolute;
+    height: 100%;
+    width: 0%;
+    background: var(--accent-secondary);
+    transition: width 0.4s ease;
+  }
+
+
+
+  /* ── ION DRIVE ── */
+  /* The glow used to be a viewport-sized element whose gradient origin moved
+     with the pointer, so every frame repainted the whole screen. It is now a
+     fixed-size field whose gradient never moves; the element is translated
+     instead, which the compositor handles without any repaint at all. */
+  #ion-drive {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--ion-field);
+    height: var(--ion-field);
+    margin: calc(var(--ion-field) / -2);
+    z-index: 5;
+    pointer-events: none;
+    /* The gradient is anchored to the middle of the field and never moves; the
+       element is translated instead, so following the pointer costs a composite
+       rather than a full-viewport repaint. color-mix in oklab keeps the tint
+       true at low percentages. */
+    background: radial-gradient(
+        var(--ion-glow) circle at 50% 50%,
+        color-mix(in oklab, var(--ion-secondary) 15%, transparent) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        50px circle at 50% 50%,
+        color-mix(in oklab, var(--ion-primary) 60%, transparent) 0%,
+        transparent 100%
+      );
+    opacity: var(--ion-opacity);
+    mix-blend-mode: var(--ion-blend);
+    transform: translate3d(calc(var(--ion-x) * 1px), calc(var(--ion-y) * 1px), 0)
+      scale(var(--ion-scale));
+    transition: opacity 0.5s ease,
+      --ion-glow 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      --ion-scale 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+    will-change: transform;
+  }
+
+  #atmosphere {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    opacity: var(--dust-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+    animation: drift 60s linear infinite;
+  }
+  @keyframes drift {
+    from {
+      background-position: 0 0;
+    }
+    to {
+      background-position: 400px 400px;
+    }
+  }
+
+  #viewport {
+    width: 100%;
+    height: 100dvh;
+    overflow-y: scroll;
+    scroll-snap-type: none;
+    scrollbar-width: none;
+    position: relative;
+    overscroll-behavior: none;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: auto;
+  }
+  #viewport.is-locked {
+    pointer-events: none !important;
+  }
+  #viewport::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Accessibility */
+  :focus-visible {
+    outline: 2px solid #38bdf8;
+    outline-offset: 2px;
+  }
+  .cell:focus-visible {
+    outline: none;
+    z-index: 20;
+    box-shadow: inset 0 0 0 2px var(--accent-secondary),
+      0 0 24px color-mix(in oklab, var(--accent-secondary) 45%, transparent);
+  }
+  /* Days that hold data: a glowing mood dot + subtle tint (the "shape of time"). */
+  .cell.has-data {
+    background: linear-gradient(
+      135deg in oklab,
+      color-mix(in oklab, var(--mood-color, var(--accent-secondary)) 22%, var(--cell-bg)) 0%,
+      var(--cell-bg) 100%
     );
-  opacity: var(--ion-opacity);
-  mix-blend-mode: var(--ion-blend);
-  transform: translate3d(calc(var(--ion-x) * 1px), calc(var(--ion-y) * 1px), 0)
-    scale(var(--ion-scale));
-  transition: opacity 0.5s ease,
-    --ion-glow 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    --ion-scale 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-  will-change: transform;
-}
-
-#atmosphere {
-  position: fixed;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-  opacity: var(--dust-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-  animation: drift 60s linear infinite;
-}
-@keyframes drift {
-  from {
-    background-position: 0 0;
   }
-  to {
-    background-position: 400px 400px;
+  .cell.has-data::before {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mood-color, var(--accent-secondary));
+    box-shadow: 0 0 8px var(--mood-color, var(--accent-secondary));
+    z-index: 4;
   }
-}
-
-#viewport {
-  width: 100vw;
-  height: 100dvh;
-  overflow-y: scroll;
-  scroll-snap-type: none;
-  scrollbar-width: none;
-  position: relative;
-  overscroll-behavior: none;
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: auto;
-}
-#viewport.is-locked {
-  pointer-events: none !important;
-}
-#viewport::-webkit-scrollbar {
-  display: none;
-}
-
-/* Accessibility */
-:focus-visible {
-  outline: 2px solid #38bdf8;
-  outline-offset: 2px;
-}
-.cell:focus-visible {
-  outline: none;
-  z-index: 20;
-  box-shadow: inset 0 0 0 2px var(--accent-secondary),
-    0 0 24px rgba(34, 211, 238, 0.45);
-}
-/* Days that hold data: a glowing mood dot + subtle tint (the "shape of time"). */
-.cell.has-data {
-  background: linear-gradient(
-    135deg in oklab,
-    color-mix(in oklab, var(--mood-color, var(--accent-secondary)) 22%, var(--cell-bg)) 0%,
-    var(--cell-bg) 100%
-  );
-}
-.cell.has-data::before {
-  content: '';
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--mood-color, var(--accent-secondary));
-  box-shadow: 0 0 8px var(--mood-color, var(--accent-secondary));
-  z-index: 4;
-}
-/* ── Floating surfaces ──
-   showModal() gives focus trapping, Escape, inert background and z-index-free
-   stacking for free. @starting-style + allow-discrete animate open/close with
-   no JS timers. Every panel wears the same glass, hairline edge and radius as
-   the grid it floats over. */
-.day-panel,
-.date-jumper,
-.note-search {
-  border: none;
-  color: var(--text-main);
-  background: var(--surface);
-  border-radius: var(--r-lg);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-  box-shadow: var(--hairline), 0 24px 70px var(--surface-shadow);
-  opacity: 0;
-  transition:
-    opacity 0.2s ease,
-    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-    display 0.25s allow-discrete,
-    overlay 0.25s allow-discrete;
-}
-.day-panel[open],
-.date-jumper[open],
-.note-search[open] {
-  display: flex;
-  opacity: 1;
-  transform: none;
-}
-@starting-style {
+  /* ── Floating surfaces ──
+     showModal() gives focus trapping, Escape, inert background and z-index-free
+     stacking for free. @starting-style + allow-discrete animate open/close with
+     no JS timers. Every panel wears the same glass, hairline edge and radius as
+     the grid it floats over. */
+  .day-panel,
+  .date-jumper,
+  .note-search {
+    border: none;
+    color: var(--text-main);
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
+    box-shadow: var(--hairline), 0 24px 70px var(--surface-shadow);
+    opacity: 0;
+    transition:
+      opacity 0.2s ease,
+      transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+      display 0.25s allow-discrete,
+      overlay 0.25s allow-discrete;
+  }
   .day-panel[open],
   .date-jumper[open],
   .note-search[open] {
-    opacity: 0;
+    display: flex;
+    opacity: 1;
+    transform: none;
   }
-}
-
-.day-panel::backdrop,
-.date-jumper::backdrop,
-.note-search::backdrop {
-  background: var(--surface-scrim);
-  backdrop-filter: blur(6px);
-  opacity: 0;
-  transition:
-    opacity 0.2s ease,
-    display 0.2s allow-discrete,
-    overlay 0.2s allow-discrete;
-}
-.day-panel[open]::backdrop,
-.date-jumper[open]::backdrop,
-.note-search[open]::backdrop {
-  opacity: 1;
-}
-@starting-style {
-  .day-panel[open]::backdrop,
-  .date-jumper[open]::backdrop,
-  .note-search[open]::backdrop {
-    opacity: 0;
+  @starting-style {
+    .day-panel[open],
+    .date-jumper[open],
+    .note-search[open] {
+      opacity: 0;
+    }
   }
-}
 
-/* Fields and read-only surfaces inside a panel echo the cell: a recessed
-   plane with a half-pixel edge, not a drawn border. */
-.day-panel-note,
-.day-panel-preview,
-.note-search-input {
-  background: var(--surface-sunken);
-  border: none;
-  border-radius: var(--r-md);
-  box-shadow: var(--hairline);
-  color: inherit;
-  font-family: inherit;
-  outline: none;
-  user-select: text;
-  width: 100%;
-}
-.day-panel-note:focus-visible,
-.note-search-input:focus-visible,
-.day-panel-preview:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--accent-secondary);
-}
-
-/* Uppercase micro-labels, same scale the grid uses for its month and day tags. */
-.day-panel-title,
-.day-panel-done,
-.day-panel-delete,
-.date-jumper-hint,
-.note-search-status,
-.note-hit-date {
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.day-panel {
-  width: min(420px, 92vw);
-  padding: 22px;
-  transform: translateY(12px) scale(0.96);
-  flex-direction: column;
-  gap: 14px;
-}
-/* Borrowed from .cell.month-start: the accent bar marks the start of a thing. */
-.day-panel-title {
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: var(--track);
-  padding: 8px 0 10px;
-  box-shadow: var(--edge-accent);
-  text-wrap: balance;
-}
-.day-panel-moods {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-.day-panel-note {
-  resize: vertical;
-  padding: 10px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  field-sizing: content;
-  max-height: 40dvh;
-}
-.day-panel-preview {
-  padding: 10px 12px;
-  font-size: 13px;
-  line-height: 1.55;
-  max-height: 40dvh;
-  overflow-y: auto;
-  cursor: text;
-  overflow-wrap: anywhere;
-}
-.day-panel-preview p + p,
-.day-panel-preview p + ul,
-.day-panel-preview p + ol,
-.day-panel-preview ul + p,
-.day-panel-preview ol + p {
-  margin-top: 0.6em;
-}
-.day-panel-preview ul,
-.day-panel-preview ol {
-  padding-left: 1.25em;
-}
-.day-panel-preview li::marker {
-  color: var(--accent-secondary);
-}
-.day-panel-preview code,
-.note-hit-text code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.92em;
-  background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
-  border-radius: var(--r-sm);
-  padding: 0.1em 0.35em;
-}
-.day-panel [hidden] {
-  display: none;
-}
-
-.day-panel-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-/* Pill buttons match the toast: same radius, same tracking, same weight. */
-.day-panel-done,
-.day-panel-delete {
-  border-radius: var(--r-pill);
-  padding: 7px 18px;
-  font-family: inherit;
-  font-size: 10px;
-  letter-spacing: var(--track);
-  cursor: pointer;
-  background: transparent;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-.day-panel-done {
-  border: 1px solid color-mix(in oklab, var(--accent-secondary) 45%, transparent);
-  color: var(--accent-secondary);
-}
-.day-panel-done:hover {
-  background: color-mix(in oklab, var(--accent-secondary) 15%, transparent);
-}
-.day-panel-delete {
-  border: 1px solid color-mix(in oklab, var(--danger) 40%, transparent);
-  color: var(--danger);
-  opacity: 0.7;
-}
-.day-panel-delete:hover {
-  opacity: 1;
-  background: color-mix(in oklab, var(--danger) 14%, transparent);
-}
-
-.date-jumper {
-  min-width: min(300px, 90vw);
-  padding: 18px 20px;
-  transform: scale(0.96);
-  flex-direction: column;
-  gap: 10px;
-}
-.date-jumper input {
-  background: transparent;
-  border: none;
-  outline: none;
-  color: inherit;
-  font-family: inherit;
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: var(--track-tight);
-  width: 100%;
-  user-select: text;
-}
-.date-jumper-hint,
-.note-search-status {
-  font-size: 9px;
-  letter-spacing: var(--track-wide);
-  color: var(--text-muted);
-}
-
-/* ── Note search ── */
-.note-search {
-  width: min(560px, 94vw);
-  max-height: min(70dvh, 620px);
-  padding: 16px 18px;
-  transform: translateY(-8px) scale(0.98);
-  flex-direction: column;
-  gap: 12px;
-  overflow: hidden;
-}
-.note-search-input {
-  padding: 10px 14px;
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: var(--track-tight);
-}
-.note-search-results {
-  list-style: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-}
-/* Rows are cells: square, hairline-separated, and the selected one takes the
-   same accent bar the grid puts on the first day of a month. */
-.note-hit {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr);
-  grid-template-areas: 'mood date' 'mood text';
-  gap: 2px 10px;
-  align-items: baseline;
-  padding: 9px 10px;
-  cursor: pointer;
-  box-shadow: var(--hairline);
-  transition: background 0.15s ease;
-}
-.note-hit:hover {
-  background: color-mix(in oklab, var(--accent-secondary) 8%, transparent);
-}
-.note-hit.is-active {
-  background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
-  box-shadow: var(--edge-accent), var(--hairline);
-}
-.note-hit-mood {
-  grid-area: mood;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  align-self: center;
-}
-.note-hit-date {
-  grid-area: date;
-  font-size: 9px;
-  letter-spacing: var(--track);
-  color: var(--accent-secondary);
-}
-.note-hit-text {
-  grid-area: text;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-main);
-  overflow-wrap: anywhere;
-}
-.note-hit-text mark {
-  background: color-mix(in oklab, var(--accent-primary) 40%, transparent);
-  color: inherit;
-  border-radius: var(--r-sm);
-}
-
-/* Mood picker buttons in the day panel. */
-.mood-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  opacity: 0.45;
-  transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
-}
-.mood-btn:hover {
-  transform: scale(1.15);
-  opacity: 0.9;
-}
-.mood-btn[aria-pressed='true'] {
-  opacity: 1;
-  /* was #fff — invisible against the light-theme panel */
-  border-color: var(--text-main);
-  transform: scale(1.12);
-}
-/* "You are here" year scrubber on the right edge. */
-.pos-scrubber {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 14px;
-  height: 100dvh;
-  z-index: 9996;
-  cursor: pointer;
-  touch-action: none;
-}
-.pos-scrubber::before {
-  content: '';
-  position: absolute;
-  top: 8%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: 84%;
-  background: linear-gradient(to bottom, transparent, var(--border), transparent);
-}
-.pos-scrubber:focus-visible {
-  outline: 2px solid var(--accent-secondary);
-  outline-offset: -2px;
-}
-.pos-today {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 2px;
-  background: var(--accent-primary);
-  box-shadow: 0 0 6px var(--accent-primary);
-}
-.pos-thumb {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 18px;
-  border-radius: 4px;
-  background: var(--accent-secondary);
-  box-shadow: 0 0 10px var(--accent-secondary);
-  transition: top 0.08s linear;
-}
-@media (max-width: 720px) {
-  .pos-scrubber {
-    width: 18px;
-  }
-}
-
-/* Some users find heavy blur and translucency disorienting or simply
-   hard to read through. Give them opaque surfaces without changing the
-   layout or the palette. */
-@media (prefers-reduced-transparency: reduce) {
-  .day-panel,
-  .date-jumper,
-  .note-search,
-  #toast,
-  .year-nav-btn {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: var(--bg);
-  }
   .day-panel::backdrop,
   .date-jumper::backdrop,
   .note-search::backdrop {
-    backdrop-filter: none;
-    background: light-dark(oklch(92.88% 0.0126 255.51 / 0.92), oklch(12.88% 0.0406 264.7 / 0.92));
+    background: var(--surface-scrim);
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    transition:
+      opacity 0.2s ease,
+      display 0.2s allow-discrete,
+      overlay 0.2s allow-discrete;
   }
-  #atmosphere {
-    display: none;
+  .day-panel[open]::backdrop,
+  .date-jumper[open]::backdrop,
+  .note-search[open]::backdrop {
+    opacity: 1;
   }
+  @starting-style {
+    .day-panel[open]::backdrop,
+    .date-jumper[open]::backdrop,
+    .note-search[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  /* Fields and read-only surfaces inside a panel echo the cell: a recessed
+     plane with a half-pixel edge, not a drawn border. */
   .day-panel-note,
   .day-panel-preview,
   .note-search-input {
-    background: var(--cell-bg);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-md);
+    box-shadow: var(--hairline);
+    color: inherit;
+    font-family: inherit;
+    outline: none;
+    user-select: text;
+    width: 100%;
   }
-}
+  .day-panel-note:focus-visible,
+  .note-search-input:focus-visible,
+  .day-panel-preview:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--accent-secondary);
+  }
 
-@media (prefers-reduced-motion: reduce) {
-  #viewport {
-    scroll-behavior: auto !important;
-    scroll-snap-type: none !important;
-    overscroll-behavior: none !important;
+  /* Uppercase micro-labels, same scale the grid uses for its month and day tags. */
+  .day-panel-title,
+  .day-panel-done,
+  .day-panel-delete,
+  .date-jumper-hint,
+  .note-search-status,
+  .note-hit-date {
+    text-transform: uppercase;
+    font-weight: 700;
   }
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+
+  .day-panel {
+    width: min(420px, 92vw);
+    /* A landscape phone is ~360px tall; without this the panel grew past the
+       screen and the Done button became unreachable. */
+    max-height: min(90dvh, 640px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 22px;
+    transform: translateY(12px) scale(0.96);
+    flex-direction: column;
+    gap: 14px;
   }
-  /* Scroll-driven animations ignore animation-duration, so disable explicitly. */
+  /* Borrowed from .cell.month-start: the accent bar marks the start of a thing. */
+  .day-panel-title {
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: var(--track);
+    padding: 8px 0 10px;
+    box-shadow: var(--edge-accent);
+    text-wrap: balance;
+  }
+  .day-panel-moods {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .day-panel-note {
+    resize: vertical;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    field-sizing: content;
+    max-height: 40dvh;
+  }
+  .day-panel-preview {
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    max-height: 40dvh;
+    overflow-y: auto;
+    cursor: text;
+    overflow-wrap: anywhere;
+  }
+  .day-panel-preview p + p,
+  .day-panel-preview p + ul,
+  .day-panel-preview p + ol,
+  .day-panel-preview ul + p,
+  .day-panel-preview ol + p {
+    margin-top: 0.6em;
+  }
+  .day-panel-preview ul,
+  .day-panel-preview ol {
+    padding-left: 1.25em;
+  }
+  .day-panel-preview li::marker {
+    color: var(--accent-secondary);
+  }
+  .day-panel-preview code,
+  .note-hit-text code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+    background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
+    border-radius: var(--r-sm);
+    padding: 0.1em 0.35em;
+  }
+  .day-panel [hidden] {
+    display: none;
+  }
+
+  .day-panel-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  /* Pill buttons match the toast: same radius, same tracking, same weight. */
+  .day-panel-done,
+  .day-panel-delete {
+    border-radius: var(--r-pill);
+    padding: 7px 18px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: var(--track);
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .day-panel-done {
+    border: 1px solid color-mix(in oklab, var(--accent-secondary) 45%, transparent);
+    color: var(--accent-secondary);
+  }
+  .day-panel-done:hover {
+    background: color-mix(in oklab, var(--accent-secondary) 15%, transparent);
+  }
+  .day-panel-delete {
+    border: 1px solid color-mix(in oklab, var(--danger) 40%, transparent);
+    color: var(--danger);
+    opacity: 0.7;
+  }
+  .day-panel-delete:hover {
+    opacity: 1;
+    background: color-mix(in oklab, var(--danger) 14%, transparent);
+  }
+
+  .date-jumper {
+    min-width: min(300px, 90vw);
+    padding: 18px 20px;
+    transform: scale(0.96);
+    flex-direction: column;
+    gap: 10px;
+  }
+  .date-jumper input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: inherit;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: var(--track-tight);
+    width: 100%;
+    user-select: text;
+  }
+  .date-jumper-hint,
+  .note-search-status {
+    font-size: 9px;
+    letter-spacing: var(--track-wide);
+    color: var(--text-muted);
+  }
+
+  /* ── Note search ── */
+  .note-search {
+    width: min(560px, 94vw);
+    max-height: min(70dvh, 620px);
+    padding: 16px 18px;
+    transform: translateY(-8px) scale(0.98);
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+  .note-search-input {
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: var(--track-tight);
+  }
+  .note-search-results {
+    list-style: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+  }
+  /* Rows are cells: square, hairline-separated, and the selected one takes the
+     same accent bar the grid puts on the first day of a month. */
+  .note-hit {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr);
+    grid-template-areas: 'mood date' 'mood text';
+    gap: 2px 10px;
+    align-items: baseline;
+    padding: 9px 10px;
+    cursor: pointer;
+    box-shadow: var(--hairline);
+    transition: background 0.15s ease;
+  }
+  .note-hit:hover {
+    background: color-mix(in oklab, var(--accent-secondary) 8%, transparent);
+  }
+  .note-hit.is-active {
+    background: color-mix(in oklab, var(--accent-secondary) 14%, transparent);
+    box-shadow: var(--edge-accent), var(--hairline);
+  }
+  .note-hit-mood {
+    grid-area: mood;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    align-self: center;
+  }
+  .note-hit-date {
+    grid-area: date;
+    font-size: 9px;
+    letter-spacing: var(--track);
+    color: var(--accent-secondary);
+  }
+  .note-hit-text {
+    grid-area: text;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-main);
+    overflow-wrap: anywhere;
+  }
+  .note-hit-text mark {
+    background: color-mix(in oklab, var(--accent-primary) 40%, transparent);
+    color: inherit;
+    border-radius: var(--r-sm);
+  }
+
+  /* Mood picker buttons in the day panel. */
+  .mood-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+  }
+  /* WCAG 2.5.8 asks for 24px minimum, 2.5.5 for 44px. The dot stays 34px and
+     the target grows underneath it, so the design is unchanged. */
+  .mood-btn,
+  .year-nav-btn {
+    position: relative;
+  }
+  .mood-btn::after,
+  .year-nav-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+  }
+  .mood-btn:hover {
+    transform: scale(1.15);
+    opacity: 0.9;
+  }
+  .mood-btn[aria-pressed='true'] {
+    opacity: 1;
+    /* was #fff — invisible against the light-theme panel */
+    border-color: var(--text-main);
+    transform: scale(1.12);
+  }
+  /* "You are here" year scrubber on the right edge. */
+  .pos-scrubber {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    right: env(safe-area-inset-right, 0px);
+    width: 14px;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    z-index: 9996;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .pos-scrubber::before {
+    content: '';
+    position: absolute;
+    top: 8%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 84%;
+    background: linear-gradient(to bottom, transparent, var(--border), transparent);
+  }
+  .pos-scrubber:focus-visible {
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: -2px;
+  }
+  .pos-today {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 2px;
+    background: var(--accent-primary);
+    box-shadow: 0 0 6px var(--accent-primary);
+  }
+  .pos-thumb {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 18px;
+    border-radius: 4px;
+    background: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--accent-secondary);
+    transition: top 0.08s linear;
+  }
+
+
+  /* Some users find heavy blur and translucency disorienting or simply
+     hard to read through. Give them opaque surfaces without changing the
+     layout or the palette. */
+
+
+
+  #infinite-canvas {
+    position: relative;
+    width: 100%;
+    contain: layout;
+  }
+
+  .year-block {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    content-visibility: auto;
+    contain-intrinsic-size: 100vw 100dvh;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    transform-origin: center center;
+    transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease, opacity 0.8s ease;
+    contain: strict;
+  }
+
+  .year-block:not(.active) {
+    transform: scale(0.8) translate3d(0, 0, -600px);
+    filter: blur(20px) grayscale(0.5);
+    opacity: 0.15;
+  }
+
+  .year-block:not(.active) .date-num {
+    background: var(--text-muted);
+    color: transparent !important;
+    height: 1px;
+    width: 40%;
+    margin: 10px auto;
+    opacity: 0.5;
+  }
+  .year-block:not(.active) .info-meta {
+    opacity: 0;
+  }
+
+  .year-block.active {
+    transform: scale(1) translate3d(0, 0, 0);
+    filter: blur(0px);
+    opacity: 1;
+  }
+
+  .grid-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    background: var(--bg);
+    overflow-x: hidden;
+    scrollbar-width: none;
+    backface-visibility: hidden;
+    transform: translateZ(0); /* Force GPU layering */
+  }
+  /* Only while the grid is actually shifting. Left permanently on, this filter
+     keeps a double drop-shadow path alive over ~400 cells even at rest, and
+     `will-change: filter` pins the machinery for every block at once. */
+  #viewport.is-shifting .grid-container {
+    filter: drop-shadow(calc(var(--chroma-dist) * -1px) 0 0 rgba(255, 0, 0, 0.2))
+      drop-shadow(calc(var(--chroma-dist) * 1px) 0 0 rgba(0, 255, 255, 0.2));
+    will-change: filter;
+  }
+
+  .watermark-embedded {
+    position: absolute;
+    top: 0;
+    right: 5%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    font-size: clamp(100px, 30dvh, 400px);
+    font-weight: 900;
+    color: transparent;
+    /* Amber → cyan in dark mode: sRGB interpolation drags this through a
+       dull olive midpoint. oklab keeps the ramp clean. */
+    background: linear-gradient(180deg in oklab, var(--accent-primary), var(--accent-secondary), transparent);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-stroke: 1px color-mix(in oklab, var(--text-muted) 18%, transparent);
+    writing-mode: vertical-rl;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+    transition: opacity 1s;
+  }
   .year-block.active .watermark-embedded {
-    animation: none !important;
+    opacity: 0.15;
+    will-change: transform; /* only the visible block runs the scroll timeline */
   }
-}
-#infinite-canvas {
-  position: relative;
-  width: 100%;
-  contain: layout;
-}
-
-.year-block {
-  position: absolute;
-  left: 0;
-  width: 100vw;
-  height: 100dvh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  content-visibility: auto;
-  contain-intrinsic-size: 100vw 100dvh;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-  transform-origin: center center;
-  transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease, opacity 0.8s ease;
-  contain: strict;
-}
-
-.year-block:not(.active) {
-  transform: scale(0.8) translate3d(0, 0, -600px);
-  filter: blur(20px) grayscale(0.5);
-  opacity: 0.15;
-}
-
-.year-block:not(.active) .date-num {
-  background: var(--text-muted);
-  color: transparent !important;
-  height: 1px;
-  width: 40%;
-  margin: 10px auto;
-  opacity: 0.5;
-}
-.year-block:not(.active) .info-meta {
-  opacity: 0;
-}
-
-.year-block.active {
-  transform: scale(1) translate3d(0, 0, 0);
-  filter: blur(0px);
-  opacity: 1;
-}
-
-.grid-container {
-  position: relative;
-  flex: 1;
-  display: flex;
-  background: var(--bg);
-  overflow-x: hidden;
-  scrollbar-width: none;
-  backface-visibility: hidden;
-  transform: translateZ(0); /* Force GPU layering */
-}
-/* Only while the grid is actually shifting. Left permanently on, this filter
-   keeps a double drop-shadow path alive over ~400 cells even at rest, and
-   `will-change: filter` pins the machinery for every block at once. */
-#viewport.is-shifting .grid-container {
-  filter: drop-shadow(calc(var(--chroma-dist) * -1px) 0 0 rgba(255, 0, 0, 0.2))
-    drop-shadow(calc(var(--chroma-dist) * 1px) 0 0 rgba(0, 255, 255, 0.2));
-  will-change: filter;
-}
-
-.watermark-embedded {
-  position: absolute;
-  top: 0;
-  right: 5%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  font-size: clamp(100px, 30dvh, 400px);
-  font-weight: 900;
-  color: transparent;
-  /* Amber → cyan in dark mode: sRGB interpolation drags this through a
-     dull olive midpoint. oklab keeps the ramp clean. */
-  background: linear-gradient(180deg in oklab, var(--accent-primary), var(--accent-secondary), transparent);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-stroke: 1px rgba(148, 163, 184, 0.1);
-  writing-mode: vertical-rl;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 10;
-  transition: opacity 1s;
-}
-.year-block.active .watermark-embedded {
-  opacity: 0.15;
-  will-change: transform; /* only the visible block runs the scroll timeline */
-}
-/* Parallax runs on the compositor via a scroll-driven view() timeline —
-   zero JS per frame. Gated on @supports so older browsers see a static
-   watermark instead of a stuck offset. */
-@supports (animation-timeline: view()) {
-  .year-block.active .watermark-embedded {
-    animation: watermark-drift linear both;
-    animation-timeline: view();
+  /* Parallax runs on the compositor via a scroll-driven view() timeline —
+     zero JS per frame. Gated on @supports so older browsers see a static
+     watermark instead of a stuck offset. */
+  @supports (animation-timeline: view()) {
+    .year-block.active .watermark-embedded {
+      animation: watermark-drift linear both;
+      animation-timeline: view();
+    }
   }
-}
-@keyframes watermark-drift {
-  from { transform: translate3d(0, -7%, 0); }
-  to { transform: translate3d(0, 7%, 0); }
-}
-.year-block.is-scrolling .watermark-embedded {
-  position: fixed;
-  opacity: 0.08;
-  animation: none;
-}
-
-.grid-layer {
-  display: grid;
-  width: 100.1%;
-  margin-left: -0.5px;
-  min-height: 100%;
-  opacity: 0;
-  transition: opacity 0.8s ease;
-  z-index: 2;
-  gap: 0;
-  background: transparent;
-}
-.year-block.active .grid-layer {
-  opacity: 1;
-}
-/* ARIA needs grid > row > gridcell, but the cells must stay direct
-   participants of the CSS grid — display: contents gives us both. */
-.grid-row {
-  display: contents;
-}
-
-.cell {
-  background: var(--cell-bg);
-  position: relative;
-  box-shadow: inset 0 0 0 0.5px var(--border);
-  display: flex;
-  flex-direction: column;
-  transition: background 0.4s ease, opacity 0.4s ease;
-  contain: content;
-}
-.cell.filler {
-  opacity: 0.15;
-  background: transparent;
-  pointer-events: auto;
-}
-.cell.weekend {
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.03) 0%, transparent 100%);
-}
-.cell.week-start {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, transparent 100%);
-}
-.cell.week-start::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent-primary), transparent);
-  opacity: 0.2;
-  z-index: 3;
-}
-.cell.month-start {
-  background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, transparent 100%);
-  box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
-}
-.cell.month-start .info-meta.top-label {
-  color: var(--accent-secondary);
-  font-weight: 900;
-  letter-spacing: 0.15em;
-}
-
-/* ── Temporal fading ── Days already lived recede rather than vanish;
-   a day you actually recorded stays more present than an empty one.
-   Opacity on the content only: a filter here would promote ~400 cells
-   per year to their own compositing layers. */
-.cell.past .cell-content {
-  opacity: 0.42;
-  transition: opacity 0.4s ease;
-}
-.cell.past.has-data .cell-content {
-  opacity: 0.85;
-}
-
-/* ── The pulse of now ── Today fills gradually as the day is spent.
-   --day-progress is published once a minute by DayPulse. */
-.day-pulse {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(var(--day-progress, 0) * 100%);
-  background: linear-gradient(
-    to top,
-    color-mix(in oklab, #fff 26%, transparent),
-    transparent
-  );
-  pointer-events: none;
-  z-index: 1;
-  transition: height 1s linear;
-}
-@media (prefers-reduced-motion: reduce) {
-  .day-pulse {
-    transition: none;
+  @keyframes watermark-drift {
+    from { transform: translate3d(0, -7%, 0); }
+    to { transform: translate3d(0, 7%, 0); }
   }
-}
-
-.cell.today {
-  background: linear-gradient(
-    135deg in oklab,
-    oklch(54.61% 0.2152 262.88) 0%,
-    oklch(42.44% 0.1809 265.64) 100%
-  );
-  z-index: 10;
-  box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
-}
-.cell.today .date-num {
-  font-weight: 900;
-  color: #fff !important;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-}
-.cell.today .info-meta {
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 700;
-}
-
-.cell-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 4px;
-  z-index: 2;
-  pointer-events: none;
-}
-.info-meta {
-  font-size: clamp(6px, 0.8dvh, 8px);
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.1em;
-  transition: opacity 0.4s ease;
-}
-.date-num {
-  font-size: clamp(14px, 2.5dvh, 22px);
-  font-weight: 300;
-  line-height: 1;
-  color: var(--text-main);
-  transition: all 0.4s ease;
-}
-
-#toast {
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background: rgba(15, 23, 42, 0.8);
-  color: var(--accent-secondary);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-  padding: 12px 28px;
-  border-radius: var(--r-pill);
-  font-weight: 900;
-  font-size: 10px;
-  z-index: 99999;
-  opacity: 0;
-  border: 1px solid color-mix(in oklab, var(--accent-secondary) 30%, transparent);
-  letter-spacing: var(--track-wide);
-  text-transform: uppercase;
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
-}
-#toast.active {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-#theme-veil {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: var(--bg);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.5s;
-}
-#theme-veil.active {
-  opacity: 1;
-}
-/* Theme switching runs through document.startViewTransition() where it
-   exists; #theme-veil above is only the fallback path. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.45s;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  mix-blend-mode: normal;
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  .year-block.is-scrolling .watermark-embedded {
+    position: fixed;
+    opacity: 0.08;
     animation: none;
   }
-}
-/* Efek saat melakukan lompatan besar */
-/* Promoted only for the jump that needs it: every block carrying a permanent
-   will-change meant several viewport-sized layers held on the GPU at rest. */
-#viewport.warping-far .year-block,
-#viewport.warping-near .year-block {
-  will-change: transform, opacity, filter;
-}
-#viewport.warping-far .year-block {
-  filter: blur(100px) saturate(2);
-  opacity: 0;
-  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .grid-layer {
+    display: grid;
+    width: 100.1%;
+    margin-left: -0.5px;
+    min-height: 100%;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    z-index: 2;
+    gap: 0;
+    background: transparent;
+  }
+  .year-block.active .grid-layer {
+    opacity: 1;
+  }
+  /* ARIA needs grid > row > gridcell, but the cells must stay direct
+     participants of the CSS grid — display: contents gives us both. */
+  .grid-row {
+    display: contents;
+  }
+
+  .cell {
+    background: var(--cell-bg);
+    position: relative;
+    box-shadow: inset 0 0 0 0.5px var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: background 0.4s ease, opacity 0.4s ease;
+    contain: content;
+  }
+  .cell.filler {
+    opacity: 0.15;
+    background: transparent;
+    pointer-events: auto;
+  }
+  .cell.weekend {
+    background: linear-gradient(
+      135deg in oklab,
+      color-mix(in oklab, var(--accent-secondary) 3%, transparent) 0%,
+      transparent 100%
+    );
+  }
+  .cell.week-start {
+    background: linear-gradient(
+      135deg in oklab,
+      color-mix(in oklab, var(--accent-primary) 5%, transparent) 0%,
+      transparent 100%
+    );
+  }
+  .cell.week-start::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-primary), transparent);
+    opacity: 0.2;
+    z-index: 3;
+  }
+  .cell.month-start {
+    background: linear-gradient(
+      180deg in oklab,
+      color-mix(in oklab, var(--accent-secondary) 8%, transparent) 0%,
+      transparent 100%
+    );
+    box-shadow: inset 0 2px 0 0 var(--accent-secondary), inset 0 0 0 0.5px var(--border);
+  }
+  .cell.month-start .info-meta.top-label {
+    color: var(--accent-secondary);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+  }
+
+  /* ── Temporal fading ── Days already lived recede rather than vanish;
+     a day you actually recorded stays more present than an empty one.
+     Opacity on the content only: a filter here would promote ~400 cells
+     per year to their own compositing layers. */
+  .cell.past .cell-content {
+    opacity: 0.42;
+    transition: opacity 0.4s ease;
+  }
+  .cell.past.has-data .cell-content {
+    opacity: 0.85;
+  }
+
+  /* ── The pulse of now ── Today fills gradually as the day is spent.
+     --day-progress is published once a minute by DayPulse. */
+  .day-pulse {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--day-progress, 0) * 100%);
+    background: linear-gradient(
+      to top,
+      color-mix(in oklab, #fff 26%, transparent),
+      transparent
+    );
+    pointer-events: none;
+    z-index: 1;
+    transition: height 1s linear;
+  }
+
+
+  .cell.today {
+    background: linear-gradient(
+      135deg in oklab,
+      oklch(54.61% 0.2152 262.88) 0%,
+      oklch(42.44% 0.1809 265.64) 100%
+    );
+    z-index: 10;
+    box-shadow: 0 10px 30px -5px var(--today-glow), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+  .cell.today .date-num {
+    font-weight: 900;
+    color: #fff !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+  .cell.today .info-meta {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 700;
+  }
+
+  .cell-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .info-meta {
+    font-size: clamp(6px, 0.8dvh, 8px);
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    transition: opacity 0.4s ease;
+  }
+  .date-num {
+    font-size: clamp(14px, 2.5dvh, 22px);
+    font-weight: 300;
+    line-height: 1;
+    color: var(--text-main);
+    transition: all 0.4s ease;
+  }
+
+  #toast {
+    position: fixed;
+    /* Above the hint strip rather than on top of it: at 30px the two occupied
+       the same 14px of screen. Plus the home indicator on a notched phone. */
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    color: var(--accent-secondary);
+    backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
+    padding: 12px 28px;
+    border-radius: var(--r-pill);
+    font-weight: 900;
+    font-size: 10px;
+    z-index: 99999;
+    opacity: 0;
+    border: 1px solid color-mix(in oklab, var(--accent-secondary) 30%, transparent);
+    letter-spacing: var(--track-wide);
+    text-transform: uppercase;
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+  }
+  #toast.active {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #theme-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--bg);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  #theme-veil.active {
+    opacity: 1;
+  }
+  /* Theme switching runs through document.startViewTransition() where it
+     exists; #theme-veil above is only the fallback path. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.45s;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    mix-blend-mode: normal;
+  }
+
+  /* Efek saat melakukan lompatan besar */
+  /* Promoted only for the jump that needs it: every block carrying a permanent
+     will-change meant several viewport-sized layers held on the GPU at rest. */
+  #viewport.warping-far .year-block,
+  #viewport.warping-near .year-block {
+    will-change: transform, opacity, filter;
+  }
+  #viewport.warping-far .year-block {
+    filter: blur(100px) saturate(2);
+    opacity: 0;
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Efek lorong waktu saat lompatan jauh */
+  #viewport.warping-far #infinite-canvas {
+    transform: scale(1.4) translateZ(0);
+    filter: blur(40px) brightness(1.5) contrast(1.2);
+    transition: transform 1.8s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s ease-in-out;
+    opacity: 0.3;
+  }
+
+  /* Efek getaran ringan saat warp dekat */
+  #viewport.warping-near #infinite-canvas {
+    transform: scale(1.05) translateZ(0);
+    filter: blur(10px);
+    transition: transform 1.2s ease-out, filter 0.8s ease-out;
+  }
+
+  /* Memastikan kursor benar-benar lenyap ke titik tengah */
+  #ion-drive.jumping {
+    /* Collapses via the scale variable so it composes with the translate that
+       tracks the pointer, instead of overwriting the whole transform. */
+    opacity: 0;
+    --ion-scale: 0;
+    transition: opacity 0.4s ease-out, --ion-scale 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+  }
+
+  .keyboard-hints {
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: min(92vw, 720px);
+    gap: 6px 14px;
+    z-index: 9998;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    opacity: 0.85;
+    transition: opacity 1.2s ease;
+    pointer-events: none;
+    user-select: none;
+  }
+  .keyboard-hints.faded {
+    opacity: 0.15;
+  }
+  .keyboard-hints kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: color-mix(in oklab, var(--text-muted) 12%, transparent);
+    font-family: inherit;
+    font-size: 10px;
+    margin: 0 2px;
+  }
+
+  /* ── YEAR NAV EDGE BUTTONS ── */
+  .year-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9997;
+    display: flex;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  #year-nav { left: calc(16px + env(safe-area-inset-left, 0px)); }
+  #year-nav-end {
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    flex-direction: row-reverse;
+  }
+  .year-nav.visible { opacity: 0.65; }
+  .year-nav:hover { opacity: 1; }
+  .year-nav-btn {
+    pointer-events: auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-main);
+    backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                background 0.2s ease,
+                border-color 0.2s ease,
+                opacity 0.25s ease;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+  .year-nav-btn:hover {
+    background: color-mix(in oklab, var(--accent-secondary) 18%, transparent);
+    border-color: var(--accent-secondary);
+    color: var(--accent-secondary);
+    transform: scale(1.08);
+  }
+  .year-nav-btn:active {
+    transform: scale(0.94);
+  }
+  .year-nav-btn.disabled {
+    opacity: 0.18;
+    pointer-events: none;
+  }
+  @media (max-width: 720px) {
+    .year-nav-btn { width: 38px; height: 38px; }
+    #year-nav { left: 8px; }
+    #year-nav-end { right: 8px; }
+  }
+
+
+  /* ── Windows High Contrast ──
+     The OS replaces author colours with its own palette. Decoration should get
+     out of the way, structure has to be redrawn with real borders (box-shadow
+     is dropped in this mode), and the few colours that mean something — the
+     mood dots — opt out so they survive. */
 }
 
-/* Efek lorong waktu saat lompatan jauh */
-#viewport.warping-far #infinite-canvas {
-  transform: scale(1.4) translateZ(0);
-  filter: blur(40px) brightness(1.5) contrast(1.2);
-  transition: transform 1.8s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s ease-in-out;
-  opacity: 0.3;
+@layer overrides {
+  @media (pointer: fine) {
+    * {
+      cursor: none;
+    }
+  }
+  @media (pointer: coarse) {
+    .pos-scrubber {
+      width: 24px; /* WCAG 2.5.8 minimum for a dragged control */
+    }
+    /* Hints name keys that a touch device does not have. */
+    .keyboard-hints {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .day-panel,
+    .date-jumper,
+    .note-search,
+    #toast,
+    .year-nav-btn {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: var(--bg);
+    }
+    .day-panel::backdrop,
+    .date-jumper::backdrop,
+    .note-search::backdrop {
+      backdrop-filter: none;
+      background: light-dark(oklch(92.88% 0.0126 255.51 / 0.92), oklch(12.88% 0.0406 264.7 / 0.92));
+    }
+    #atmosphere {
+      display: none;
+    }
+    .day-panel-note,
+    .day-panel-preview,
+    .note-search-input {
+      background: var(--cell-bg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #viewport {
+      scroll-behavior: auto;
+      scroll-snap-type: none;
+      overscroll-behavior: none;
+    }
+    * {
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+      transition-duration: 0.01ms;
+    }
+    /* Scroll-driven animations ignore animation-duration, so disable explicitly. */
+    .year-block.active .watermark-embedded {
+      animation: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .day-pulse {
+      transition: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .year-nav { transition: opacity 0.2s linear; }
+    .year-nav-btn { transition: opacity 0.2s linear; }
+  }
+  @media (forced-colors: active) {
+    #ion-drive,
+    #atmosphere,
+    .day-pulse,
+    .watermark-embedded {
+      display: none;
+    }
+
+    /* Cell edges are inset box-shadows, which forced colours discard. */
+    .cell {
+      border: 1px solid CanvasText;
+      background: Canvas;
+    }
+    .cell.filler {
+      opacity: 1;
+      border-style: dotted;
+    }
+    .cell.today {
+      background: Highlight;
+      color: HighlightText;
+      border-width: 2px;
+    }
+    .cell.today .date-num,
+    .cell.today .info-meta {
+      color: HighlightText;
+    }
+    .cell.month-start {
+      border-top-width: 3px;
+    }
+    .cell.past .cell-content {
+      opacity: 1; /* the fade is invisible against a flattened palette */
+    }
+
+    /* Mood is the one place colour is the information. */
+    .mood-btn,
+    .note-hit-mood,
+    .cell.has-data::before {
+      forced-color-adjust: none;
+    }
+    .cell.has-data {
+      background: Canvas;
+      border-style: double;
+      border-width: 3px;
+    }
+
+    .day-panel,
+    .date-jumper,
+    .note-search,
+    #toast,
+    .year-nav-btn {
+      border: 1px solid CanvasText;
+      background: Canvas;
+      color: CanvasText;
+    }
+    .note-hit.is-active {
+      background: Highlight;
+      color: HighlightText;
+    }
+    .note-hit-text mark {
+      background: Highlight;
+      color: HighlightText;
+    }
+
+    /* The focus ring is drawn with box-shadow, which does not survive here. */
+    .cell:focus-visible {
+      outline: 3px solid Highlight;
+      outline-offset: -3px;
+    }
+  }
 }
 
-/* Efek getaran ringan saat warp dekat */
-#viewport.warping-near #infinite-canvas {
-  transform: scale(1.05) translateZ(0);
-  filter: blur(10px);
-  transition: transform 1.2s ease-out, filter 0.8s ease-out;
-}
-
-/* Memastikan kursor benar-benar lenyap ke titik tengah */
-#ion-drive.jumping {
-  /* Collapses via the scale variable so it composes with the translate that
-     tracks the pointer, instead of overwriting the whole transform. */
-  opacity: 0;
-  --ion-scale: 0;
-  transition: opacity 0.4s ease-out, --ion-scale 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-}
-
-.keyboard-hints {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 14px;
-  z-index: 9998;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  opacity: 0.85;
-  transition: opacity 1.2s ease;
-  pointer-events: none;
-  user-select: none;
-}
-.keyboard-hints.faded {
-  opacity: 0.15;
-}
-.keyboard-hints kbd {
-  display: inline-block;
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: color-mix(in oklab, var(--text-muted) 12%, transparent);
-  font-family: inherit;
-  font-size: 10px;
-  margin: 0 2px;
-}
-
-/* ── YEAR NAV EDGE BUTTONS ── */
-.year-nav {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 9997;
-  display: flex;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-#year-nav { left: 16px; }
-#year-nav-end { right: 16px; flex-direction: row-reverse; }
-.year-nav.visible { opacity: 0.65; }
-.year-nav:hover { opacity: 1; }
-.year-nav-btn {
-  pointer-events: auto;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(15, 23, 42, 0.55);
-  color: var(--text-main);
-  backdrop-filter: var(--glass);
-  -webkit-backdrop-filter: var(--glass);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-              background 0.2s ease,
-              border-color 0.2s ease,
-              opacity 0.25s ease;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-}
-.year-nav-btn:hover {
-  background: rgba(34, 211, 238, 0.18);
-  border-color: var(--accent-secondary);
-  color: var(--accent-secondary);
-  transform: scale(1.08);
-}
-.year-nav-btn:active {
-  transform: scale(0.94);
-}
-.year-nav-btn.disabled {
-  opacity: 0.18;
-  pointer-events: none;
-}
-@media (max-width: 720px) {
-  .year-nav-btn { width: 38px; height: 38px; }
-  #year-nav { left: 8px; }
-  #year-nav-end { right: 8px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .year-nav { transition: opacity 0.2s linear; }
-  .year-nav-btn { transition: opacity 0.2s linear; }
-}
