@@ -241,6 +241,7 @@
   #viewport {
     width: 100%;
     height: 100dvh;
+    overflow-x: hidden;
     overflow-y: scroll;
     scroll-snap-type: none;
     scrollbar-width: none;
@@ -1350,6 +1351,40 @@
     .year-nav-btn { width: 38px; height: 38px; }
     #year-nav { left: 8px; }
     #year-nav-end { right: 8px; }
+  }
+  @media (max-width: 599.98px) {
+    .adaptive-dock {
+      left: calc(8px + env(safe-area-inset-left, 0px));
+      right: calc(8px + env(safe-area-inset-right, 0px));
+      width: fit-content;
+      max-width: calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+      margin-inline: auto;
+      transform: translateY(calc(100% + 16px));
+    }
+    .adaptive-dock.is-visible,
+    .adaptive-dock:focus-within {
+      transform: translateY(0);
+    }
+    #year-nav {
+      left: calc(8px + env(safe-area-inset-left, 0px));
+    }
+    #year-nav-end {
+      right: calc(8px + env(safe-area-inset-right, 0px));
+    }
+    .grid-layer {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+  }
+  @media (max-height: 500px) and (orientation: landscape) {
+    .adaptive-dock {
+      bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+    #year-nav {
+      left: calc(8px + env(safe-area-inset-left, 0px));
+    }
+    #year-nav-end {
+      right: calc(8px + env(safe-area-inset-right, 0px));
+    }
   }
 
 

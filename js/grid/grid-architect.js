@@ -32,6 +32,10 @@ import { PositionScrubber } from '../ui/position-scrubber.js';
 import { DayFocus } from './day-focus.js';
 import { GridPool } from './grid-pool.js';
 import { IonCursor } from './cursor.js';
+import {
+  captureResponsiveState,
+  classifyViewportChange,
+} from './responsive-layout.js';
 import { YearNavigator } from './year-navigator.js';
 import {
   buildBlockSkeleton,
@@ -67,6 +71,7 @@ export class GridArchitect {
   #observer = null;
   #containers = new Map();
   #renderRaf = null;
+  #resizeRaf = null;
   #shifting = false;
 
   #isWarping = false;
@@ -82,6 +87,7 @@ export class GridArchitect {
   #today = new Date();
   #totalYears;
   #yearHeight;
+  #viewportSize;
   #startY;
   #mode = null;
 
@@ -107,6 +113,10 @@ export class GridArchitect {
 
     this.#totalYears = OdysseyConfig.temporal.totalYears;
     this.#yearHeight = window.innerHeight;
+    this.#viewportSize = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
     this.#startY = (this.#totalYears / 2) * this.#yearHeight;
     this.#mode = OdysseyConfig.display.defaultMode === 'structured';
 
@@ -346,16 +356,20 @@ export class GridArchitect {
 
   #installResizeAndClick() {
     window.addEventListener('resize', () => {
-      this.#yearHeight = window.innerHeight;
-      this.#canvas.style.height = `${this.#totalYears * this.#yearHeight}px`;
-      this.#smoothScroll.setStep(this.#yearHeight);
-      this.#smoothScroll.clampInertia();
-      this.#particles.resize();
-      this.#lastRenderTop = -1;
-      this.#render();
-      this.#updateNavBounds();
-      this.#scrubber?.measure();
-      this.#scrubber?.update();
+      if (this.#resizeRaf !== null) return;
+      this.#resizeRaf = requestAnimationFrame(() => {
+        this.#resizeRaf = null;
+        const next = {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        };
+        const change = classifyViewportChange(
+          this.#viewportSize,
+          next,
+          OdysseyConfig.responsive
+        );
+        if (change !== 'none') this.reflowForViewport();
+      });
     });
 
     document.addEventListener('click', (e) => {
@@ -623,11 +637,68 @@ export class GridArchitect {
 
   get currentYear() { return this.#currentYear(); }
 
+  get focusedDate() { return this.#focus.focusedDate; }
+
   get layout() { return this.#mode ? 'dynamic' : 'structured'; }
 
   openSearch() { this.#search.open(); }
 
   navigateYears(delta) { this.#navigateYear(delta); }
+
+  focusDate(date) {
+    const target = new Date(date);
+    if (Number.isNaN(target.getTime())) return;
+    this.#focusDate(target);
+  }
+
+  reflowForViewport() {
+    const year = Math.round(this.currentYear);
+    const state = captureResponsiveState({
+      year,
+      focusedDate: this.#focus.focusedDate,
+      yearOffset: this.#viewport.scrollTop - this.#yearToIndex(year) * this.#yearHeight,
+    });
+
+    this.#smoothScroll.cancelAnimation();
+    this.#isAnimating = false;
+    this.#isWarping = false;
+    this.#viewport.classList.remove(
+      OdysseyConfig.classes.warpingFar,
+      OdysseyConfig.classes.warpingNear
+    );
+    this.#ionDrive.classList.remove(OdysseyConfig.classes.jumping);
+    this.#setChroma(0);
+    if (!this.#interactionsAllowed) this.#releaseInteractionLock();
+
+    this.#yearHeight = Math.max(1, window.innerHeight);
+    this.#viewportSize = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    this.#canvas.style.height = `${this.#totalYears * this.#yearHeight}px`;
+    this.#smoothScroll.setStep(this.#yearHeight);
+
+    const targetTop = this.#yearToIndex(state.year) * this.#yearHeight
+      + state.yearOffset;
+    this.#smoothScroll.syncTo(targetTop);
+
+    [...this.#activeYears].forEach(([activeYear, block]) => {
+      this.#deactivateYearBlock(activeYear, block);
+    });
+    this.#activeYears.clear();
+    this.#containers.clear();
+    this.#lastRenderTop = -1;
+    this.#render();
+
+    if (state.focusedDate) this.focusDate(state.focusedDate);
+    else this.#focus.refreshTabStop(state.year);
+
+    this.#particles.resize();
+    this.#updateNavBounds();
+    this.#scrubber?.measure();
+    this.#scrubber?.update();
+    this.#publishYearChange();
+  }
 
   setLayout(mode) { this.#setMode(mode === 'dynamic'); }
 
@@ -823,15 +894,20 @@ export class GridArchitect {
   }
 
   #unlockInteractions() {
-    setTimeout(() => {
-      this.#interactionsAllowed = true;
-      this.#audio.setBusy(false);
-      this.#viewport.classList.remove(OdysseyConfig.classes.isLocked);
-      this.#ionDrive.style.setProperty(
-        OdysseyConfig.dom.ionGlowVar,
-        OdysseyConfig.dom.ionGlowDefault
-      );
-    }, OdysseyConfig.timing.lockReleaseDelayMs);
+    setTimeout(
+      () => this.#releaseInteractionLock(),
+      OdysseyConfig.timing.lockReleaseDelayMs
+    );
+  }
+
+  #releaseInteractionLock() {
+    this.#interactionsAllowed = true;
+    this.#audio.setBusy(false);
+    this.#viewport.classList.remove(OdysseyConfig.classes.isLocked);
+    this.#ionDrive.style.setProperty(
+      OdysseyConfig.dom.ionGlowVar,
+      OdysseyConfig.dom.ionGlowDefault
+    );
   }
 
   jumpToToday(isInitial = false) {

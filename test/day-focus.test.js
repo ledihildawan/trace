@@ -55,6 +55,24 @@ test('focusing a cell adopts its date', () => {
   assert.equal(focus.date.getDate(), 27);
 });
 
+test('focusedDate returns a defensive copy of the adopted date', () => {
+  const { focus, blocks } = setup();
+  cellFor(blocks.get(2026), 6, 27).focus();
+
+  const first = focus.focusedDate;
+  const second = focus.focusedDate;
+  assert.deepEqual(first, new Date(2026, 6, 27));
+  assert.notEqual(first, second);
+
+  first.setFullYear(1999);
+  assert.deepEqual(focus.focusedDate, new Date(2026, 6, 27));
+});
+
+test('focusedDate is null before any day is adopted', () => {
+  const { focus } = setup();
+  assert.equal(focus.focusedDate, null);
+});
+
 test('focus arriving on a filler cell is ignored', () => {
   const { focus, blocks } = setup();
   const filler = blocks.get(2026).querySelector('.cell.filler');

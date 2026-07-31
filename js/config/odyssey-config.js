@@ -60,6 +60,12 @@ export const OdysseyConfig = {
     audioConcurrentMax: 2,
   },
 
+  responsive: {
+    widthPx: 24,
+    heightPx: 80,
+    breakpoint: 600,
+  },
+
   dom: {
     viewport: 'viewport',
     infiniteCanvas: 'infinite-canvas',

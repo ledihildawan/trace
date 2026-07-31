@@ -31,6 +31,7 @@ export class DayFocus {
 
   get date() { return this.#date; }
   get cell() { return this.#cell; }
+  get focusedDate() { return this.#date ? new Date(this.#date) : null; }
 
   set date(value) { this.#date = value; }
 
