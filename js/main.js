@@ -6,7 +6,9 @@ import { ToastManager } from './ui/toast-manager.js';
 import { BootSequence } from './ui/boot-sequence.js';
 import { KeyboardHints } from './ui/keyboard-hints.js';
 import { AdaptiveDock } from './ui/adaptive-dock.js';
+import { AppMenu } from './ui/app-menu.js';
 import { Onboarding } from './ui/onboarding.js';
+import { YearContext } from './ui/year-context.js';
 import { ParticleEngine } from './systems/particle-engine.js';
 import { GalacticAudio } from './systems/galactic-audio.js';
 import { GridArchitect } from './grid/grid-architect.js';
@@ -110,10 +112,9 @@ function bootstrap() {
   const particles = safe('ParticleEngine', () => new ParticleEngine(), STUB);
   const audio = safe('GalacticAudio', () => new GalacticAudio(), STUB);
 
-  // Later UI tasks populate `menu` in this shared local composition state.
-  // Callbacks close over it directly instead of relying on a window.trace
-  // assignment order or on test/debug globals.
-  const ui = { grid: null, menu: null, onboarding: null };
+  // Menu and dock callbacks close over this small composition state rather
+  // than relying on window globals or construction order.
+  const ui = { grid: null, menu: null, onboarding: null, yearContext: null };
   const dock = safe('AdaptiveDock', () => new AdaptiveDock({
     idleMs: OdysseyConfig.timing.dockIdleMs,
     coarseQuery: OdysseyConfig.timing.cursorCoarseQuery,
@@ -130,12 +131,32 @@ function bootstrap() {
     new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
   );
   ui.grid = grid;
-  ui.menu = onboarding;
   ui.onboarding = onboarding;
+  const yearContext = safe('YearContext', () => new YearContext({
+    onPrevious: () => ui.grid?.navigateYears?.(-1),
+    onNext: () => ui.grid?.navigateYears?.(1),
+  }));
+  ui.yearContext = yearContext;
+  grid?.onYearChange?.((year) => yearContext?.setYear(year));
+  const menu = safe('AppMenu', () => new AppMenu({
+    onTheme: () => theme?.toggle?.(),
+    onAudio: () => audio?.toggleMaster?.(),
+    onLayout: (mode) => {
+      grid?.setLayout?.(mode);
+      return mode;
+    },
+    // Task 8 supplies the data subsection. Its action intentionally keeps
+    // this dialog open so that subsection can take over in place.
+    onData: () => {},
+    onHelp: () => onboarding?.open?.(),
+    onOpen: () => dock?.pin?.(),
+    onClose: () => dock?.unpin?.(),
+  }));
+  ui.menu = menu;
   showOnboardingAfterBoot(onboarding, document.getElementById(dom.loadingScreen));
 
   hints?.start?.();
-  window.trace = { audio, particles, theme, grid, dock, onboarding, ui, config: OdysseyConfig };
+  window.trace = { audio, particles, theme, grid, dock, onboarding, menu, yearContext, ui, config: OdysseyConfig };
   log('Modular system initialized');
 }
 

@@ -75,6 +75,8 @@ export class GridArchitect {
   #lastRenderTop = -1;
   #lastChroma = 0;
   #settleMs = -1;
+  #yearListeners = new Set();
+  #publishedYear = null;
 
   #today = new Date();
   #totalYears;
@@ -616,6 +618,28 @@ export class GridArchitect {
     return this.#today.getFullYear() + (this.#smoothScroll.currentIndex - this.#totalYears / 2);
   }
 
+  get currentYear() { return this.#currentYear(); }
+
+  openSearch() { this.#search.open(); }
+
+  navigateYears(delta) { this.#navigateYear(delta); }
+
+  setLayout(mode) { this.#setMode(mode === 'dynamic'); }
+
+  onYearChange(callback) {
+    this.#yearListeners.add(callback);
+    callback(this.currentYear);
+    if (this.#publishedYear === null) this.#publishedYear = Math.round(this.currentYear);
+    return () => this.#yearListeners.delete(callback);
+  }
+
+  #publishYearChange() {
+    const year = Math.round(this.currentYear);
+    if (year === this.#publishedYear) return;
+    this.#publishedYear = year;
+    this.#yearListeners.forEach((callback) => callback(year));
+  }
+
   #clampIndex(idx) {
     return Math.max(0, Math.min(this.#totalYears - 1, idx));
   }
@@ -692,6 +716,7 @@ export class GridArchitect {
     this.#activeYears.forEach((block) => this.#enrichYearBlock(block));
     this.#refreshDataMarkers();
     this.#focus.refreshTabStop(this.#currentYear());
+    this.#publishYearChange();
 
     // Focus the date requested while its year was still off-screen. Force a
     // render first: on instant (reduced-motion) or long jumps, this runs before
@@ -722,6 +747,7 @@ export class GridArchitect {
       this.#render();
       this.#updateNavBounds();
       this.#scrubber?.update();
+      this.#publishYearChange();
     });
   }
 
