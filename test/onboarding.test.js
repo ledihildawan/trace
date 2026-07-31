@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installDom } from './helpers/dom.js';
 import { Onboarding } from '../js/ui/onboarding.js';
+import { AdaptiveDock } from '../js/ui/adaptive-dock.js';
 
 function makeOnboarding(options = {}) {
   installDom();
@@ -23,6 +24,13 @@ test('first visit opens onboarding and completion persists', () => {
   assert.equal(onboarding.hasCompleted, true);
 });
 
+test('onboarding explains that the Dock Menu reopens this guide', () => {
+  makeOnboarding();
+  const steps = [...document.querySelectorAll('.onboarding-steps li')]
+    .map((step) => step.textContent);
+  assert.ok(steps.some((step) => /Dock.*Menu/i.test(step)));
+});
+
 test('first-run display reports false when the dialog is already visible', () => {
   let opens = 0;
   const onboarding = makeOnboarding({ onOpen: () => { opens += 1; } });
@@ -39,6 +47,30 @@ test('return visit stays ambient but Help can reopen onboarding', () => {
   assert.equal(onboarding.showFirstRun(), false);
   onboarding.open();
   assert.equal(document.querySelector('.onboarding').open, true);
+  onboarding.close();
+});
+
+test('the existing Dock Menu reopens onboarding after completion', () => {
+  const target = installDom(`<!doctype html><body>
+    <nav id="adaptive-dock" aria-label="Tindakan utama">
+      <button type="button" data-action="today">Hari ini</button>
+      <button type="button" data-action="search">Cari</button>
+      <button type="button" data-action="menu">Menu</button>
+    </nav>
+  </body>`);
+  const onboarding = new Onboarding({ storage: localStorage, storageKey: 'trace-onboarding-v1' });
+  const ui = { menu: onboarding };
+  const dock = new AdaptiveDock({
+    target,
+    onToday() {},
+    onSearch() {},
+    onMenu: () => ui.menu?.open?.(),
+  });
+  onboarding.showFirstRun();
+  onboarding.start();
+  dock.element.querySelector('[data-action="menu"]').click();
+  assert.equal(onboarding.isOpen(), true);
+  dock.destroy();
   onboarding.close();
 });
 

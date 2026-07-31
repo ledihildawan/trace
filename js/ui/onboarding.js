@@ -94,7 +94,7 @@ export class Onboarding {
       'Gulir untuk menelusuri tahun.',
       'Pilih hari untuk mencatat suasana dan kenangan.',
       'Gunakan Cari untuk menemukan catatan lama.',
-      'Tekan Hari ini untuk kembali ke masa kini.',
+      'Gunakan Dock di bawah, lalu pilih Menu untuk membuka panduan ini lagi.',
     ]) {
       const item = document.createElement('li');
       item.textContent = text;

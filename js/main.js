@@ -130,6 +130,7 @@ function bootstrap() {
     new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
   );
   ui.grid = grid;
+  ui.menu = onboarding;
   ui.onboarding = onboarding;
   showOnboardingAfterBoot(onboarding, document.getElementById(dom.loadingScreen));
 
