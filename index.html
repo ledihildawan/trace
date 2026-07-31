@@ -20,36 +20,36 @@
   <body>
     <div id="loading-screen">
       <div class="loader-bar"><div class="loader-progress" id="load-progress"></div></div>
-      <div class="loader-text" id="load-status">Synchronizing Neural Network...</div>
+      <div class="loader-text" id="load-status">Menyelaraskan perjalanan waktu…</div>
     </div>
     <div id="ion-drive" aria-hidden="true"></div>
     <div id="atmosphere" aria-hidden="true"></div>
     <div id="theme-veil" aria-hidden="true"></div>
-    <div id="toast" aria-live="polite">READY</div>
-    <nav id="year-nav" class="year-nav" aria-label="Previous year">
-      <button data-nav="prev" class="year-nav-btn" aria-label="Previous year" type="button">
+    <div id="toast" aria-live="polite"></div>
+    <nav id="year-nav" class="year-nav" aria-label="Tahun sebelumnya">
+      <button data-nav="prev" class="year-nav-btn" aria-label="Tahun sebelumnya" type="button">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path d="M15 4 L7 12 L15 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </nav>
-    <nav id="year-nav-end" class="year-nav" aria-label="Next year">
-      <button data-nav="next" class="year-nav-btn" aria-label="Next year" type="button">
+    <nav id="year-nav-end" class="year-nav" aria-label="Tahun berikutnya">
+      <button data-nav="next" class="year-nav-btn" aria-label="Tahun berikutnya" type="button">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path d="M9 4 L17 12 L9 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </nav>
     <div id="keyboard-hints" class="keyboard-hints">
-      <span><kbd>F</kbd> Focus</span>
-      <span><kbd>G</kbd> Jump</span>
-      <span><kbd>/</kbd> Search</span>
-      <span><kbd>←</kbd><kbd>→</kbd> Day</span>
-      <span><kbd>Space</kbd> Today</span>
-      <span><kbd>↑</kbd><kbd>↓</kbd> Year</span>
-      <span><kbd>T</kbd> Theme</span>
+      <span><kbd>F</kbd> Fokus</span>
+      <span><kbd>G</kbd> Lompat</span>
+      <span><kbd>/</kbd> Cari</span>
+      <span><kbd>←</kbd><kbd>→</kbd> Hari</span>
+      <span><kbd>Space</kbd> Hari ini</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd> Tahun</span>
+      <span><kbd>T</kbd> Tema</span>
     </div>
-    <main id="viewport" aria-label="Temporal grid"><div id="infinite-canvas"></div></main>
+    <main id="viewport" aria-label="Grid perjalanan waktu"><div id="infinite-canvas"></div></main>
 
     <script type="module" src="js/main.js"></script>
   </body>

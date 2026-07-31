@@ -1,5 +1,6 @@
 import { OdysseyConfig } from './config/odyssey-config.js';
 import { TemporalLabels } from './core/locale.js';
+import { UI_COPY } from './core/ui-copy.js';
 import { ThemeController } from './ui/theme-controller.js';
 import { ToastManager } from './ui/toast-manager.js';
 import { BootSequence } from './ui/boot-sequence.js';
@@ -73,12 +74,13 @@ function hideLoading() {
 function bootstrap() {
   assertConfig();
   const dom = OdysseyConfig.dom;
+  const status = document.getElementById(dom.loadStatus);
+  if (status) status.textContent = UI_COPY.loading;
   const viewport = document.getElementById(dom.viewport);
   const canvas = document.getElementById(dom.infiniteCanvas);
   const ionDrive = document.getElementById(dom.ionDrive);
 
   if (!viewport || !canvas || !ionDrive) {
-    const status = document.getElementById(dom.loadStatus);
     if (status) status.textContent = 'Critical DOM missing.';
     hideLoading();
     throw new Error(`${TAG} Required DOM nodes missing. Aborting.`);

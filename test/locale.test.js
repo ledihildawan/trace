@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 
 import { TemporalLabels, buildTemporalLabels } from '../js/core/locale.js';
 import { OdysseyConfig } from '../js/config/odyssey-config.js';
+import { UI_COPY, formatYearTravel } from '../js/core/ui-copy.js';
+
+test('application chrome uses Indonesian copy', () => {
+  assert.equal(UI_COPY.dock.today, 'Hari ini');
+  assert.equal(UI_COPY.dock.search, 'Cari');
+  assert.equal(UI_COPY.dock.menu, 'Menu');
+  assert.equal(UI_COPY.loading, 'Menyelaraskan perjalanan waktu…');
+});
+
+test('year travel feedback names the destination', () => {
+  assert.equal(formatYearTravel(1, 2027), 'Menuju tahun 2027');
+  assert.equal(formatYearTravel(-10, 2016), 'Mundur 10 tahun · 2016');
+});
 
 test('the configured locale resolves to complete label sets', () => {
   assert.equal(TemporalLabels.locale, OdysseyConfig.temporal.locale);

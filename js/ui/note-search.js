@@ -1,10 +1,8 @@
 import { DayStore, moodColor } from '../systems/day-store.js';
 import { buildSnippet, searchDays } from '../systems/day-search.js';
 import { formatFullDate } from '../core/date-utils.js';
+import { UI_COPY } from '../core/ui-copy.js';
 import { OdysseyConfig } from '../config/odyssey-config.js';
-
-const NO_RESULTS = 'Tidak ada catatan yang cocok';
-const EMPTY_PROMPT = 'Ketik untuk mencari catatan dan suasana';
 
 // Command box for finding a day again. Notes were write-only until this
 // existed: you could record a day but never get back to it.
@@ -48,11 +46,11 @@ export class NoteSearch {
     this.#list.replaceChildren();
 
     if (!query.trim()) {
-      this.#status.textContent = EMPTY_PROMPT;
+      this.#status.textContent = UI_COPY.search.prompt;
       return;
     }
     if (!this.#results.length) {
-      this.#status.textContent = NO_RESULTS;
+      this.#status.textContent = UI_COPY.search.noResults;
       return;
     }
 
@@ -135,13 +133,13 @@ export class NoteSearch {
   #build() {
     const dialog = document.createElement('dialog');
     dialog.className = 'note-search';
-    dialog.setAttribute('aria-label', 'Cari catatan');
+    dialog.setAttribute('aria-label', UI_COPY.search.label);
 
     const input = document.createElement('input');
     input.type = 'search';
     input.className = 'note-search-input';
-    input.placeholder = 'Cari catatan…';
-    input.setAttribute('aria-label', 'Cari catatan');
+    input.placeholder = `${UI_COPY.search.label}…`;
+    input.setAttribute('aria-label', UI_COPY.search.label);
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('spellcheck', 'false');
     input.setAttribute('role', 'combobox');

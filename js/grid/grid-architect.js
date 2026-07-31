@@ -1,4 +1,5 @@
 import { OdysseyConfig } from '../config/odyssey-config.js';
+import { formatYearTravel } from '../core/ui-copy.js';
 import { SmoothScroll } from '../core/smooth-scroll.js';
 import { LongPressDetector, ScrollEndDetector } from '../core/event-hub.js';
 import { prefersReducedMotion } from '../core/motion.js';
@@ -632,10 +633,8 @@ export class GridArchitect {
     // Haptic tick on a deliberate year change only — buzzing on every block
     // that scrolls into view made the whole page vibrate continuously.
     if ('vibrate' in navigator && !prefersReducedMotion()) navigator.vibrate(8);
-    const label = Math.abs(delta) === 1
-      ? (delta < 0 ? 'PREV YEAR' : 'NEXT YEAR')
-      : (delta < 0 ? `−${Math.abs(delta)} YEARS` : `+${Math.abs(delta)} YEARS`);
-    this.#toast.show(label);
+    const year = this.#today.getFullYear() + (target - this.#totalYears / 2);
+    this.#toast.show(formatYearTravel(delta, year));
     this.#navigator.setBounds(target > 0, target < this.#totalYears - 1);
   }
 
