@@ -20,7 +20,9 @@ export class DayPanel {
   #saveStatus;
   #deleteBtn;
   #confirmDialog;
-  #deletePending = false;
+  #sessionToken = 0;
+  #deleteAttemptToken = 0;
+  #pendingDelete = null;
   #currentKey = null;
 
   constructor(store, opts = {}) {
@@ -34,6 +36,7 @@ export class DayPanel {
   }
 
   open(date) {
+    this.#advanceSession();
     this.#currentKey = DayStore.keyOf(date);
     this.#title.textContent = formatFullDate(date);
 
@@ -97,7 +100,13 @@ export class DayPanel {
     if (!this.#deleteBtn || !this.#currentKey) return;
     const entry = this.#store.get(this.#currentKey);
     const hasContent = Boolean(entry?.note?.trim() || entry?.mood);
-    this.#deleteBtn.disabled = this.#deletePending || !hasContent;
+    const pending = this.#pendingDelete?.session === this.#sessionToken;
+    this.#deleteBtn.disabled = pending || !hasContent;
+  }
+
+  #advanceSession() {
+    this.#sessionToken += 1;
+    this.#pendingDelete = null;
   }
 
   #showSaving() {
@@ -153,15 +162,24 @@ export class DayPanel {
   }
 
   async #deleteCurrentDay() {
-    if (this.#deletePending || this.#deleteBtn.disabled) return;
+    if (this.#deleteBtn.disabled) return;
     const key = this.#currentKey;
-    this.#deletePending = true;
+    const session = this.#sessionToken;
+    const attempt = ++this.#deleteAttemptToken;
+    this.#pendingDelete = { session, attempt };
     this.#updateDeleteAvailability();
     try {
       const confirmDelete = this.#opts.confirmDelete
         ?? (() => this.#requestDeleteConfirmation());
       const allowed = await Promise.resolve(confirmDelete());
-      if (!allowed || !this.#dialog.open || this.#currentKey !== key) return;
+      const currentAttempt = this.#pendingDelete?.attempt === attempt;
+      if (
+        !allowed
+        || !currentAttempt
+        || !this.#dialog.open
+        || this.#currentKey !== key
+        || this.#sessionToken !== session
+      ) return;
 
       this.#showSaving();
       this.#store.clear(key);
@@ -170,7 +188,7 @@ export class DayPanel {
       this.#setEditing(true);
       this.#textarea.focus();
     } finally {
-      this.#deletePending = false;
+      if (this.#pendingDelete?.attempt === attempt) this.#pendingDelete = null;
       this.#updateDeleteAvailability();
     }
   }
@@ -265,6 +283,7 @@ export class DayPanel {
 
     // Fires for Escape and for close() alike — the single teardown path.
     dialog.addEventListener('close', () => {
+      this.#advanceSession();
       this.#store.flush?.();
       this.#opts?.onClose?.();
     });

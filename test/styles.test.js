@@ -310,6 +310,18 @@ test('muted theme text keeps sufficient contrast in both themes', () => {
   assert.ok(token, 'muted text should remain a theme-aware token');
   assert.ok(Number(token[1]) <= 40, 'light-theme muted text must be dark enough');
   assert.ok(Number(token[2]) >= 65, 'dark-theme muted text must be light enough');
+
+  assert.doesNotMatch(
+    rule('.mood-btn'),
+    /opacity:\s*(?:0?\.)\d+/,
+    'the text-bearing control must not composite its visible label'
+  );
+  assert.match(rule('.mood-dot'), /opacity:\s*0\.72/, 'only the colour dot is de-emphasized');
+  assert.match(
+    rule(".mood-btn[aria-pressed='true'] .mood-dot"),
+    /opacity:\s*1/,
+    'selection restores the dot without changing label contrast'
+  );
 });
 
 test('forced colors preserve mood dots while flattening past-day fading', () => {

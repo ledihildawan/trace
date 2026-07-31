@@ -243,10 +243,10 @@ test('a persistence failure remains visible after the panel is reopened', () => 
   assert.equal(status.textContent, 'Tidak dapat menyimpan di browser ini');
 });
 
-test('a stale async confirmation cannot delete a newly opened day', async () => {
+test('a stale async confirmation cannot affect a reopened session for the same day', async () => {
   let resolveConfirmation;
   const confirmation = new Promise((resolve) => { resolveConfirmation = resolve; });
-  const { panel, dialog, store } = openWithOptions('catatan', {
+  const { panel, dialog, store, textarea } = openWithOptions('catatan lama', {
     confirmDelete: () => confirmation,
   });
   let clears = 0;
@@ -254,10 +254,20 @@ test('a stale async confirmation cannot delete a newly opened day', async () => 
 
   dialog.querySelector('.day-panel-delete').click();
   panel.close();
-  panel.open(new Date(2026, 6, 28));
+  panel.open(new Date(2026, 6, 27));
+  assert.equal(
+    dialog.querySelector('.day-panel-delete').disabled,
+    false,
+    'an unresolved confirmation from a closed session must not lock Delete'
+  );
+
+  textarea.value = 'catatan sesi baru';
+  textarea.dispatchEvent(new window.Event('input', { bubbles: true }));
   resolveConfirmation(true);
   await Promise.resolve();
   await Promise.resolve();
 
   assert.equal(clears, 0);
+  assert.equal(textarea.value, 'catatan sesi baru');
+  assert.equal(store.get().note, 'catatan sesi baru');
 });

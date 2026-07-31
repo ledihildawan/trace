@@ -768,8 +768,7 @@
     gap: 6px;
     font-family: inherit;
     cursor: pointer;
-    opacity: 0.72;
-    transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+    transition: transform 0.15s ease, color 0.15s ease;
   }
   .mood-dot {
     width: 28px;
@@ -777,7 +776,8 @@
     flex: none;
     border: 2px solid transparent;
     border-radius: 50%;
-    transition: border-color 0.15s ease;
+    opacity: 0.72;
+    transition: border-color 0.15s ease, opacity 0.15s ease;
   }
   .mood-label {
     min-width: 0;
@@ -805,14 +805,16 @@
   }
   .mood-btn:hover {
     transform: translateY(-1px);
+  }
+  .mood-btn:hover .mood-dot {
     opacity: 1;
   }
   .mood-btn[aria-pressed='true'] {
-    opacity: 1;
     color: var(--text-main);
   }
   .mood-btn[aria-pressed='true'] .mood-dot {
     border-color: var(--text-main);
+    opacity: 1;
   }
   /* "You are here" year scrubber on the right edge. */
   .pos-scrubber {
