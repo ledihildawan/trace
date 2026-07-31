@@ -68,6 +68,11 @@ test('preference queries live in the top layer and need no !important', () => {
   assert.ok(!overrides.includes('!important'), 'layers replace the force');
 });
 
+test('the adaptive dock removes transform motion when reduced motion is requested', () => {
+  const motion = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?\.adaptive-dock[^}]*transition:\s*opacity 0\.2s linear[^}]*)\}/.exec(css);
+  assert.ok(motion, 'the dock must retain only the project-standard opacity transition');
+});
+
 test('property registration stays outside the layers', () => {
   // @property is a registration, not a cascade participant. Nesting it is not
   // worth betting the non-inheriting optimisation on.

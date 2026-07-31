@@ -1250,6 +1250,7 @@
   @media (prefers-reduced-motion: reduce) {
     .year-nav { transition: opacity 0.2s linear; }
     .year-nav-btn { transition: opacity 0.2s linear; }
+    .adaptive-dock { transition: opacity 0.2s linear; }
   }
   @media (forced-colors: active) {
     #ion-drive,

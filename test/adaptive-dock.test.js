@@ -60,3 +60,43 @@ test('destroy removes intent listeners', () => {
   window.dispatchEvent(new window.PointerEvent('pointermove'));
   assert.equal(dock.element.classList.contains('is-visible'), false);
 });
+
+test('coarse pointers reveal on pointerdown, not pointer movement', () => {
+  const target = installDom(`<!doctype html><body>${markup}</body>`);
+  target.matchMedia = () => ({ matches: true });
+  const dock = new AdaptiveDock({
+    target,
+    idleMs: 100,
+    coarseQuery: '(pointer: coarse)',
+    onToday() {}, onSearch() {}, onMenu() {},
+  });
+  target.dispatchEvent(new target.PointerEvent('pointermove'));
+  assert.equal(dock.element.classList.contains('is-visible'), false);
+  target.dispatchEvent(new target.PointerEvent('pointerdown'));
+  assert.equal(dock.element.classList.contains('is-visible'), true);
+  dock.destroy();
+});
+
+test('destroy detaches actions and cancels the pending idle timer', async () => {
+  let calls = 0;
+  const dock = makeDock({ idleMs: 10, onToday: () => { calls += 1; } });
+  dock.show('test');
+  dock.destroy();
+  dock.element.querySelector('[data-action="today"]').click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(calls, 0);
+  assert.equal(dock.element.classList.contains('is-visible'), true);
+});
+
+test('nested pins keep the dock visible until the final unpin', async () => {
+  const dock = makeDock({ idleMs: 10 });
+  dock.pin();
+  dock.pin();
+  dock.unpin();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(dock.element.classList.contains('is-visible'), true);
+  dock.unpin();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(dock.element.classList.contains('is-visible'), false);
+  dock.destroy();
+});

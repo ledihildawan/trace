@@ -97,18 +97,20 @@ function bootstrap() {
   const grid = safe('GridArchitect', () =>
     new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
   );
+  // Later UI tasks populate `menu` in this shared local composition state.
+  // Callbacks close over it directly instead of relying on a window.trace
+  // assignment order or on test/debug globals.
+  const ui = { grid, menu: null };
   const dock = safe('AdaptiveDock', () => new AdaptiveDock({
     idleMs: OdysseyConfig.timing.dockIdleMs,
     coarseQuery: OdysseyConfig.timing.cursorCoarseQuery,
-    onToday: () => grid?.jumpToToday(),
-    // Search and menu are exposed by their dedicated controllers in the next
-    // UI tasks. Optional calls keep this composition root backward-compatible.
-    onSearch: () => grid?.openSearch?.(),
-    onMenu: () => window.trace?.menu?.open?.(),
+    onToday: () => ui.grid?.jumpToToday(),
+    onSearch: () => ui.grid?.openSearch?.(),
+    onMenu: () => ui.menu?.open?.(),
   }));
 
   hints?.start?.();
-  window.trace = { audio, particles, theme, grid, dock, config: OdysseyConfig };
+  window.trace = { audio, particles, theme, grid, dock, ui, config: OdysseyConfig };
   log('Modular system initialized');
 }
 
