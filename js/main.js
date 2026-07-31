@@ -151,6 +151,9 @@ function bootstrap() {
     onHelp: () => onboarding?.open?.(),
     onOpen: () => dock?.pin?.(),
     onClose: () => dock?.unpin?.(),
+    getTheme: () => theme?.current,
+    getAudio: () => audio?.enabled,
+    getLayout: () => grid?.layout,
   }));
   ui.menu = menu;
   showOnboardingAfterBoot(onboarding, document.getElementById(dom.loadingScreen));

@@ -77,6 +77,7 @@ export class GridArchitect {
   #settleMs = -1;
   #yearListeners = new Set();
   #publishedYear = null;
+  #initialized = false;
 
   #today = new Date();
   #totalYears;
@@ -167,6 +168,8 @@ export class GridArchitect {
     this.#cursor.start();
     this.#pulse.start();
     this.#smoothScroll.syncTo(this.#startY);
+    this.#initialized = true;
+    this.#publishYearChange();
     this.#render();
     this.#updateNavBounds();
     this.#scrubber?.measure();
@@ -620,6 +623,8 @@ export class GridArchitect {
 
   get currentYear() { return this.#currentYear(); }
 
+  get layout() { return this.#mode ? 'dynamic' : 'structured'; }
+
   openSearch() { this.#search.open(); }
 
   navigateYears(delta) { this.#navigateYear(delta); }
@@ -628,12 +633,12 @@ export class GridArchitect {
 
   onYearChange(callback) {
     this.#yearListeners.add(callback);
-    callback(this.currentYear);
-    if (this.#publishedYear === null) this.#publishedYear = Math.round(this.currentYear);
+    if (this.#initialized) callback(Math.round(this.currentYear));
     return () => this.#yearListeners.delete(callback);
   }
 
   #publishYearChange() {
+    if (!this.#initialized) return;
     const year = Math.round(this.currentYear);
     if (year === this.#publishedYear) return;
     this.#publishedYear = year;

@@ -1,6 +1,7 @@
 export class AppMenu {
   #dialog;
   #callbacks;
+  #stateQueries;
   #status = { theme: 'dark', audio: false, layout: 'structured' };
 
   constructor({
@@ -11,8 +12,12 @@ export class AppMenu {
     onHelp = () => {},
     onOpen = () => {},
     onClose = () => {},
+    getTheme = () => undefined,
+    getAudio = () => undefined,
+    getLayout = () => undefined,
   } = {}) {
     this.#callbacks = { onTheme, onAudio, onLayout, onData, onHelp, onOpen, onClose };
+    this.#stateQueries = { getTheme, getAudio, getLayout };
     this.#build();
   }
 
@@ -26,6 +31,7 @@ export class AppMenu {
 
   open() {
     if (this.isOpen()) return;
+    this.#syncStatus();
     this.#dialog.showModal();
     this.#callbacks.onOpen();
   }
@@ -100,21 +106,22 @@ export class AppMenu {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const { action } = button.dataset;
+    this.#syncStatus();
     switch (action) {
       case 'theme':
         this.#status.theme = this.#normaliseTheme(this.#callbacks.onTheme(), this.#status.theme);
-        this.#renderStatus(this.#dialog);
+        this.#syncStatus();
         this.close();
         break;
       case 'audio':
         this.#status.audio = this.#normaliseAudio(this.#callbacks.onAudio(), this.#status.audio);
-        this.#renderStatus(this.#dialog);
+        this.#syncStatus();
         this.close();
         break;
       case 'layout': {
         const next = this.#status.layout === 'structured' ? 'dynamic' : 'structured';
         this.#status.layout = this.#normaliseLayout(this.#callbacks.onLayout(next), next);
-        this.#renderStatus(this.#dialog);
+        this.#syncStatus();
         this.close();
         break;
       }
@@ -138,6 +145,16 @@ export class AppMenu {
       const status = root?.querySelector(`[data-status="${name}"]`);
       if (status) status.textContent = text;
     }
+  }
+
+  #syncStatus() {
+    const theme = this.#stateQueries.getTheme();
+    const audio = this.#stateQueries.getAudio();
+    const layout = this.#stateQueries.getLayout();
+    if (theme === 'light' || theme === 'dark') this.#status.theme = theme;
+    if (typeof audio === 'boolean') this.#status.audio = audio;
+    if (layout === 'dynamic' || layout === 'structured') this.#status.layout = layout;
+    this.#renderStatus(this.#dialog);
   }
 
   #normaliseTheme(value, current) {
