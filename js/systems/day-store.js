@@ -33,6 +33,8 @@ export class DayStore {
   // so this lets callers walk the data instead of scanning the DOM.
   #byYear = new Map();
   #listeners = new Set();
+  #persistenceListeners = new Set();
+  #lastPersistence = { ok: true };
   #writeTimer = null;
   // Structural edits only — deleting a day and picking a mood. Typing is not
   // recorded: the textarea has native undo, and one snapshot per keystroke
@@ -92,11 +94,19 @@ export class DayStore {
   }
 
   #writeNow() {
+    let state;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([...this.#data]));
-    } catch {
-      /* quota exceeded or storage unavailable — keep in-memory */
+      state = { ok: true };
+    } catch (error) {
+      // Quota exceeded or storage unavailable — keep the in-memory change.
+      state = { ok: false, error };
     }
+    return this.#emitPersistence(state);
+  }
+
+  #persistNow() {
+    return this.#writeTimer === null ? this.#writeNow() : this.flush();
   }
 
   // Typing a note fires on every keystroke; serialising the whole map that
@@ -110,10 +120,10 @@ export class DayStore {
   }
 
   flush() {
-    if (this.#writeTimer === null) return;
+    if (this.#writeTimer === null) return this.#lastPersistence;
     clearTimeout(this.#writeTimer);
     this.#writeTimer = null;
-    this.#writeNow();
+    return this.#writeNow();
   }
 
   static keyOf(d) {
@@ -161,10 +171,7 @@ export class DayStore {
       this.#index(key);
     }
     if (deferWrite) this.#scheduleWrite();
-    else {
-      this.flush();
-      this.#writeNow();
-    }
+    else this.#persistNow();
     this.#emit(key);
   }
 
@@ -186,8 +193,7 @@ export class DayStore {
       changed++;
     }
     if (changed) {
-      this.flush();
-      this.#writeNow();
+      this.#persistNow();
       this.#emit(); // no key: listeners must refresh everything
     }
     return changed;
@@ -213,8 +219,7 @@ export class DayStore {
     this.#remember(key);
     this.#data.delete(key);
     this.#unindex(key);
-    this.flush();
-    this.#writeNow();
+    this.#persistNow();
     this.#emit(key);
   }
 
@@ -242,8 +247,7 @@ export class DayStore {
       this.#data.delete(key);
       this.#unindex(key);
     }
-    this.flush();
-    this.#writeNow();
+    this.#persistNow();
     this.#emit(key);
     return key;
   }
@@ -255,7 +259,19 @@ export class DayStore {
     return () => this.#listeners.delete(cb);
   }
 
+  // Listeners receive the result of each actual localStorage write.
+  onPersistence(cb) {
+    this.#persistenceListeners.add(cb);
+    return () => this.#persistenceListeners.delete(cb);
+  }
+
   #emit(key) {
     this.#listeners.forEach((cb) => cb(key));
+  }
+
+  #emitPersistence(state) {
+    this.#lastPersistence = state;
+    this.#persistenceListeners.forEach((cb) => cb(state));
+    return state;
   }
 }

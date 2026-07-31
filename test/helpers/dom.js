@@ -9,7 +9,7 @@ export function installDom(html = '<!doctype html><html><body></body></html>') {
 
   for (const key of [
     'window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node',
-    'CustomEvent', 'Event', 'KeyboardEvent', 'MouseEvent', 'PointerEvent', 'getComputedStyle',
+    'CustomEvent', 'Event', 'KeyboardEvent', 'MouseEvent', 'PointerEvent', 'DOMException', 'getComputedStyle',
     'requestAnimationFrame', 'cancelAnimationFrame', 'matchMedia',
   ]) {
     if (window[key] === undefined) continue;
