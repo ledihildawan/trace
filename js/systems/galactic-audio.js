@@ -49,9 +49,9 @@ export class GalacticAudio {
         console.warn('[GalacticAudio] init failed — staying silent.', err);
       }
     };
-    ['click', 'touchstart', 'keydown'].forEach((e) =>
-      window.addEventListener(e, init, { once: true })
-    );
+    for (const type of ['click', 'touchstart', 'keydown']) {
+      window.addEventListener(type, init, { once: true });
+    }
   }
 
   // A phone call, a screen lock or an autoplay policy can suspend the context
@@ -69,9 +69,9 @@ export class GalacticAudio {
       if (!document.hidden) revive();
     });
     // Some platforms only allow resuming inside a gesture.
-    ['pointerdown', 'keydown', 'touchend'].forEach((type) =>
-      window.addEventListener(type, revive, { passive: true })
-    );
+    for (const type of ['pointerdown', 'keydown', 'touchend']) {
+      window.addEventListener(type, revive, { passive: true });
+    }
   }
 
   #scheduleDeferred() {

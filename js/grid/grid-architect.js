@@ -3,6 +3,7 @@ import { SmoothScroll } from '../core/smooth-scroll.js';
 import { LongPressDetector, ScrollEndDetector } from '../core/event-hub.js';
 import { prefersReducedMotion } from '../core/motion.js';
 import { resolveShortcut } from '../core/shortcuts.js';
+import { durationForDistance, durationForSteps } from '../core/scroll-easing.js';
 import {
   addMonths,
   daysInYear,
@@ -72,6 +73,7 @@ export class GridArchitect {
   #interactionsAllowed = true;
   #lastRenderTop = -1;
   #lastChroma = 0;
+  #settleMs = -1;
 
   #today = new Date();
   #totalYears;
@@ -136,7 +138,10 @@ export class GridArchitect {
       onStart: () => this.#smoothScroll.beginTouchDrag(),
       onScrub: (top) => { this.#viewport.scrollTop = top; },
       onEnd: () => this.#smoothScroll.endTouchDrag(),
-      onSettle: () => this.#smoothScroll.settleToNearest(),
+      onSettle: () => {
+        this.#setSettle(OdysseyConfig.display.snapMs);
+        this.#smoothScroll.settleToNearest();
+      },
     });
 
     this.#pulse = new DayPulse({ onRollover: (now) => this.#handleDayRollover(now) });
@@ -286,7 +291,9 @@ export class GridArchitect {
       e.preventDefault();
       if (this.#isWarping || this.#touchActive) return;
       const deltaPx = wheelDeltaToPixels(e.deltaY, e.deltaMode, window.innerHeight);
-      this.#smoothScroll.stepBy(stepsFromPixels(deltaPx, this.#yearHeight));
+      const steps = stepsFromPixels(deltaPx, this.#yearHeight);
+      this.#setSettle(durationForSteps(steps));
+      this.#smoothScroll.stepBy(steps);
     }, { passive: false });
   }
 
@@ -321,7 +328,9 @@ export class GridArchitect {
       setTimeout(() => { this.#touchActive = false; }, OdysseyConfig.physics.touchSettleMs);
 
       if (isFling(velocity)) {
-        this.#smoothScroll.stepBy(stepsFromFling(velocity, this.#yearHeight));
+        const steps = stepsFromFling(velocity, this.#yearHeight);
+        this.#setSettle(durationForSteps(steps));
+        this.#smoothScroll.stepBy(steps);
       } else {
         this.#touchScrollEndWillSnap = true;
       }
@@ -473,7 +482,9 @@ export class GridArchitect {
     // Target year isn't rendered yet — travel there and focus on arrival.
     this.#pendingFocusDate = date;
     if (this.#isWarping) return;
-    this.#smoothScroll.jumpToIndex(this.#yearToIndex(year));
+    const index = this.#yearToIndex(year);
+    this.#setSettle(durationForDistance(Math.abs(index - this.#smoothScroll.currentIndex)));
+    this.#smoothScroll.jumpToIndex(index);
     this.#updateNavBounds();
   }
 
@@ -615,6 +626,7 @@ export class GridArchitect {
   #navigateYear(delta) {
     if (this.#isWarping) return;
     const target = this.#clampIndex(this.#smoothScroll.currentIndex + delta);
+    this.#setSettle(durationForSteps(delta));
     this.#smoothScroll.stepBy(delta);
     this.#audio.play('scroll');
     // Haptic tick on a deliberate year change only — buzzing on every block
@@ -635,9 +647,22 @@ export class GridArchitect {
     this.#lockInteractions();
     this.#audio.play('jump');
     this.#viewport.classList.add(OdysseyConfig.classes.warpingFar);
+    this.#setSettle(durationForDistance(Math.abs(target - current)));
     this.#smoothScroll.jumpToIndex(target);
     this.#toast.show(target === 0 ? 'EPOCH ZERO' : 'EPOCH ULTIMA');
     this.#updateNavBounds();
+  }
+
+  // The depth transition on a year block used to run for a fixed second while
+  // the scroll it belongs to finished in 250ms, so the motion stopped and the
+  // picture kept catching up. Publishing the real travel time lets both end
+  // together. Dirty-checked: this inherits into every cell, so it must not be
+  // written on repeat navigations of the same distance.
+  #setSettle(ms) {
+    const rounded = Math.round(ms);
+    if (rounded === this.#settleMs) return;
+    this.#settleMs = rounded;
+    this.#canvas.style.setProperty(OdysseyConfig.dom.yearSettleVar, `${rounded}ms`);
   }
 
   #updateNavBounds() {
@@ -706,6 +731,7 @@ export class GridArchitect {
     this.#touchScrollEndWillSnap = false;
     const velocity = Math.abs(this.#smoothScroll.velocity || 0);
     if (wantsSnap && velocity < 0.5 && !this.#isWarping && !this.#isAnimating) {
+      this.#setSettle(OdysseyConfig.display.snapMs);
       this.#smoothScroll.settleToNearest();
     }
   }
@@ -788,6 +814,7 @@ export class GridArchitect {
 
     this.#ionDrive.classList.add(OdysseyConfig.classes.jumping);
 
+    this.#setSettle(durationForDistance(distance));
     if (distance <= 1) {
       this.#isAnimating = true;
       this.#lockInteractions();

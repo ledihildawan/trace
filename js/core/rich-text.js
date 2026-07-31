@@ -93,7 +93,7 @@ const SPAN_TAG = { code: 'code', bold: 'strong', italic: 'em' };
 
 function appendSpans(parent, spans, doc) {
   for (const span of spans) {
-    const tag = SPAN_TAG[Object.keys(SPAN_TAG).find((key) => span[key])];
+    const [, tag] = Object.entries(SPAN_TAG).find(([style]) => span[style]) ?? [];
     if (!tag) {
       parent.append(doc.createTextNode(span.text));
       continue;

@@ -76,12 +76,11 @@ export function resolveVoice(key, overrides = {}, random = Math.random) {
 // Callers pass { volume } rather than { gain }; undefined must not clobber a
 // table entry, which a plain spread would do.
 function strip(overrides) {
-  const out = {};
-  for (const [key, value] of Object.entries(overrides)) {
-    if (value === undefined) continue;
-    out[key === 'volume' ? 'gain' : key] = value;
-  }
-  return out;
+  return Object.fromEntries(
+    Object.entries(overrides)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key === 'volume' ? 'gain' : key, value])
+  );
 }
 
 const MAX_GAIN = 4;

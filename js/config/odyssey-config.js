@@ -74,6 +74,7 @@ export const OdysseyConfig = {
     ionGlowVar: '--ion-glow',
     chromaDistVar: '--chroma-dist',
     dayProgressVar: '--day-progress',
+    yearSettleVar: '--year-settle',
     ionGlowDefault: '700px',
     ionGlowHover: '900px',
     ionGlowFiller: '200px',

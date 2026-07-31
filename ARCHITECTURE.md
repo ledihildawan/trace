@@ -91,6 +91,23 @@ exist at any time.
    `animation-timeline: view()`; the cursor glow and chromatic aberration are
    CSS custom properties written at most once per frame.
 
+## Baseline
+
+No build step means the source is what runs, so the language level is a
+support decision rather than a style one. The floor is roughly **Chrome 128,
+Safari 18.4, Firefox 134** (early 2025), set by:
+
+| Feature | Used for |
+| --- | --- |
+| Iterator helpers | lazy `.filter()`/`.map()` over `Map` keys |
+| `Promise.try` | treating a sync throw like a rejection |
+| `Map.groupBy` | rebuilding the day index |
+| `light-dark()`, `@starting-style` | the palette and dialog animation |
+
+Before this the CSS alone already required Chrome 123 / Safari 17.5, so the
+JavaScript moved the floor by about one Safari release. `Map.getOrInsert` is
+deliberately avoided: it is Stage 3 and no browser ships it.
+
 ## Leaning on the platform
 
 Where a browser API does the job, it replaces hand-written code rather than

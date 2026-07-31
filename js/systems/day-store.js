@@ -61,8 +61,12 @@ export class DayStore {
   }
 
   #reindex() {
-    this.#byYear.clear();
-    for (const key of this.#data.keys()) this.#index(key);
+    const grouped = Map.groupBy(this.#data.keys(), (key) => DayStore.dateOf(key)?.year);
+    this.#byYear = new Map(
+      grouped.entries()
+        .filter(([year]) => year !== undefined) // keys that are not real dates
+        .map(([year, keys]) => [year, new Set(keys)])
+    );
   }
 
   #index(key) {
@@ -118,9 +122,9 @@ export class DayStore {
 
   // Inverse of keyOf. Returns null for anything that is not YYYY-MM-DD.
   static dateOf(key) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
-    if (!m) return null;
-    return { year: +m[1], month: +m[2] - 1, date: +m[3] };
+    const { groups } = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/.exec(key) ?? {};
+    if (!groups) return null;
+    return { year: +groups.year, month: +groups.month - 1, date: +groups.day };
   }
 
   get size() {
@@ -192,10 +196,14 @@ export class DayStore {
   // Nearest recorded day strictly before (-1) or after (+1) `fromKey`.
   // ISO keys sort chronologically, so plain string comparison is enough.
   adjacentKey(fromKey, direction) {
+    const forward = direction > 0;
+    // Lazy: filters as it walks, so nothing is materialised.
+    const candidates = this.#data.keys()
+      .filter((key) => (forward ? key > fromKey : key < fromKey));
+
     let best = null;
-    for (const key of this.#data.keys()) {
-      if (direction > 0 ? key <= fromKey : key >= fromKey) continue;
-      if (best === null || (direction > 0 ? key < best : key > best)) best = key;
+    for (const key of candidates) {
+      if (best === null || (forward ? key < best : key > best)) best = key;
     }
     return best;
   }

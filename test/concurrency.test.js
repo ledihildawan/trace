@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runWithLimit } from '../js/core/concurrency.js';
 
-const deferred = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
+// Promise.withResolvers replaces the let-resolve-outside dance.
+const deferred = () => Promise.withResolvers();
 
 test('an empty task list resolves immediately', async () => {
   await runWithLimit([], 2);

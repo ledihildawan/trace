@@ -73,6 +73,13 @@
     --ion-opacity: light-dark(0.4, 0.85); /* Kurangi opacity di light mode agar elegan */
     --ion-field: 2000px;
 
+    /* The depth transition and the scroll are one movement, so they share a
+       curve and a duration. --ease-travel is the bezier form of the
+       easeInOutCubic that scroll-easing.js uses; --year-settle is rewritten
+       per navigation from the real travel time. */
+    --ease-travel: cubic-bezier(0.65, 0, 0.35, 1);
+    --year-settle: 420ms;
+
     /* Floating surfaces (day panel, jump-to-date, search). Theme-aware, and in
        OKLCH like the rest of the palette rather than stray rgba. */
     --surface: light-dark(oklch(100% 0 0 / 0.94), oklch(20.77% 0.0398 265.75 / 0.92));
@@ -683,13 +690,20 @@
     backface-visibility: hidden;
     transform: translateZ(0);
     transform-origin: center center;
-    transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease, opacity 0.8s ease;
+    transition:
+      transform var(--year-settle) var(--ease-travel),
+      opacity var(--year-settle) var(--ease-travel),
+      /* Blur is the expensive one, so it is given less of the budget. */
+      filter calc(var(--year-settle) * 0.7) var(--ease-travel);
     contain: strict;
   }
 
   .year-block:not(.active) {
     transform: scale(0.8) translate3d(0, 0, -600px);
-    filter: blur(20px) grayscale(0.5);
+    /* 8px, not 20px, and no grayscale pass. Blur cost climbs with radius over
+       a viewport-sized layer of ~400 cells, and at 15% opacity none of that
+       detail is visible — it was work nobody could see. */
+    filter: blur(8px);
     opacity: 0.15;
   }
 
@@ -750,7 +764,7 @@
     pointer-events: none;
     opacity: 0;
     z-index: 10;
-    transition: opacity 1s;
+    transition: opacity calc(var(--year-settle) * 1.4) var(--ease-travel);
   }
   .year-block.active .watermark-embedded {
     opacity: 0.15;
@@ -781,7 +795,7 @@
     margin-left: -0.5px;
     min-height: 100%;
     opacity: 0;
-    transition: opacity 0.8s ease;
+    transition: opacity var(--year-settle) var(--ease-travel);
     z-index: 2;
     gap: 0;
     background: transparent;

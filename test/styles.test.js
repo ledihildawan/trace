@@ -105,6 +105,33 @@ test('the toast animates only what it means to', () => {
   assert.match(toast, /transition: opacity[\s\S]*transform/);
 });
 
+test('the depth transition is driven by the travel time, not a fixed second', () => {
+  // The scroll for one year takes 250ms. A hardcoded 1s meant the motion
+  // stopped while the picture was still catching up, which is what made a
+  // year change feel heavy.
+  const block = rule('.year-block');
+  assert.match(block, /transform var\(--year-settle\)/, 'transform must follow the travel');
+  assert.match(block, /opacity var\(--year-settle\)/);
+  assert.ok(!/transform 1s|opacity 0\.8s/.test(block), 'no fixed duration left');
+  assert.match(css, /--year-settle:\s*\d+ms/, 'needs a default for the first paint');
+});
+
+test('the depth and the scroll share one easing curve', () => {
+  // Two curves on one perceived movement read as two movements.
+  assert.match(css, /--ease-travel: cubic-bezier\(0\.65, 0, 0\.35, 1\)/);
+  assert.match(rule('.year-block'), /var\(--ease-travel\)/);
+});
+
+test('the out-of-focus blur stays cheap', () => {
+  // Blur cost climbs with radius across a viewport-sized layer of ~400 cells,
+  // and at 15% opacity the detail is invisible either way.
+  const inactive = declarations('.year-block:not(.active)');
+  const radius = /blur\((\d+)px\)/.exec(inactive);
+  assert.ok(radius, 'neighbours should still be blurred');
+  assert.ok(Number(radius[1]) <= 10, `blur(${radius[1]}px) is more than anyone can see here`);
+  assert.ok(!/grayscale/.test(inactive), 'a second filter pass for an invisible effect');
+});
+
 test('high contrast mode is handled', () => {
   const start = css.indexOf('@media (forced-colors: active)');
   assert.notEqual(start, -1, 'Windows High Contrast needs its own pass');
@@ -180,7 +207,7 @@ function declarations(selector) {
   const start = ruleStart(selector);
   const end = css.indexOf('}', start);
   assert.notEqual(end, -1, `unterminated rule for ${selector}`);
-  return css.slice(start, end);
+  return css.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 test('every edge-anchored control insets for the safe area', () => {

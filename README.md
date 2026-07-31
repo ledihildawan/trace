@@ -106,7 +106,10 @@ Any static server works; `devserver.py` simply adds `Cache-Control: no-store`
 so an edited module is never masked by a cached copy. Press `F11` for
 fullscreen to complete the immersion.
 
-There is no build step and there are no runtime dependencies.
+There is no build step and there are no runtime dependencies: the files in
+`js/` are what the browser runs. That makes the language level a support
+decision, and it is set at ES2025 — roughly Chrome 128, Safari 18.4,
+Firefox 134. See [ARCHITECTURE.md](./ARCHITECTURE.md#baseline).
 
 ### 💾 Your Data
 

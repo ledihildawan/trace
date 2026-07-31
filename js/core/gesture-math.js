@@ -26,8 +26,8 @@ export function stepsFromPixels(deltaPx, pixelsPerStep, max = Infinity) {
 // content is being pushed upward (i.e. travelling forward in time).
 export function flingVelocity(samples) {
   if (!Array.isArray(samples) || samples.length < 2) return 0;
-  const first = samples[0];
-  const last = samples[samples.length - 1];
+  const first = samples.at(0);
+  const last = samples.at(-1);
   const dt = Math.max(1, last.t - first.t);
   return (first.y - last.y) / dt;
 }
