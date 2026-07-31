@@ -9,7 +9,7 @@ export function installDom(html = '<!doctype html><html><body></body></html>') {
 
   for (const key of [
     'window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node',
-    'CustomEvent', 'Event', 'KeyboardEvent', 'MouseEvent', 'getComputedStyle',
+    'CustomEvent', 'Event', 'KeyboardEvent', 'MouseEvent', 'PointerEvent', 'getComputedStyle',
     'requestAnimationFrame', 'cancelAnimationFrame', 'matchMedia',
   ]) {
     if (window[key] === undefined) continue;
@@ -23,6 +23,13 @@ export function installDom(html = '<!doctype html><html><body></body></html>') {
   }
   globalThis.addEventListener = window.addEventListener.bind(window);
   globalThis.localStorage = createStorage();
+
+  // jsdom does not yet expose PointerEvent in every release. The dock only
+  // relies on its Event behaviour, so MouseEvent is an adequate test shim.
+  if (!window.PointerEvent) {
+    window.PointerEvent = window.MouseEvent;
+    globalThis.PointerEvent = window.PointerEvent;
+  }
 
   // jsdom implements no layout, so scrollIntoView is missing. Without this the
   // call throws inside an event handler, where the error is swallowed by the

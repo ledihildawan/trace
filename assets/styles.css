@@ -1061,6 +1061,56 @@
   }
 
   /* ── YEAR NAV EDGE BUTTONS ── */
+  .adaptive-dock {
+    position: fixed;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--surface) 88%, transparent);
+    box-shadow: 0 12px 32px color-mix(in srgb, var(--bg) 52%, transparent);
+    backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(calc(100% + 16px));
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+  .adaptive-dock.is-visible,
+  .adaptive-dock:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+  .adaptive-dock button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-main);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .adaptive-dock button:hover {
+    background: color-mix(in oklab, var(--accent-secondary) 18%, transparent);
+  }
+  .adaptive-dock button:focus-visible {
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 2px;
+  }
+
   .year-nav {
     position: fixed;
     top: 50%;
@@ -1136,6 +1186,9 @@
     .pos-scrubber {
       width: 24px; /* WCAG 2.5.8 minimum for a dragged control */
     }
+    .adaptive-dock {
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
     /* Hints name keys that a touch device does not have. */
     .keyboard-hints {
       display: none;
@@ -1146,6 +1199,7 @@
     .date-jumper,
     .note-search,
     #toast,
+    .adaptive-dock,
     .year-nav-btn {
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
@@ -1246,6 +1300,7 @@
     .date-jumper,
     .note-search,
     #toast,
+    .adaptive-dock,
     .year-nav-btn {
       border: 1px solid CanvasText;
       background: Canvas;

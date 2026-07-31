@@ -5,6 +5,7 @@ import { ThemeController } from './ui/theme-controller.js';
 import { ToastManager } from './ui/toast-manager.js';
 import { BootSequence } from './ui/boot-sequence.js';
 import { KeyboardHints } from './ui/keyboard-hints.js';
+import { AdaptiveDock } from './ui/adaptive-dock.js';
 import { ParticleEngine } from './systems/particle-engine.js';
 import { GalacticAudio } from './systems/galactic-audio.js';
 import { GridArchitect } from './grid/grid-architect.js';
@@ -93,12 +94,21 @@ function bootstrap() {
   const particles = safe('ParticleEngine', () => new ParticleEngine(), STUB);
   const audio = safe('GalacticAudio', () => new GalacticAudio(), STUB);
 
-  safe('GridArchitect', () =>
+  const grid = safe('GridArchitect', () =>
     new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
   );
+  const dock = safe('AdaptiveDock', () => new AdaptiveDock({
+    idleMs: OdysseyConfig.timing.dockIdleMs,
+    coarseQuery: OdysseyConfig.timing.cursorCoarseQuery,
+    onToday: () => grid?.jumpToToday(),
+    // Search and menu are exposed by their dedicated controllers in the next
+    // UI tasks. Optional calls keep this composition root backward-compatible.
+    onSearch: () => grid?.openSearch?.(),
+    onMenu: () => window.trace?.menu?.open?.(),
+  }));
 
   hints?.start?.();
-  window.trace = { audio, particles, theme, config: OdysseyConfig };
+  window.trace = { audio, particles, theme, grid, dock, config: OdysseyConfig };
   log('Modular system initialized');
 }
 
