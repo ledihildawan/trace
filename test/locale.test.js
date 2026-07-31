@@ -12,6 +12,20 @@ test('application chrome uses Indonesian copy', () => {
   assert.equal(UI_COPY.loading, 'Menyelaraskan perjalanan waktu…');
 });
 
+test('nested application copy groups are immutable', () => {
+  const groups = [
+    [UI_COPY.dock, 'today', 'Hari ini'],
+    [UI_COPY.nav, 'previousYear', 'Tahun sebelumnya'],
+    [UI_COPY.search, 'label', 'Cari catatan'],
+  ];
+
+  for (const [group, key, value] of groups) {
+    assert.equal(Object.isFrozen(group), true);
+    assert.throws(() => { group[key] = 'Berubah'; }, TypeError);
+    assert.equal(group[key], value);
+  }
+});
+
 test('year travel feedback names the destination', () => {
   assert.equal(formatYearTravel(1, 2027), 'Menuju tahun 2027');
   assert.equal(formatYearTravel(-10, 2016), 'Mundur 10 tahun · 2016');

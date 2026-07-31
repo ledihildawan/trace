@@ -1,14 +1,18 @@
+const dock = Object.freeze({ today: 'Hari ini', search: 'Cari', menu: 'Menu' });
+const nav = Object.freeze({ previousYear: 'Tahun sebelumnya', nextYear: 'Tahun berikutnya' });
+const search = Object.freeze({
+  label: 'Cari catatan',
+  prompt: 'Ketik untuk mencari catatan dan suasana',
+  empty: 'Belum ada hari yang tercatat',
+  noResults: 'Tidak ada catatan yang cocok',
+});
+
 export const UI_COPY = Object.freeze({
   loading: 'Menyelaraskan perjalanan waktu…',
   viewport: 'Grid perjalanan waktu',
-  dock: { today: 'Hari ini', search: 'Cari', menu: 'Menu' },
-  nav: { previousYear: 'Tahun sebelumnya', nextYear: 'Tahun berikutnya' },
-  search: {
-    label: 'Cari catatan',
-    prompt: 'Ketik untuk mencari catatan dan suasana',
-    empty: 'Belum ada hari yang tercatat',
-    noResults: 'Tidak ada catatan yang cocok',
-  },
+  dock,
+  nav,
+  search,
 });
 
 export function formatYearTravel(delta, year) {
