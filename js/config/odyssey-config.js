@@ -68,6 +68,7 @@ export const OdysseyConfig = {
     toast: 'toast',
     keyboardHints: 'keyboard-hints',
     adaptiveDock: 'adaptive-dock',
+    onboardingStorageKey: 'trace-onboarding-v1',
     loadingScreen: 'loading-screen',
     loadProgress: 'load-progress',
     loadStatus: 'load-status',

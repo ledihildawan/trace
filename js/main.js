@@ -6,6 +6,7 @@ import { ToastManager } from './ui/toast-manager.js';
 import { BootSequence } from './ui/boot-sequence.js';
 import { KeyboardHints } from './ui/keyboard-hints.js';
 import { AdaptiveDock } from './ui/adaptive-dock.js';
+import { Onboarding } from './ui/onboarding.js';
 import { ParticleEngine } from './systems/particle-engine.js';
 import { GalacticAudio } from './systems/galactic-audio.js';
 import { GridArchitect } from './grid/grid-architect.js';
@@ -72,6 +73,21 @@ function hideLoading() {
   if (screen) screen.classList.add(OdysseyConfig.classes.hidden);
 }
 
+function showOnboardingAfterBoot(onboarding, screen) {
+  if (!onboarding || !screen) return;
+  const show = () => onboarding.showFirstRun();
+  if (screen.classList.contains(OdysseyConfig.classes.hidden)) {
+    show();
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    if (!screen.classList.contains(OdysseyConfig.classes.hidden)) return;
+    observer.disconnect();
+    show();
+  });
+  observer.observe(screen, { attributes: true, attributeFilter: ['class'] });
+}
+
 function bootstrap() {
   assertConfig();
   const dom = OdysseyConfig.dom;
@@ -94,13 +110,10 @@ function bootstrap() {
   const particles = safe('ParticleEngine', () => new ParticleEngine(), STUB);
   const audio = safe('GalacticAudio', () => new GalacticAudio(), STUB);
 
-  const grid = safe('GridArchitect', () =>
-    new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
-  );
   // Later UI tasks populate `menu` in this shared local composition state.
   // Callbacks close over it directly instead of relying on a window.trace
   // assignment order or on test/debug globals.
-  const ui = { grid, menu: null };
+  const ui = { grid: null, menu: null, onboarding: null };
   const dock = safe('AdaptiveDock', () => new AdaptiveDock({
     idleMs: OdysseyConfig.timing.dockIdleMs,
     coarseQuery: OdysseyConfig.timing.cursorCoarseQuery,
@@ -108,9 +121,20 @@ function bootstrap() {
     onSearch: () => ui.grid?.openSearch?.(),
     onMenu: () => ui.menu?.open?.(),
   }));
+  const onboarding = safe('Onboarding', () => new Onboarding({
+    storageKey: dom.onboardingStorageKey,
+    onOpen: () => dock?.pin?.(),
+    onClose: () => dock?.unpin?.(),
+  }));
+  const grid = safe('GridArchitect', () =>
+    new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
+  );
+  ui.grid = grid;
+  ui.onboarding = onboarding;
+  showOnboardingAfterBoot(onboarding, document.getElementById(dom.loadingScreen));
 
   hints?.start?.();
-  window.trace = { audio, particles, theme, grid, dock, ui, config: OdysseyConfig };
+  window.trace = { audio, particles, theme, grid, dock, onboarding, ui, config: OdysseyConfig };
   log('Modular system initialized');
 }
 
