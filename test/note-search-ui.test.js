@@ -7,7 +7,7 @@ installDom();
 const { NoteSearch } = await import('../js/ui/note-search.js');
 
 // Minimal stand-in for DayStore: the widget only ever asks for entries().
-const storeOf = (entries) => ({ entries: () => entries });
+const storeOf = (entries, size = entries.length) => ({ entries: () => entries, size });
 
 const ENTRIES = [
   ['2026-01-05', { note: 'Rapat dengan tim desain' }],
@@ -35,6 +35,13 @@ test('the box opens empty with a prompt instead of every day', () => {
   assert.equal(dialog.open, true);
   assert.equal(rows().length, 0);
   assert.match(dialog.querySelector('.note-search-status').textContent, /Ketik untuk mencari/);
+});
+
+test('an empty store shows a distinct empty state instead of the prompt', () => {
+  const { dialog } = open([], 0);
+  assert.equal(dialog.open, true);
+  assert.equal(rows().length, 0);
+  assert.match(dialog.querySelector('.note-search-status').textContent, /Belum ada hari/);
 });
 
 test('typing lists the matching days, newest first', () => {

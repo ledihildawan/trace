@@ -9,6 +9,7 @@ import { AdaptiveDock } from './ui/adaptive-dock.js';
 import { AppMenu } from './ui/app-menu.js';
 import { Onboarding } from './ui/onboarding.js';
 import { YearContext } from './ui/year-context.js';
+import { DataActions } from './ui/data-actions.js';
 import { ParticleEngine } from './systems/particle-engine.js';
 import { GalacticAudio } from './systems/galactic-audio.js';
 import { GridArchitect } from './grid/grid-architect.js';
@@ -131,6 +132,12 @@ function bootstrap() {
     new GridArchitect({ viewport, canvas, ionDrive, theme, toast, boot, audio, particles })
   );
   ui.grid = grid;
+  const dataActions = new DataActions(grid?.store ?? {}, {
+    onUpdate: (result) => {
+      if (result?.error) toast?.show?.('IMPORT FAILED');
+      else if (result) toast?.show?.(`${result.imported} diperbarui · ${result.preserved} dipertahankan · ${result.skipped} dilewati`);
+    },
+  });
   ui.onboarding = onboarding;
   const yearContext = safe('YearContext', () => new YearContext({
     onPrevious: () => ui.grid?.navigateYears?.(-1),
@@ -147,7 +154,7 @@ function bootstrap() {
     },
     // Task 8 supplies the data subsection. Its action intentionally keeps
     // this dialog open so that subsection can take over in place.
-    onData: () => {},
+    onData: () => dataActions?.open?.(),
     onHelp: () => onboarding?.open?.(),
     onOpen: () => dock?.pin?.(),
     onClose: () => dock?.unpin?.(),

@@ -46,7 +46,11 @@ export class NoteSearch {
     this.#list.replaceChildren();
 
     if (!query.trim()) {
-      this.#status.textContent = UI_COPY.search.prompt;
+      if (this.#store.size === 0) {
+        this.#status.textContent = UI_COPY.search.empty;
+      } else {
+        this.#status.textContent = UI_COPY.search.prompt;
+      }
       return;
     }
     if (!this.#results.length) {
@@ -55,7 +59,7 @@ export class NoteSearch {
     }
 
     this.#status.textContent =
-      `${this.#results.length} hari · ↑↓ pilih · ENTER buka`;
+      `${this.#results.length} hasil · ↑↓ pilih · Enter buka`;
     this.#results.forEach((result, i) => this.#list.append(this.#row(result, i, query)));
     this.#syncActive();
   }

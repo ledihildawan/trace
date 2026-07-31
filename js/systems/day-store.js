@@ -182,12 +182,16 @@ export class DayStore {
 
   // Bulk import. Incoming days win on conflict; existing days that are not in
   // the archive are kept, so importing never silently destroys local work.
-  // Returns how many days were added or changed.
+  // Returns { changed, preserved, skipped }.
   merge(entries) {
     let changed = 0;
+    let preserved = 0;
     for (const [key, entry] of entries) {
       const before = this.#data.get(key);
-      if (before && before.note === entry.note && before.mood === entry.mood) continue;
+      if (before && before.note === entry.note && before.mood === entry.mood) {
+        preserved++;
+        continue;
+      }
       this.#data.set(key, entry);
       this.#index(key);
       changed++;
@@ -196,7 +200,7 @@ export class DayStore {
       this.#persistNow();
       this.#emit(); // no key: listeners must refresh everything
     }
-    return changed;
+    return { changed, preserved, skipped: 0 };
   }
 
   // Nearest recorded day strictly before (-1) or after (+1) `fromKey`.

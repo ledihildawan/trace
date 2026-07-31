@@ -600,7 +600,7 @@ export class GridArchitect {
       console.warn('[TRACE] import rejected:', result.error);
       return;
     }
-    const changed = this.#store.merge(result.entries);
+    const { changed } = this.#store.merge(result.entries);
     this.#toast.show(changed ? `${changed} DAYS RESTORED` : 'ALREADY UP TO DATE');
   }
 
@@ -641,6 +641,8 @@ export class GridArchitect {
   get currentYear() { return this.#currentYear(); }
 
   get focusedDate() { return this.#focus.focusedDate; }
+
+  get store() { return this.#store; }
 
   get layout() { return this.#mode ? 'dynamic' : 'structured'; }
 
