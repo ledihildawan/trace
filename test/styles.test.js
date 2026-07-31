@@ -279,3 +279,42 @@ test('floating surfaces share one glass recipe and the grid edge', () => {
   assert.match(shared[1], /box-shadow: var\(--hairline\)/, 'the grid draws edges as insets');
   assert.match(shared[1], /border-radius: var\(--r-lg\)/);
 });
+
+test('the day panel restores native desktop centering after the global reset', () => {
+  assert.match(rule('.day-panel'), /margin:\s*auto/);
+});
+
+test('the mobile day panel is a safe-area bottom sheet', () => {
+  const mobile = /@media \(max-width: 600px\) \{([\s\S]*?)\n  \}/.exec(css);
+  assert.ok(mobile, 'the day panel needs a dedicated mobile presentation');
+  assert.match(mobile[1], /\.day-panel \{[\s\S]*?width:\s*100%/);
+  assert.match(mobile[1], /\.day-panel \{[\s\S]*?margin:\s*auto 0 0/);
+  assert.match(mobile[1], /border-radius:\s*var\(--r-lg\) var\(--r-lg\) 0 0/);
+  for (const side of ['left', 'right', 'bottom']) {
+    assert.match(mobile[1], new RegExp(`safe-area-inset-${side}`));
+  }
+  assert.match(mobile[1], /max-height:/, 'landscape actions must remain reachable by scrolling');
+  assert.match(mobile[1], /overflow-y:\s*auto/);
+});
+
+test('calendar metadata and functional microcopy have readable floors', () => {
+  assert.match(rule('.info-meta'), /font-size:\s*clamp\(9px, 0\.8dvh, 10px\)/);
+  const undersized = [...declarationsOnly.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)]
+    .map((match) => Number(match[1]))
+    .filter((size) => size < 12);
+  assert.deepEqual(undersized, [], `fixed text below 12px: ${undersized.join(', ')}`);
+});
+
+test('muted theme text keeps sufficient contrast in both themes', () => {
+  const token = /--text-muted:\s*light-dark\(oklch\(([\d.]+)%[^)]*\),\s*oklch\(([\d.]+)%/.exec(css);
+  assert.ok(token, 'muted text should remain a theme-aware token');
+  assert.ok(Number(token[1]) <= 40, 'light-theme muted text must be dark enough');
+  assert.ok(Number(token[2]) >= 65, 'dark-theme muted text must be light enough');
+});
+
+test('forced colors preserve mood dots while flattening past-day fading', () => {
+  const forced = /@media \(forced-colors: active\) \{([\s\S]*?)\n  \}/.exec(css);
+  assert.ok(forced);
+  assert.match(forced[1], /\.mood-dot[\s\S]*?forced-color-adjust:\s*none/);
+  assert.match(forced[1], /\.cell\.past \.cell-content[\s\S]*?opacity:\s*1/);
+});

@@ -62,7 +62,7 @@
     --border: light-dark(oklch(92.88% 0.0126 255.51), oklch(27.95% 0.0368 260.03));
     --cell-bg: light-dark(oklch(100% 0 0), oklch(12.88% 0.0406 264.7));
     --text-main: light-dark(oklch(20.77% 0.0398 265.75), oklch(96.83% 0.0069 247.9));
-    --text-muted: light-dark(oklch(44.55% 0.0374 257.28), oklch(55.44% 0.0407 257.42));
+    --text-muted: light-dark(oklch(38% 0.0374 257.28), oklch(70% 0.0407 257.42));
 
     /* Debu luar angkasa yang lebih halus */
     --dust-opacity: light-dark(0.04, 0.12);
@@ -157,7 +157,7 @@
   }
   .loader-text {
     color: var(--accent-secondary);
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.5em;
     text-transform: uppercase;
     font-weight: 900;
@@ -383,6 +383,7 @@
 
   .day-panel {
     width: min(420px, 92vw);
+    margin: auto;
     /* A landscape phone is ~360px tall; without this the panel grew past the
        screen and the Done button became unreachable. */
     max-height: min(90dvh, 640px);
@@ -403,9 +404,9 @@
     text-wrap: balance;
   }
   .day-panel-moods {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
   }
   .day-panel-note {
     resize: vertical;
@@ -450,6 +451,19 @@
     display: none;
   }
 
+  .day-panel-format-hint,
+  .day-panel-save-status {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .day-panel-format-hint {
+    overflow-wrap: anywhere;
+  }
+  .day-panel-save-status {
+    min-height: 1.4em;
+  }
+
   .day-panel-actions {
     display: flex;
     align-items: center;
@@ -462,7 +476,7 @@
     border-radius: var(--r-pill);
     padding: 7px 18px;
     font-family: inherit;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: var(--track);
     cursor: pointer;
     background: transparent;
@@ -480,9 +494,62 @@
     color: var(--danger);
     opacity: 0.7;
   }
-  .day-panel-delete:hover {
+  .day-panel-delete:not(:disabled):hover {
     opacity: 1;
     background: color-mix(in oklab, var(--danger) 14%, transparent);
+  }
+  .day-panel-delete:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
+
+  .day-panel-confirm {
+    width: min(360px, calc(100% - 32px));
+    margin: auto;
+    padding: 20px;
+    border: none;
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    color: var(--text-main);
+    box-shadow: var(--hairline), 0 24px 70px var(--surface-shadow);
+    backdrop-filter: var(--glass);
+    -webkit-backdrop-filter: var(--glass);
+  }
+  .day-panel-confirm::backdrop {
+    background: var(--surface-scrim);
+    backdrop-filter: blur(6px);
+  }
+  .day-panel-confirm h2 {
+    font-size: 16px;
+    text-wrap: balance;
+  }
+  .day-panel-confirm p {
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .day-panel-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .day-panel-confirm-actions button {
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .day-panel-confirm-accept {
+    border-color: color-mix(in oklab, var(--danger) 50%, transparent);
+    color: var(--danger);
   }
 
   .date-jumper {
@@ -506,7 +573,7 @@
   }
   .date-jumper-hint,
   .note-search-status {
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: var(--track-wide);
     color: var(--text-muted);
   }
@@ -669,7 +736,7 @@
   }
   .note-hit-date {
     grid-area: date;
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: var(--track);
     color: var(--accent-secondary);
   }
@@ -688,16 +755,40 @@
 
   /* Mood picker buttons in the day panel. */
   .mood-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    border: 2px solid transparent;
+    min-width: 0;
+    min-height: 56px;
+    border: 0;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
     cursor: pointer;
-    opacity: 0.45;
-    transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+    opacity: 0.72;
+    transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
   }
-  /* WCAG 2.5.8 asks for 24px minimum, 2.5.5 for 44px. The dot stays 34px and
-     the target grows underneath it, so the design is unchanged. */
+  .mood-dot {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    transition: border-color 0.15s ease;
+  }
+  .mood-label {
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  /* WCAG 2.5.8 asks for 24px minimum, 2.5.5 for 44px. Compact controls keep
+     a generous invisible press area even when their visible mark is smaller. */
   .mood-btn,
   .year-nav-btn {
     position: relative;
@@ -713,14 +804,15 @@
     height: max(100%, 44px);
   }
   .mood-btn:hover {
-    transform: scale(1.15);
-    opacity: 0.9;
+    transform: translateY(-1px);
+    opacity: 1;
   }
   .mood-btn[aria-pressed='true'] {
     opacity: 1;
-    /* was #fff — invisible against the light-theme panel */
+    color: var(--text-main);
+  }
+  .mood-btn[aria-pressed='true'] .mood-dot {
     border-color: var(--text-main);
-    transform: scale(1.12);
   }
   /* "You are here" year scrubber on the right edge. */
   .pos-scrubber {
@@ -1029,7 +1121,7 @@
     pointer-events: none;
   }
   .info-meta {
-    font-size: clamp(6px, 0.8dvh, 8px);
+    font-size: clamp(9px, 0.8dvh, 10px);
     text-transform: uppercase;
     font-weight: 600;
     color: var(--text-muted);
@@ -1058,7 +1150,7 @@
     padding: 12px 28px;
     border-radius: var(--r-pill);
     font-weight: 900;
-    font-size: 10px;
+    font-size: 12px;
     z-index: 99999;
     opacity: 0;
     border: 1px solid color-mix(in oklab, var(--accent-secondary) 30%, transparent);
@@ -1142,7 +1234,7 @@
     max-width: min(92vw, 720px);
     gap: 6px 14px;
     z-index: 9998;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -1162,7 +1254,7 @@
     border-radius: var(--r-sm);
     background: color-mix(in oklab, var(--text-muted) 12%, transparent);
     font-family: inherit;
-    font-size: 10px;
+    font-size: 12px;
     margin: 0 2px;
   }
 
@@ -1235,7 +1327,7 @@
   .app-menu-group h3 {
     margin: 0 0 8px;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -1352,6 +1444,24 @@
     #year-nav { left: 8px; }
     #year-nav-end { right: 8px; }
   }
+  @media (max-width: 600px) {
+    .day-panel {
+      width: 100%;
+      max-width: 100%;
+      max-height: calc(100dvh - env(safe-area-inset-top, 0px));
+      margin: auto 0 0;
+      overflow-y: auto;
+      padding:
+        18px max(16px, env(safe-area-inset-right, 0px))
+        calc(18px + env(safe-area-inset-bottom, 0px))
+        max(16px, env(safe-area-inset-left, 0px));
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+      transform: translateY(16px);
+    }
+    .day-panel-moods {
+      gap: 4px;
+    }
+  }
   @media (max-width: 599.98px) {
     .adaptive-dock {
       left: calc(8px + env(safe-area-inset-left, 0px));
@@ -1415,6 +1525,7 @@
   }
   @media (prefers-reduced-transparency: reduce) {
     .day-panel,
+    .day-panel-confirm,
     .date-jumper,
     .note-search,
     .onboarding,
@@ -1428,6 +1539,7 @@
       background: var(--bg);
     }
     .day-panel::backdrop,
+    .day-panel-confirm::backdrop,
     .date-jumper::backdrop,
     .note-search::backdrop,
     .onboarding::backdrop,
@@ -1510,7 +1622,7 @@
     }
 
     /* Mood is the one place colour is the information. */
-    .mood-btn,
+    .mood-dot,
     .note-hit-mood,
     .cell.has-data::before {
       forced-color-adjust: none;
@@ -1522,6 +1634,7 @@
     }
 
     .day-panel,
+    .day-panel-confirm,
     .date-jumper,
     .note-search,
     .onboarding,
