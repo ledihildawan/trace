@@ -77,6 +77,8 @@ export class GridArchitect {
   #isWarping = false;
   #isAnimating = false;
   #interactionsAllowed = true;
+  #unlockTimer = null;
+  #lockGeneration = 0;
   #lastRenderTop = -1;
   #lastChroma = 0;
   #settleMs = -1;
@@ -168,6 +170,7 @@ export class GridArchitect {
   }
 
   #initialize() {
+    this.#publishYearHeight();
     this.#canvas.style.height = `${this.#totalYears * this.#yearHeight}px`;
     this.#viewport.scrollTop = this.#startY;
 
@@ -653,6 +656,7 @@ export class GridArchitect {
 
   reflowForViewport() {
     const year = Math.round(this.currentYear);
+    const gridOwnedFocus = this.#focus.isCellFocused();
     const state = captureResponsiveState({
       year,
       focusedDate: this.#focus.focusedDate,
@@ -675,12 +679,13 @@ export class GridArchitect {
       width: window.innerWidth,
       height: window.innerHeight,
     };
+    this.#publishYearHeight();
     this.#canvas.style.height = `${this.#totalYears * this.#yearHeight}px`;
     this.#smoothScroll.setStep(this.#yearHeight);
 
     const targetTop = this.#yearToIndex(state.year) * this.#yearHeight
       + state.yearOffset;
-    this.#smoothScroll.syncTo(targetTop);
+    this.#smoothScroll.resetTo(targetTop);
 
     [...this.#activeYears].forEach(([activeYear, block]) => {
       this.#deactivateYearBlock(activeYear, block);
@@ -690,7 +695,9 @@ export class GridArchitect {
     this.#lastRenderTop = -1;
     this.#render();
 
-    if (state.focusedDate) this.focusDate(state.focusedDate);
+    const restoreFocusedDate =
+      gridOwnedFocus && state.focusedDate?.getFullYear() === state.year;
+    if (restoreFocusedDate) this.focusDate(state.focusedDate);
     else this.#focus.refreshTabStop(state.year);
 
     this.#particles.resize();
@@ -698,6 +705,13 @@ export class GridArchitect {
     this.#scrubber?.measure();
     this.#scrubber?.update();
     this.#publishYearChange();
+  }
+
+  #publishYearHeight() {
+    this.#canvas.style.setProperty(
+      OdysseyConfig.dom.yearHeightVar,
+      `${this.#yearHeight}px`
+    );
   }
 
   setLayout(mode) { this.#setMode(mode === 'dynamic'); }
@@ -884,6 +898,8 @@ export class GridArchitect {
   }
 
   #lockInteractions() {
+    this.#cancelPendingUnlock();
+    this.#lockGeneration += 1;
     this.#interactionsAllowed = false;
     this.#audio.setBusy(true);
     this.#viewport.classList.add(OdysseyConfig.classes.isLocked);
@@ -894,13 +910,24 @@ export class GridArchitect {
   }
 
   #unlockInteractions() {
-    setTimeout(
-      () => this.#releaseInteractionLock(),
-      OdysseyConfig.timing.lockReleaseDelayMs
-    );
+    this.#cancelPendingUnlock();
+    const generation = this.#lockGeneration;
+    const timer = setTimeout(() => {
+      if (generation !== this.#lockGeneration || this.#unlockTimer !== timer) return;
+      this.#unlockTimer = null;
+      this.#releaseInteractionLock();
+    }, OdysseyConfig.timing.lockReleaseDelayMs);
+    this.#unlockTimer = timer;
+  }
+
+  #cancelPendingUnlock() {
+    if (this.#unlockTimer !== null) clearTimeout(this.#unlockTimer);
+    this.#unlockTimer = null;
   }
 
   #releaseInteractionLock() {
+    this.#cancelPendingUnlock();
+    this.#lockGeneration += 1;
     this.#interactionsAllowed = true;
     this.#audio.setBusy(false);
     this.#viewport.classList.remove(OdysseyConfig.classes.isLocked);

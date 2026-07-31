@@ -131,6 +131,19 @@ export class SmoothScroll {
     this.#viewport.scrollTop = newTop;
   }
 
+  resetTo(newTop) {
+    this.cancelAnimation();
+    if (this.#inertiaRaf !== null) {
+      cancelAnimationFrame(this.#inertiaRaf);
+      this.#inertiaRaf = null;
+    }
+    this.#touchDragging = false;
+    this.#inertiaVelocity = 0;
+    this.#inertiaTarget = newTop;
+    this.#lastFrameTop = newTop;
+    this.#viewport.scrollTop = newTop;
+  }
+
   clampInertia() {
     const max = this.#maxScroll();
     this.#inertiaTarget = clamp(this.#inertiaTarget, 0, max);

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { installDom } from './helpers/dom.js';
 import {
   captureResponsiveState,
@@ -8,6 +9,7 @@ import {
 
 const thresholds = { widthPx: 24, heightPx: 80, breakpoint: 600 };
 const TOTAL_YEARS = 2000;
+const styles = readFileSync(new URL('../assets/styles.css', import.meta.url), 'utf8');
 
 installDom();
 const { GridArchitect } = await import('../js/grid/grid-architect.js');
@@ -150,6 +152,47 @@ test('responsive state preserves an absent focus', () => {
   });
 });
 
+test('year blocks size from the accepted JS year-height contract', () => {
+  assert.match(
+    styles,
+    /\.year-block\s*\{[^}]*height:\s*var\(--year-height,\s*100dvh\)/s
+  );
+  assert.match(
+    styles,
+    /#viewport\s*\{[^}]*height:\s*100dvh/s,
+    'the visible aperture may follow live browser chrome independently'
+  );
+});
+
+test('ignored browser chrome movement retains the accepted year height', () => {
+  const { canvas } = makeGrid(390, 844);
+  const frames = [];
+  const originalRaf = globalThis.requestAnimationFrame;
+  const controlledRaf = (callback) => {
+    frames.push(callback);
+    return frames.length;
+  };
+  globalThis.requestAnimationFrame = controlledRaf;
+  window.requestAnimationFrame = controlledRaf;
+
+  try {
+    assert.equal(canvas.style.getPropertyValue('--year-height'), '844px');
+
+    setViewportSize(390, 805);
+    window.dispatchEvent(new window.Event('resize'));
+    frames.shift()(performance.now());
+    assert.equal(canvas.style.getPropertyValue('--year-height'), '844px');
+
+    setViewportSize(700, 805);
+    window.dispatchEvent(new window.Event('resize'));
+    frames.shift()(performance.now());
+    assert.equal(canvas.style.getPropertyValue('--year-height'), '805px');
+  } finally {
+    globalThis.requestAnimationFrame = originalRaf;
+    window.requestAnimationFrame = originalRaf;
+  }
+});
+
 test('grid reflow restores the active year, focused day, and year offset', () => {
   const { grid, viewport, canvas, particleResizes } = makeGrid();
   const year = Math.round(grid.currentYear);
@@ -174,6 +217,45 @@ test('grid reflow restores the active year, focused day, and year offset', () =>
   assert.equal(particleResizes(), 1);
 });
 
+test('grid reflow synchronously redraws after high-velocity touch input', () => {
+  const { grid, viewport, canvas } = makeGrid();
+  const touch = (type, clientY) => {
+    const event = new window.Event(type, { bubbles: true });
+    Object.defineProperty(event, 'touches', {
+      value: [{ clientY }],
+    });
+    viewport.dispatchEvent(event);
+  };
+
+  touch('touchstart', 600);
+  touch('touchmove', 100);
+  grid.reflowForViewport();
+
+  assert.ok(
+    canvas.querySelectorAll('.year-block[data-pooled="false"]').length > 0,
+    'reflow must synchronously restore at least the visible year'
+  );
+});
+
+test('historical focus outside the grid cannot pull reflow back to its year', () => {
+  const { grid } = makeGrid();
+  const yearA = Math.round(grid.currentYear);
+  grid.focusDate(new Date(yearA, 2, 14));
+  grid.navigateYears(3);
+  const yearB = Math.round(grid.currentYear);
+
+  const outside = document.createElement('button');
+  document.body.append(outside);
+  outside.focus();
+  assert.equal(document.activeElement, outside);
+
+  grid.reflowForViewport();
+
+  assert.equal(grid.currentYear, yearB);
+  assert.equal(document.activeElement, outside);
+  assert.deepEqual(grid.focusedDate, new Date(yearA, 2, 14));
+});
+
 test('grid reflow releases an interrupted travel lock', () => {
   const { grid, viewport } = makeGrid();
   grid.navigateYears(1);
@@ -188,6 +270,47 @@ test('grid reflow releases an interrupted travel lock', () => {
 
   grid.reflowForViewport();
   assert.equal(viewport.classList.contains('is-locked'), false);
+});
+
+test('an old unlock callback cannot release a newer travel lock', () => {
+  const { grid, viewport } = makeGrid();
+  const timers = [];
+  const cleared = new Set();
+  const originalTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = (callback, delay) => {
+    const id = timers.length + 1;
+    timers.push({ id, callback, delay });
+    return id;
+  };
+  globalThis.clearTimeout = (id) => cleared.add(id);
+
+  try {
+    grid.navigateYears(1);
+    grid.jumpToToday();
+    assert.equal(timers.length, 1, 'arrival schedules the first delayed unlock');
+    const staleUnlock = timers[0];
+
+    grid.navigateYears(1);
+    window.matchMedia = () => ({
+      matches: false,
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    grid.jumpToToday();
+    assert.equal(viewport.classList.contains('is-locked'), true);
+
+    staleUnlock.callback();
+    assert.ok(cleared.has(staleUnlock.id), 'the new lock cancels the old timer');
+    assert.equal(
+      viewport.classList.contains('is-locked'),
+      true,
+      'a stale callback cannot release the new trip'
+    );
+  } finally {
+    globalThis.setTimeout = originalTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
 });
 
 test('resize ignores mobile chrome movement and coalesces structural changes', () => {

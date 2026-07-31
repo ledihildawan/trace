@@ -35,7 +35,9 @@ test('the stylesheet is structurally intact', () => {
 
 test('every custom property referenced is defined or set at runtime', () => {
   // These four are written from JavaScript on the element that reads them.
-  const runtime = new Set(['--mood-color', '--day-progress', '--ion-x', '--ion-y']);
+  const runtime = new Set([
+    '--mood-color', '--day-progress', '--ion-x', '--ion-y', '--year-height',
+  ]);
   const used = new Set([...css.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));
   const defined = new Set([...css.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map((m) => m[1]));
   const registered = new Set([...css.matchAll(/@property\s+(--[\w-]+)/g)].map((m) => m[1]));

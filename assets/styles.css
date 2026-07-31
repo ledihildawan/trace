@@ -785,7 +785,7 @@
     position: absolute;
     left: 0;
     width: 100%;
-    height: 100dvh;
+    height: var(--year-height, 100dvh);
     scroll-snap-align: start;
     scroll-snap-stop: always;
     display: flex;
