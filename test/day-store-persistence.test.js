@@ -40,12 +40,18 @@ test('quota failure preserves memory and reports the error', () => {
   }
 });
 
-test('subscriber errors do not change a successful storage outcome', () => {
+test('persistence subscriber errors do not interrupt storage or change notifications', () => {
   const store = new DayStore();
+  const states = [];
+  const changes = [];
   store.onPersistence(() => {
     throw new Error('subscriber failed');
   });
+  store.onPersistence((state) => states.push(state));
+  store.onChange((key) => changes.push(key));
 
-  assert.throws(() => store.setMood('2026-07-31', 'good'), /subscriber failed/);
+  assert.doesNotThrow(() => store.setMood('2026-07-31', 'good'));
+  assert.deepEqual(states, [{ ok: true }]);
+  assert.deepEqual(changes, ['2026-07-31']);
   assert.deepEqual(store.flush(), { ok: true });
 });

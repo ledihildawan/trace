@@ -271,7 +271,13 @@ export class DayStore {
 
   #emitPersistence(state) {
     this.#lastPersistence = state;
-    this.#persistenceListeners.forEach((cb) => cb(state));
+    this.#persistenceListeners.forEach((cb) => {
+      try {
+        cb(state);
+      } catch {
+        // Observers must not turn a successful write into a failed mutation.
+      }
+    });
     return state;
   }
 }
